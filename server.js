@@ -1,4 +1,5 @@
 require('dotenv').config();
+
 const express = require('express');
 const cron = require('node-cron');
 const axios = require('axios');
@@ -14,7 +15,11 @@ const db = new Database('autopublisher.db');
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+
+// Serve static files - try multiple paths
+const fs = require('fs');
+[path.join(__dirname,'public'), __dirname, path.join(process.cwd(),'public'), process.cwd()]
+  .forEach(p => { try{ if(fs.existsSync(p)) app.use(express.static(p)); }catch(e){} });
 
 // ===== إعداد قاعدة البيانات =====
 db.exec(`
@@ -67,7 +72,7 @@ db.exec(`
 // إعداد الجداول الافتراضية
 const platforms = ['twitter', 'facebook', 'instagram', 'telegram', 'blogger'];
 platforms.forEach(p => {
-  db.prepare(`INSERT OR IGNORE INTO schedules (platform) VALUES (?)`).run(p);
+  db.prepare('INSERT OR IGNORE INTO schedules (platform) VALUES (?)').run(p);
 });
 
 // ===== دوال مساعدة =====
@@ -161,7 +166,7 @@ async function rewriteContent(title, content, url, source) {
   const result = await callAI(prompt, 2000);
 
   const extract = (tag) => {
-    const m = result.match(new RegExp(`\\[${tag}\\]([\\s\\S]*?)\\[\\/${tag}\\]`, 'i'));
+    const m = result.match(new RegExp(`\\[${tag}\\]([\\s\\S]*?)\\[/${tag}\\]`, 'i'));
     return m ? m[1].trim() : '';
   };
 
@@ -179,7 +184,6 @@ async function fetchRSSSource(source) {
   try {
     const feed = await parser.parseURL(source.url);
     const newItems = [];
-
     for (const item of feed.items.slice(0, 5)) {
       const existing = db.prepare('SELECT id FROM posts WHERE original_url = ?').get(item.link);
       if (!existing && item.link) {
@@ -190,7 +194,6 @@ async function fetchRSSSource(source) {
         });
       }
     }
-
     return newItems;
   } catch (e) {
     console.error(`خطأ في جلب RSS ${source.url}:`, e.message);
@@ -205,7 +208,6 @@ async function fetchYouTube(source) {
     const videoId = url.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/)?.[1];
     const channelId = url.match(/channel\/([a-zA-Z0-9_-]+)/)?.[1];
     const handle = url.match(/@([a-zA-Z0-9_-]+)/)?.[1];
-
     const apiKey = getSetting('youtube_api_key');
 
     if (videoId) {
@@ -222,7 +224,6 @@ async function fetchYouTube(source) {
           desc = r.data.items[0].snippet.description?.substring(0, 500) || '';
         }
       } else {
-        // جلب بدون API key عبر oEmbed
         try {
           const oe = await axios.get(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
           title = oe.data.title;
@@ -232,7 +233,6 @@ async function fetchYouTube(source) {
       return [{ title, url: `https://www.youtube.com/watch?v=${videoId}`, content: desc || title }];
     }
 
-    // قناة يوتيوب
     if ((channelId || handle) && apiKey) {
       let chId = channelId;
       if (handle) {
@@ -259,7 +259,7 @@ async function fetchYouTube(source) {
 
     return [];
   } catch(e) {
-    console.error(`خطأ في يوتيوب:`, e.message);
+    console.error('خطأ في يوتيوب:', e.message);
     return [];
   }
 }
@@ -275,7 +275,6 @@ async function publishToTelegram(content, postId) {
     text: content,
     parse_mode: 'HTML'
   });
-
   if (!r.data.ok) throw new Error(r.data.description);
   return true;
 }
@@ -286,8 +285,8 @@ async function publishToBuffer(content, platforms) {
 
   const profilesRes = await axios.get(`https://api.bufferapp.com/1/profiles.json?access_token=${token}`);
   const profiles = profilesRes.data;
-
   const platformMap = { twitter: 'twitter', facebook: 'facebook', instagram: 'instagram' };
+
   const targetProfiles = profiles
     .filter(p => platforms.includes(platformMap[p.service]))
     .map(p => p.id);
@@ -308,12 +307,11 @@ async function publishToBlogger(title, content, postId) {
   const accessToken = getSetting('blogger_token');
   if (!blogId || !accessToken) throw new Error('Blogger غير مضبوط');
 
-  const r = await axios.post(
+  await axios.post(
     `https://www.googleapis.com/blogger/v3/blogs/${blogId}/posts/`,
     { kind: 'blogger#post', title, content: `<div dir="rtl">${content.replace(/\n/g, '<br>')}</div>` },
     { headers: { Authorization: `Bearer ${accessToken}` } }
   );
-
   return true;
 }
 
@@ -358,22 +356,21 @@ async function processAndPublish(post) {
         } else if (makeWebhook) {
           await publishViaWebhook(content, [platform]);
         } else {
-          throw new Error(`لا يوجد Buffer Token أو Make.com Webhook`);
+          throw new Error('لا يوجد Buffer Token أو Make.com Webhook');
         }
       } else if (platform === 'blogger') {
-        const title = post.original_title;
-        await publishToBlogger(title, content, post.id);
+        await publishToBlogger(post.original_title, content, post.id);
       }
 
-      db.prepare(`INSERT INTO publish_log (post_id, platform, status, message) VALUES (?, ?, 'success', 'تم النشر بنجاح')`).run(post.id, platform);
+      db.prepare("INSERT INTO publish_log (post_id, platform, status, message) VALUES (?, ?, 'success', 'تم النشر بنجاح')").run(post.id, platform);
       logs.push({ platform, status: 'success' });
     } catch(e) {
-      db.prepare(`INSERT INTO publish_log (post_id, platform, status, message) VALUES (?, ?, 'error', ?)`).run(post.id, platform, e.message);
+      db.prepare("INSERT INTO publish_log (post_id, platform, status, message) VALUES (?, ?, 'error', ?)").run(post.id, platform, e.message);
       logs.push({ platform, status: 'error', message: e.message });
     }
   }
 
-  db.prepare(`UPDATE posts SET status = 'published', published_at = datetime('now') WHERE id = ?`).run(post.id);
+  db.prepare("UPDATE posts SET status = 'published', published_at = datetime('now') WHERE id = ?").run(post.id);
   return logs;
 }
 
@@ -384,8 +381,8 @@ async function dailyCycle() {
 
   for (const source of sources) {
     console.log(`📡 جلب المصدر: ${source.name}`);
-
     let items = [];
+
     if (source.type === 'youtube') {
       items = await fetchYouTube(source);
     } else {
@@ -417,11 +414,10 @@ async function dailyCycle() {
           }
         }
 
-        // انتظر قليلاً بين كل منشور لتجنب الحظر
         await new Promise(r => setTimeout(r, 3000));
       } catch(e) {
-        console.error(`❌ خطأ في معالجة المحتوى:`, e.message);
-        db.prepare(`INSERT INTO publish_log (post_id, platform, status, message) VALUES (0, 'system', 'error', ?)`).run(e.message);
+        console.error('❌ خطأ في معالجة المحتوى:', e.message);
+        db.prepare("INSERT INTO publish_log (post_id, platform, status, message) VALUES (0, 'system', 'error', ?)").run(e.message);
       }
     }
   }
@@ -437,7 +433,6 @@ console.log(`⏰ الدورة اليومية مجدولة على الساعة ${
 
 // ===== API Routes =====
 
-// الإعدادات
 app.get('/api/settings', (req, res) => {
   const rows = db.prepare('SELECT key, value FROM settings').all();
   const settings = {};
@@ -463,7 +458,6 @@ app.post('/api/settings/bulk', (req, res) => {
   res.json({ success: true });
 });
 
-// المصادر
 app.get('/api/sources', (req, res) => {
   res.json(db.prepare('SELECT * FROM sources ORDER BY created_at DESC').all());
 });
@@ -489,7 +483,6 @@ app.patch('/api/sources/:id/toggle', (req, res) => {
   res.json({ success: true });
 });
 
-// المنشورات
 app.get('/api/posts', (req, res) => {
   const posts = db.prepare('SELECT p.*, s.name as source_name FROM posts p LEFT JOIN sources s ON p.source_id = s.id ORDER BY p.created_at DESC LIMIT 50').all();
   res.json(posts);
@@ -511,7 +504,6 @@ app.delete('/api/posts/:id', (req, res) => {
   res.json({ success: true });
 });
 
-// سجل النشاط
 app.get('/api/logs', (req, res) => {
   const logs = db.prepare(`
     SELECT l.*, p.original_title
@@ -522,7 +514,6 @@ app.get('/api/logs', (req, res) => {
   res.json(logs);
 });
 
-// الجداول
 app.get('/api/schedules', (req, res) => {
   res.json(db.prepare('SELECT * FROM schedules').all());
 });
@@ -534,22 +525,19 @@ app.post('/api/schedules/:platform', (req, res) => {
   res.json({ success: true });
 });
 
-// تشغيل يدوي
 app.post('/api/run-now', async (req, res) => {
   res.json({ message: 'بدأت الدورة اليومية في الخلفية' });
   dailyCycle().catch(console.error);
 });
 
-// إحصائيات
 app.get('/api/stats', (req, res) => {
   const totalPosts = db.prepare('SELECT COUNT(*) as c FROM posts').get().c;
-  const publishedToday = db.prepare(`SELECT COUNT(*) as c FROM publish_log WHERE date(published_at) = date('now') AND status = 'success'`).get().c;
+  const publishedToday = db.prepare("SELECT COUNT(*) as c FROM publish_log WHERE date(published_at) = date('now') AND status = 'success'").get().c;
   const totalSources = db.prepare('SELECT COUNT(*) as c FROM sources WHERE active = 1').get().c;
-  const errors = db.prepare(`SELECT COUNT(*) as c FROM publish_log WHERE status = 'error' AND date(published_at) = date('now')`).get().c;
+  const errors = db.prepare("SELECT COUNT(*) as c FROM publish_log WHERE status = 'error' AND date(published_at) = date('now')").get().c;
   res.json({ totalPosts, publishedToday, totalSources, errors });
 });
 
-// اختبار الاتصال
 app.post('/api/test/telegram', async (req, res) => {
   const { token, chat } = req.body;
   try {
@@ -572,9 +560,27 @@ app.post('/api/test/ai', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// الصفحة الرئيسية
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  const possiblePaths = [
+    path.join(__dirname, 'public', 'index.html'),
+    path.join(__dirname, 'index.html'),
+    path.join(process.cwd(), 'public', 'index.html'),
+    path.join(process.cwd(), 'index.html')
+  ];
+
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      return res.sendFile(p);
+    }
+  }
+
+  res.send(`
+    <h2>Server Running ✅</h2>
+    <p>__dirname: ${__dirname}</p>
+    <p>cwd: ${process.cwd()}</p>
+    <p>__dirname files: ${fs.readdirSync(__dirname).join(', ')}</p>
+    <p>cwd files: ${fs.readdirSync(process.cwd()).join(', ')}</p>
+  `);
 });
 
 const PORT = process.env.PORT || 3000;
