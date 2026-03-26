@@ -221,6 +221,28 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
   </div>
 </div>
 
+
+  <!-- Make.com Webhook -->
+  <div class="conn-card" id="card-make">
+    <div class="conn-header">
+      <div class="conn-icon" style="background:rgba(100,200,50,.2)">⚡</div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:700">Make.com → فيسبوك</div><div style="font-size:10px;color:var(--t2)">أرسل المنشورات لـ Make.com وينشرها على فيسبوك</div></div>
+      <span id="make-badge" class="tag tag-s" style="display:none">✅ متصل</span>
+    </div>
+    <div class="steps">
+      1️⃣ افتح <a href="https://www.make.com" target="_blank">make.com</a> ← أنشئ Scenario جديد<br>
+      2️⃣ أضف وحدة <strong>Webhooks → Custom Webhook</strong> ← انسخ الرابط<br>
+      3️⃣ أضف وحدة <strong>Facebook Pages → Create a Post</strong><br>
+      4️⃣ اربط الـ Webhook بفيسبوك ← حدد حقل <strong>message</strong> من البيانات<br>
+      5️⃣ فعّل الـ Scenario ← الصق رابط الـ Webhook أدناه
+    </div>
+    <div class="al al-i">💡 عند كل نشر، سيُرسل المحتوى لـ Make.com الذي سينشره تلقائياً على صفحتك في فيسبوك</div>
+    <label>رابط الـ Webhook (من Make.com)</label>
+    <input type="url" id="make-webhook" placeholder="https://hook.eu2.make.com/xxxxxxxxxxxx">
+    <div id="make-status" class="sbar"><span class="dot da"></span> أدخل الرابط واضغط حفظ</div>
+    <button class="btn bg" onclick="saveMakeWebhook()" id="make-btn">💾 حفظ Webhook</button>
+  </div>
+
 <!-- Posts -->
 <div class="page" id="page-posts">
   <div style="font-size:17px;font-weight:700;margin-bottom:14px">📝 المنشورات</div>
@@ -292,7 +314,9 @@ async function loadSettings(){const s=await api('/api/settings');if(s.writing_to
 async function saveSettings(){await api('/api/settings/bulk','POST',{writing_tone:document.getElementById('writing-tone').value,content_lang:document.getElementById('content-lang').value,hashtags:document.getElementById('hashtags').value,check_time:document.getElementById('check-time').value,auto_publish:document.getElementById('auto-publish').value});alert('✅ تم الحفظ!');}
 async function saveYTKey(){const key=document.getElementById('yt-key').value.trim();await api('/api/settings/bulk','POST',{youtube_api_key:key});alert('✅ تم الحفظ!');}
 async function runNow(){const btn=document.getElementById('run-btn');btn.innerHTML='<div class="sp" style="border-top-color:#fff"></div>';btn.disabled=true;await api('/api/run-now','POST');setTimeout(()=>{btn.innerHTML='▶️ تشغيل الآن';btn.disabled=false;},3000);setTimeout(loadDash,4000);}
-loadDash();
+
+    async function saveMakeWebhook(){const url=document.getElementById('make-webhook').value.trim();if(!url){alert('أدخل رابط الـ Webhook!');return;}if(!url.startsWith('http')){alert('رابط غير صحيح!');return;}const btn=document.getElementById('make-btn');btn.innerHTML='<div class="sp"></div>';btn.disabled=true;try{await api('/api/settings/bulk','POST',{make_webhook:url});}catch(e){}localStorage.setItem('make_webhook',url);document.getElementById('make-status').innerHTML='<span class="dot dg"></span> ✅ تم الحفظ! المنشورات ستُرسل لـ Make.com';document.getElementById('make-badge').style.display='inline-block';document.getElementById('card-make').classList.add('connected');btn.innerHTML='💾 حفظ Webhook';btn.disabled=false;alert('✅ تم! ستُرسل المنشورات لـ Make.com وينشرها على فيسبوك تلقائياً 🚀');}
+    loadDash();
 </script>
 </body>
 </html>
