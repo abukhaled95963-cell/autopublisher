@@ -1,5 +1,4 @@
 require('dotenv').config();
-
 const express = require('express');
 const cron = require('node-cron');
 const axios = require('axios');
@@ -7,7 +6,7 @@ const Parser = require('rss-parser');
 const Database = require('better-sqlite3');
 const cors = require('cors');
 const path = require('path');
-const cheerio = require('cheerio');
+const fs = require('fs');
 
 const app = express();
 const parser = new Parser();
@@ -16,12 +15,11 @@ const db = new Database('autopublisher.db');
 app.use(cors());
 app.use(express.json());
 
-// Serve static files - try multiple paths
-const fs = require('fs');
+// Static files
 [path.join(__dirname,'public'), __dirname, path.join(process.cwd(),'public'), process.cwd()]
   .forEach(p => { try{ if(fs.existsSync(p)) app.use(express.static(p)); }catch(e){} });
 
-// ===== إعداد قاعدة البيانات =====
+// ===== DB Setup =====
 db.exec(`
   CREATE TABLE IF NOT EXISTS sources (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -30,6 +28,7 @@ db.exec(`
     type TEXT DEFAULT 'rss',
     active INTEGER DEFAULT 1,
     last_check TEXT,
+    item_count INTEGER DEFAULT 0,
     created_at TEXT DEFAULT (datetime('now'))
   );
   CREATE TABLE IF NOT EXISTS posts (
@@ -69,88 +68,64 @@ db.exec(`
   );
 `);
 
-// إعداد الجداول الافتراضية
-const platforms = ['twitter', 'facebook', 'instagram', 'telegram', 'blogger'];
-platforms.forEach(p => {
-  db.prepare('INSERT OR IGNORE INTO schedules (platform) VALUES (?)').run(p);
+['twitter','facebook','instagram','telegram','blogger'].forEach(p => {
+  db.prepare(`INSERT OR IGNORE INTO schedules (platform) VALUES (?)`).run(p);
 });
 
-// ===== دوال مساعدة =====
-function getSetting(key, def = '') {
-  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
+function getSetting(key, def='') {
+  const row = db.prepare('SELECT value FROM settings WHERE key=?').get(key);
   return row ? row.value : def;
 }
-
 function setSetting(key, value) {
-  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, value);
+  db.prepare('INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)').run(key, value);
 }
 
-// ===== استدعاء AI =====
-async function callAI(prompt, maxTokens = 1000) {
-  const claudeKey = getSetting('claude_key');
-  const openaiKey = getSetting('openai_key');
-  const aiProvider = getSetting('ai_provider', 'claude');
-
-  if (aiProvider === 'openai' && openaiKey) {
-    const r = await axios.post('https://api.openai.com/v1/chat/completions', {
-      model: 'gpt-4o-mini',
-      max_tokens: maxTokens,
-      messages: [{ role: 'user', content: prompt }]
-    }, { headers: { Authorization: `Bearer ${openaiKey}` } });
+// ===== AI =====
+async function callAI(prompt, maxTokens=1500) {
+  const provider = getSetting('ai_provider','claude');
+  if(provider==='openai') {
+    const key = getSetting('openai_key');
+    if(!key) throw new Error('أدخل مفتاح OpenAI');
+    const r = await axios.post('https://api.openai.com/v1/chat/completions',
+      {model:'gpt-4o-mini',max_tokens:maxTokens,messages:[{role:'user',content:prompt}]},
+      {headers:{Authorization:`Bearer ${key}`}});
     return r.data.choices[0].message.content;
   }
-
-  if (claudeKey) {
-    const r = await axios.post('https://api.anthropic.com/v1/messages', {
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: maxTokens,
-      messages: [{ role: 'user', content: prompt }]
-    }, {
-      headers: {
-        'x-api-key': claudeKey,
-        'anthropic-version': '2023-06-01'
-      }
-    });
-    return r.data.content[0].text;
-  }
-
-  throw new Error('لا يوجد مفتاح AI مضبوط');
+  const key = getSetting('claude_key');
+  if(!key) throw new Error('أدخل مفتاح Claude');
+  const r = await axios.post('https://api.anthropic.com/v1/messages',
+    {model:'claude-sonnet-4-20250514',max_tokens:maxTokens,messages:[{role:'user',content:prompt}]},
+    {headers:{'x-api-key':key,'anthropic-version':'2023-06-01'}});
+  return r.data.content[0].text;
 }
 
-// ===== إعادة الصياغة =====
+// ===== Rewrite =====
 async function rewriteContent(title, content, url, source) {
-  const tone = getSetting('writing_tone', 'informative');
-  const lang = getSetting('content_lang', 'ar');
-  const hashtags = getSetting('hashtags', '#أخبار #تقنية');
+  const tone = getSetting('writing_tone','informative');
+  const lang = getSetting('content_lang','ar');
+  const hashtags = getSetting('hashtags','#أخبار #تقنية');
+  const langTxt = lang==='ar'?'باللغة العربية':lang==='en'?'in English':'بالعربية والإنجليزية';
+  const tones = {informative:'إخباري موضوعي',analytical:'تحليلي عميق',neutral:'محايد',engaging:'جذاب وشيق'};
 
-  const toneMap = {
-    informative: 'إخباري موضوعي',
-    analytical: 'تحليلي عميق',
-    neutral: 'محايد',
-    engaging: 'جذاب وشيق'
-  };
+  const prompt = `أنت كاتب محتوى محترف. أعد كتابة هذا المحتوى بأسلوب ${tones[tone]||'إخباري'} ${langTxt} بطريقة بشرية طبيعية تماماً.
 
-  const langTxt = lang === 'ar' ? 'باللغة العربية' : lang === 'en' ? 'in English' : 'بالعربية والإنجليزية';
-
-  const prompt = `أنت كاتب محتوى رقمي محترف. أعد كتابة هذا المحتوى بأسلوب ${toneMap[tone] || 'إخباري'} ${langTxt} بطريقة بشرية طبيعية غير مكشوفة كذكاء صناعي.
-
-العنوان الأصلي: ${title}
+العنوان: ${title}
 المصدر: ${source}
 الرابط: ${url}
-المحتوى: ${content.substring(0, 1500)}
+المحتوى: ${content.substring(0,1500)}
 
-اكتب نسخة مختلفة لكل منصة بهذا الشكل الدقيق:
+اكتب نسخة مختلفة لكل منصة:
 
 [TWITTER]
-نص مختصر وقوي أقل من 250 حرف مع ${hashtags} والرابط
+نص مختصر قوي أقل من 250 حرف مع ${hashtags} والرابط
 [/TWITTER]
 
 [FACEBOOK]
-فقرة جذابة 100-150 كلمة مع سؤال للتفاعل والرابط
+منشور جذاب 100-150 كلمة مع سؤال للتفاعل والرابط
 [/FACEBOOK]
 
 [INSTAGRAM]
-نص قصير 3-4 أسطر مع هاشتاقات كثيرة والرابط
+نص قصير 3-4 أسطر مع هاشتاقات كثيرة
 [/INSTAGRAM]
 
 [TELEGRAM]
@@ -158,433 +133,561 @@ async function rewriteContent(title, content, url, source) {
 [/TELEGRAM]
 
 [BLOGGER]
-مقال كامل 400-600 كلمة بعنوان ومقدمة ومحتوى منظم وخاتمة
-[/BLOGGER]
+مقال كامل 500-700 كلمة بعنوان ومقدمة ومحتوى منظم وخاتمة
+[/BLOGGER]`;
 
-مهم: الأسلوب بشري طبيعي، متنوع في الجمل، غير متكرر.`;
-
-  const result = await callAI(prompt, 2000);
-
-  const extract = (tag) => {
-    const m = result.match(new RegExp(`\\[${tag}\\]([\\s\\S]*?)\\[/${tag}\\]`, 'i'));
+  const result = await callAI(prompt, 2500);
+  const extract = tag => {
+    const m = result.match(new RegExp(`\\[${tag}\\]([\\s\\S]*?)\\[\\/${tag}\\]`,'i'));
     return m ? m[1].trim() : '';
   };
-
   return {
-    twitter: extract('TWITTER'),
-    facebook: extract('FACEBOOK'),
-    instagram: extract('INSTAGRAM'),
-    telegram: extract('TELEGRAM'),
+    twitter: extract('TWITTER'), facebook: extract('FACEBOOK'),
+    instagram: extract('INSTAGRAM'), telegram: extract('TELEGRAM'),
     blogger: extract('BLOGGER')
   };
 }
 
-// ===== جلب RSS =====
-async function fetchRSSSource(source) {
+// ===== Fetch RSS =====
+async function fetchRSS(source) {
   try {
     const feed = await parser.parseURL(source.url);
-    const newItems = [];
-    for (const item of feed.items.slice(0, 5)) {
-      const existing = db.prepare('SELECT id FROM posts WHERE original_url = ?').get(item.link);
-      if (!existing && item.link) {
-        newItems.push({
-          title: item.title || '',
-          url: item.link,
-          content: item.contentSnippet || item.content || item.summary || item.title || ''
-        });
-      }
+    const items = [];
+    for(const item of (feed.items||[]).slice(0,5)) {
+      if(!item.link) continue;
+      const exists = db.prepare('SELECT id FROM posts WHERE original_url=?').get(item.link);
+      if(!exists) items.push({
+        title: item.title||'',
+        url: item.link,
+        content: item.contentSnippet||item.summary||item.title||''
+      });
     }
-    return newItems;
-  } catch (e) {
-    console.error(`خطأ في جلب RSS ${source.url}:`, e.message);
+    return items;
+  } catch(e) {
+    console.error(`RSS Error ${source.url}:`, e.message);
     return [];
   }
 }
 
-// ===== جلب يوتيوب =====
+// ===== Fetch Telegram Channel (via RSS proxy) =====
+async function fetchTelegramChannel(source) {
+  try {
+    // استخراج اسم القناة
+    const ch = source.url.replace(/^https?:\/\/t\.me\//,'').replace(/^@/,'').split('/')[0];
+    
+    // طريقة 1: RSS عبر rsshub
+    const rssUrls = [
+      `https://rsshub.app/telegram/channel/${ch}`,
+      `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(`https://rsshub.app/telegram/channel/${ch}`)}&count=5`
+    ];
+
+    // جرب rss2json أولاً
+    try {
+      const r = await axios.get(rssUrls[1], {timeout:10000});
+      if(r.data.status==='ok' && r.data.items?.length>0) {
+        const items = [];
+        for(const item of r.data.items.slice(0,5)) {
+          const url = item.link||item.guid||`https://t.me/${ch}`;
+          const exists = db.prepare('SELECT id FROM posts WHERE original_url=?').get(url);
+          if(!exists) {
+            const content = (item.content||item.description||item.title||'')
+              .replace(/<[^>]*>/g,'').trim();
+            if(content.length > 20) items.push({title: content.substring(0,100), url, content});
+          }
+        }
+        if(items.length>0) return items;
+      }
+    } catch(e) {}
+
+    // جرب rsshub مباشرة
+    try {
+      const feed = await parser.parseURL(rssUrls[0]);
+      const items = [];
+      for(const item of (feed.items||[]).slice(0,5)) {
+        const url = item.link||item.guid||`https://t.me/${ch}`;
+        const exists = db.prepare('SELECT id FROM posts WHERE original_url=?').get(url);
+        if(!exists) {
+          const content = (item.contentSnippet||item.content||item.title||'')
+            .replace(/<[^>]*>/g,'').trim();
+          if(content.length>20) items.push({title:content.substring(0,100), url, content});
+        }
+      }
+      return items;
+    } catch(e) {}
+
+    return [];
+  } catch(e) {
+    console.error('Telegram channel error:', e.message);
+    return [];
+  }
+}
+
+// ===== Fetch YouTube =====
 async function fetchYouTube(source) {
   try {
     const url = source.url;
     const videoId = url.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/)?.[1];
-    const channelId = url.match(/channel\/([a-zA-Z0-9_-]+)/)?.[1];
     const handle = url.match(/@([a-zA-Z0-9_-]+)/)?.[1];
-    const apiKey = getSetting('youtube_api_key');
+    const channelId = url.match(/channel\/([a-zA-Z0-9_-]+)/)?.[1];
+    const ytKey = getSetting('youtube_api_key');
 
-    if (videoId) {
-      const existing = db.prepare('SELECT id FROM posts WHERE original_url LIKE ?').get(`%${videoId}%`);
-      if (existing) return [];
-
-      let title = `فيديو يوتيوب ${videoId}`;
-      let desc = '';
-
-      if (apiKey) {
-        const r = await axios.get(`https://www.googleapis.com/youtube/v3/videos?id=${videoId}&key=${apiKey}&part=snippet`);
-        if (r.data.items?.[0]) {
-          title = r.data.items[0].snippet.title;
-          desc = r.data.items[0].snippet.description?.substring(0, 500) || '';
-        }
-      } else {
+    if(videoId) {
+      const exists = db.prepare('SELECT id FROM posts WHERE original_url LIKE ?').get(`%${videoId}%`);
+      if(exists) return [];
+      let title = `فيديو يوتيوب`, desc = '';
+      try {
+        const oe = await axios.get(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,{timeout:8000});
+        title = oe.data.title;
+      } catch(e) {}
+      if(ytKey) {
         try {
-          const oe = await axios.get(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
-          title = oe.data.title;
+          const r = await axios.get(`https://www.googleapis.com/youtube/v3/videos?id=${videoId}&key=${ytKey}&part=snippet`);
+          if(r.data.items?.[0]) {
+            title = r.data.items[0].snippet.title;
+            desc = r.data.items[0].snippet.description?.substring(0,800)||'';
+          }
         } catch(e) {}
       }
-
-      return [{ title, url: `https://www.youtube.com/watch?v=${videoId}`, content: desc || title }];
+      return [{title, url:`https://www.youtube.com/watch?v=${videoId}`, content:desc||title}];
     }
 
-    if ((channelId || handle) && apiKey) {
-      let chId = channelId;
-      if (handle) {
-        const r = await axios.get(`https://www.googleapis.com/youtube/v3/channels?forHandle=${handle}&key=${apiKey}&part=id`);
-        chId = r.data.items?.[0]?.id;
+    // قناة يوتيوب عبر RSS (بدون API key)
+    if(handle||channelId) {
+      // YouTube RSS feed
+      let rssUrl = '';
+      if(channelId) rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
+      else if(handle && ytKey) {
+        try {
+          const r = await axios.get(`https://www.googleapis.com/youtube/v3/channels?forHandle=${handle}&key=${ytKey}&part=id`);
+          const chId = r.data.items?.[0]?.id;
+          if(chId) rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${chId}`;
+        } catch(e) {}
       }
-      if (!chId) return [];
-
-      const r = await axios.get(`https://www.googleapis.com/youtube/v3/search?channelId=${chId}&key=${apiKey}&part=snippet&order=date&maxResults=3&type=video`);
-      const newItems = [];
-      for (const item of r.data.items || []) {
-        const vid = item.id.videoId;
-        const existing = db.prepare('SELECT id FROM posts WHERE original_url LIKE ?').get(`%${vid}%`);
-        if (!existing) {
-          newItems.push({
-            title: item.snippet.title,
-            url: `https://www.youtube.com/watch?v=${vid}`,
-            content: item.snippet.description?.substring(0, 500) || item.snippet.title
-          });
-        }
+      if(!rssUrl) return [];
+      
+      const feed = await parser.parseURL(rssUrl);
+      const items = [];
+      for(const item of (feed.items||[]).slice(0,3)) {
+        const vId = item.link?.match(/v=([a-zA-Z0-9_-]{11})/)?.[1];
+        if(!vId) continue;
+        const vidUrl = `https://www.youtube.com/watch?v=${vId}`;
+        const exists = db.prepare('SELECT id FROM posts WHERE original_url=?').get(vidUrl);
+        if(!exists) items.push({title:item.title||'', url:vidUrl, content:item.contentSnippet||item.title||''});
       }
-      return newItems;
+      return items;
     }
-
     return [];
   } catch(e) {
-    console.error('خطأ في يوتيوب:', e.message);
+    console.error('YouTube error:', e.message);
     return [];
   }
 }
 
-// ===== النشر على المنصات =====
-async function publishToTelegram(content, postId) {
+// ===== Publish =====
+async function publishToTelegram(content) {
   const token = getSetting('telegram_token');
   const chat = getSetting('telegram_chat');
-  if (!token || !chat) throw new Error('Telegram غير مضبوط');
-
-  const r = await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, {
-    chat_id: chat,
-    text: content,
-    parse_mode: 'HTML'
-  });
-  if (!r.data.ok) throw new Error(r.data.description);
-  return true;
+  if(!token||!chat) throw new Error('Telegram غير مضبوط');
+  const r = await axios.post(`https://api.telegram.org/bot${token}/sendMessage`,
+    {chat_id:chat, text:content, parse_mode:'HTML'});
+  if(!r.data.ok) throw new Error(r.data.description);
 }
 
-async function publishToBuffer(content, platforms) {
-  const token = getSetting('buffer_token');
-  if (!token) throw new Error('Buffer Token غير مضبوط');
-
-  const profilesRes = await axios.get(`https://api.bufferapp.com/1/profiles.json?access_token=${token}`);
-  const profiles = profilesRes.data;
-  const platformMap = { twitter: 'twitter', facebook: 'facebook', instagram: 'instagram' };
-
-  const targetProfiles = profiles
-    .filter(p => platforms.includes(platformMap[p.service]))
-    .map(p => p.id);
-
-  if (targetProfiles.length === 0) throw new Error('لا توجد حسابات Buffer مرتبطة');
-
-  const params = new URLSearchParams();
-  params.append('text', content);
-  params.append('access_token', token);
-  targetProfiles.forEach(id => params.append('profile_ids[]', id));
-
-  await axios.post('https://api.bufferapp.com/1/updates/create.json', params);
-  return true;
+async function publishToFacebook(content) {
+  const pageToken = getSetting('facebook_page_token');
+  const pageId = getSetting('facebook_page_id');
+  if(!pageToken||!pageId) throw new Error('Facebook غير مضبوط');
+  await axios.post(`https://graph.facebook.com/${pageId}/feed`,
+    {message:content, access_token:pageToken});
 }
 
-async function publishToBlogger(title, content, postId) {
-  const blogId = getSetting('blogger_id');
-  const accessToken = getSetting('blogger_token');
-  if (!blogId || !accessToken) throw new Error('Blogger غير مضبوط');
-
-  await axios.post(
-    `https://www.googleapis.com/blogger/v3/blogs/${blogId}/posts/`,
-    { kind: 'blogger#post', title, content: `<div dir="rtl">${content.replace(/\n/g, '<br>')}</div>` },
-    { headers: { Authorization: `Bearer ${accessToken}` } }
-  );
-  return true;
-}
-
-async function publishViaWebhook(content, platforms, scheduledAt = null) {
+async function publishToTwitter(content) {
   const webhook = getSetting('make_webhook');
-  if (!webhook) throw new Error('Make.com Webhook غير مضبوط');
-
-  await axios.post(webhook, {
-    content,
-    platforms,
-    scheduled_at: scheduledAt,
-    timestamp: new Date().toISOString()
-  });
-  return true;
+  if(!webhook) throw new Error('Make.com Webhook غير مضبوط');
+  await axios.post(webhook, {content, platforms:['twitter'], timestamp:new Date().toISOString()});
 }
 
-// ===== محرك النشر الرئيسي =====
+async function publishToInstagram(content) {
+  const webhook = getSetting('make_webhook');
+  if(!webhook) throw new Error('Make.com Webhook غير مضبوط');
+  await axios.post(webhook, {content, platforms:['instagram'], timestamp:new Date().toISOString()});
+}
+
+async function publishToBlogger(title, content) {
+  const blogId = getSetting('blogger_id');
+  const token = getSetting('blogger_token');
+  if(!blogId||!token) throw new Error('Blogger غير مضبوط');
+  await axios.post(`https://www.googleapis.com/blogger/v3/blogs/${blogId}/posts/`,
+    {kind:'blogger#post', title, content:`<div dir="rtl">${content.replace(/\n/g,'<br>')}</div>`},
+    {headers:{Authorization:`Bearer ${token}`}});
+}
+
+// ===== Process & Publish =====
 async function processAndPublish(post) {
-  const schedules = db.prepare('SELECT * FROM schedules WHERE enabled = 1').all();
+  const schedules = db.prepare('SELECT * FROM schedules WHERE enabled=1').all();
   const logs = [];
-
-  for (const schedule of schedules) {
-    const platform = schedule.platform;
-    let content = '';
-
-    if (platform === 'twitter') content = post.rewritten_twitter;
-    else if (platform === 'facebook') content = post.rewritten_facebook;
-    else if (platform === 'instagram') content = post.rewritten_instagram;
-    else if (platform === 'telegram') content = post.rewritten_telegram;
-    else if (platform === 'blogger') content = post.rewritten_blogger;
-
-    if (!content) continue;
-
+  for(const s of schedules) {
+    let content = post[`rewritten_${s.platform}`];
+    if(!content) continue;
     try {
-      if (platform === 'telegram') {
-        await publishToTelegram(content, post.id);
-      } else if (['twitter', 'facebook', 'instagram'].includes(platform)) {
-        const bufToken = getSetting('buffer_token');
-        const makeWebhook = getSetting('make_webhook');
-        if (bufToken) {
-          await publishToBuffer(content, [platform]);
-        } else if (makeWebhook) {
-          await publishViaWebhook(content, [platform]);
-        } else {
-          throw new Error('لا يوجد Buffer Token أو Make.com Webhook');
-        }
-      } else if (platform === 'blogger') {
-        await publishToBlogger(post.original_title, content, post.id);
-      }
-
-      db.prepare("INSERT INTO publish_log (post_id, platform, status, message) VALUES (?, ?, 'success', 'تم النشر بنجاح')").run(post.id, platform);
-      logs.push({ platform, status: 'success' });
+      if(s.platform==='telegram') await publishToTelegram(content);
+      else if(s.platform==='facebook') await publishToFacebook(content);
+      else if(s.platform==='twitter') await publishToTwitter(content);
+      else if(s.platform==='instagram') await publishToInstagram(content);
+      else if(s.platform==='blogger') await publishToBlogger(post.original_title, content);
+      db.prepare(`INSERT INTO publish_log (post_id,platform,status,message) VALUES (?,?,'success','تم النشر')`).run(post.id, s.platform);
+      logs.push({platform:s.platform, status:'success'});
     } catch(e) {
-      db.prepare("INSERT INTO publish_log (post_id, platform, status, message) VALUES (?, ?, 'error', ?)").run(post.id, platform, e.message);
-      logs.push({ platform, status: 'error', message: e.message });
+      db.prepare(`INSERT INTO publish_log (post_id,platform,status,message) VALUES (?,?,'error',?)`).run(post.id, s.platform, e.message);
+      logs.push({platform:s.platform, status:'error', message:e.message});
     }
   }
-
-  db.prepare("UPDATE posts SET status = 'published', published_at = datetime('now') WHERE id = ?").run(post.id);
+  db.prepare(`UPDATE posts SET status='published', published_at=datetime('now') WHERE id=?`).run(post.id);
   return logs;
 }
 
-// ===== الدورة اليومية الكاملة =====
+// ===== Daily Cycle =====
 async function dailyCycle() {
-  console.log('🔄 بدء الدورة اليومية:', new Date().toISOString());
-  const sources = db.prepare('SELECT * FROM sources WHERE active = 1').all();
-
-  for (const source of sources) {
-    console.log(`📡 جلب المصدر: ${source.name}`);
+  console.log('🔄 الدورة اليومية:', new Date().toISOString());
+  const sources = db.prepare('SELECT * FROM sources WHERE active=1').all();
+  for(const source of sources) {
     let items = [];
+    if(source.type==='youtube') items = await fetchYouTube(source);
+    else if(source.type==='telegram_channel') items = await fetchTelegramChannel(source);
+    else items = await fetchRSS(source);
 
-    if (source.type === 'youtube') {
-      items = await fetchYouTube(source);
-    } else {
-      items = await fetchRSSSource(source);
-    }
+    db.prepare('UPDATE sources SET last_check=datetime("now"), item_count=? WHERE id=?').run(items.length, source.id);
 
-    db.prepare('UPDATE sources SET last_check = datetime("now") WHERE id = ?').run(source.id);
-
-    for (const item of items) {
+    for(const item of items) {
       try {
-        console.log(`✍️ إعادة صياغة: ${item.title}`);
         const rewritten = await rewriteContent(item.title, item.content, item.url, source.name);
-
-        const postId = db.prepare(`
+        const result = db.prepare(`
           INSERT OR IGNORE INTO posts
-          (source_id, original_title, original_url, original_content, rewritten_twitter, rewritten_facebook, rewritten_instagram, rewritten_telegram, rewritten_blogger, status)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ready')
-        `).run(
-          source.id, item.title, item.url, item.content,
-          rewritten.twitter, rewritten.facebook, rewritten.instagram,
-          rewritten.telegram, rewritten.blogger
-        ).lastInsertRowid;
+          (source_id,original_title,original_url,original_content,
+           rewritten_twitter,rewritten_facebook,rewritten_instagram,
+           rewritten_telegram,rewritten_blogger,status)
+          VALUES (?,?,?,?,?,?,?,?,?,'ready')
+        `).run(source.id, item.title, item.url, item.content,
+           rewritten.twitter, rewritten.facebook, rewritten.instagram,
+           rewritten.telegram, rewritten.blogger);
 
-        if (postId) {
-          const post = db.prepare('SELECT * FROM posts WHERE id = ?').get(postId);
-          const autoPublish = getSetting('auto_publish', '1');
-          if (autoPublish === '1') {
-            await processAndPublish(post);
-          }
+        if(result.lastInsertRowid && getSetting('auto_publish','1')==='1') {
+          const post = db.prepare('SELECT * FROM posts WHERE id=?').get(result.lastInsertRowid);
+          if(post) await processAndPublish(post);
         }
-
-        await new Promise(r => setTimeout(r, 3000));
+        await new Promise(r=>setTimeout(r,3000));
       } catch(e) {
-        console.error('❌ خطأ في معالجة المحتوى:', e.message);
-        db.prepare("INSERT INTO publish_log (post_id, platform, status, message) VALUES (0, 'system', 'error', ?)").run(e.message);
+        console.error('Processing error:', e.message);
       }
     }
   }
-
-  console.log('✅ انتهت الدورة اليومية');
+  console.log('✅ انتهت الدورة');
 }
 
-// ===== جدولة الدورة اليومية =====
-const checkTime = getSetting('check_time') || '08:00';
-const [checkHour, checkMin] = checkTime.split(':');
-cron.schedule(`${checkMin || 0} ${checkHour || 8} * * *`, dailyCycle, { timezone: 'Asia/Riyadh' });
-console.log(`⏰ الدورة اليومية مجدولة على الساعة ${checkTime}`);
+// ===== Cron =====
+const checkTime = getSetting('check_time','08:00');
+const [h,m] = checkTime.split(':');
+cron.schedule(`${m||0} ${h||8} * * *`, dailyCycle, {timezone:'Asia/Riyadh'});
 
 // ===== API Routes =====
+app.get('/api/settings', (req,res) => {
+  const rows = db.prepare('SELECT key,value FROM settings').all();
+  const s = {};
+  rows.forEach(r => { s[r.key] = r.key.match(/key|token|secret/i) && r.value ? '***' : r.value; });
+  res.json(s);
+});
+app.post('/api/settings', (req,res) => { setSetting(req.body.key, req.body.value); res.json({success:true}); });
+app.post('/api/settings/bulk', (req,res) => { Object.entries(req.body).forEach(([k,v])=>setSetting(k,v)); res.json({success:true}); });
 
-app.get('/api/settings', (req, res) => {
-  const rows = db.prepare('SELECT key, value FROM settings').all();
-  const settings = {};
-  rows.forEach(r => {
-    if (!r.key.includes('key') && !r.key.includes('token')) {
-      settings[r.key] = r.value;
+app.get('/api/sources', (req,res) => res.json(db.prepare('SELECT * FROM sources ORDER BY created_at DESC').all()));
+app.post('/api/sources', (req,res) => {
+  const {name,url,type} = req.body;
+  try { res.json({success:true, id:db.prepare('INSERT INTO sources (name,url,type) VALUES (?,?,?)').run(name,url,type||'rss').lastInsertRowid}); }
+  catch(e) { res.status(400).json({error:e.message}); }
+});
+app.delete('/api/sources/:id', (req,res) => { db.prepare('DELETE FROM sources WHERE id=?').run(req.params.id); res.json({success:true}); });
+app.patch('/api/sources/:id/toggle', (req,res) => {
+  const s = db.prepare('SELECT active FROM sources WHERE id=?').get(req.params.id);
+  db.prepare('UPDATE sources SET active=? WHERE id=?').run(s.active?0:1, req.params.id);
+  res.json({success:true});
+});
+
+app.get('/api/posts', (req,res) => res.json(
+  db.prepare('SELECT p.*,s.name as source_name FROM posts p LEFT JOIN sources s ON p.source_id=s.id ORDER BY p.created_at DESC LIMIT 50').all()
+));
+app.post('/api/posts/:id/publish', async(req,res) => {
+  const post = db.prepare('SELECT * FROM posts WHERE id=?').get(req.params.id);
+  if(!post) return res.status(404).json({error:'not found'});
+  try { res.json({success:true, logs: await processAndPublish(post)}); }
+  catch(e) { res.status(500).json({error:e.message}); }
+});
+app.delete('/api/posts/:id', (req,res) => { db.prepare('DELETE FROM posts WHERE id=?').run(req.params.id); res.json({success:true}); });
+
+app.get('/api/logs', (req,res) => res.json(
+  db.prepare('SELECT l.*,p.original_title FROM publish_log l LEFT JOIN posts p ON l.post_id=p.id ORDER BY l.published_at DESC LIMIT 100').all()
+));
+
+app.get('/api/schedules', (req,res) => res.json(db.prepare('SELECT * FROM schedules').all()));
+app.post('/api/schedules/:platform', (req,res) => {
+  const {enabled,time,posts_per_day} = req.body;
+  db.prepare('UPDATE schedules SET enabled=?,time=?,posts_per_day=? WHERE platform=?').run(enabled?1:0,time,posts_per_day,req.params.platform);
+  res.json({success:true});
+});
+
+app.get('/api/stats', (req,res) => res.json({
+  totalPosts: db.prepare('SELECT COUNT(*) as c FROM posts').get().c,
+  publishedToday: db.prepare(`SELECT COUNT(*) as c FROM publish_log WHERE date(published_at)=date('now') AND status='success'`).get().c,
+  totalSources: db.prepare('SELECT COUNT(*) as c FROM sources WHERE active=1').get().c,
+  errors: db.prepare(`SELECT COUNT(*) as c FROM publish_log WHERE status='error' AND date(published_at)=date('now')`).get().c
+}));
+
+app.post('/api/run-now', (req,res) => { res.json({message:'بدأت الدورة'}); dailyCycle().catch(console.error); });
+
+// ===== Test Endpoints =====
+app.post('/api/test/telegram', async(req,res) => {
+  const {token,chat} = req.body;
+  try {
+    const r = await axios.get(`https://api.telegram.org/bot${token}/getMe`);
+    if(r.data.ok) { setSetting('telegram_token',token); if(chat)setSetting('telegram_chat',chat); res.json({success:true,username:r.data.result.username}); }
+    else res.status(400).json({error:r.data.description});
+  } catch(e) { res.status(500).json({error:e.message}); }
+});
+
+app.post('/api/test/facebook', async(req,res) => {
+  const {page_token, page_id} = req.body;
+  try {
+    const r = await axios.get(`https://graph.facebook.com/${page_id}?access_token=${page_token}&fields=name,id`);
+    setSetting('facebook_page_token', page_token);
+    setSetting('facebook_page_id', page_id);
+    res.json({success:true, name:r.data.name});
+  } catch(e) { res.status(500).json({error: e.response?.data?.error?.message||e.message}); }
+});
+
+app.post('/api/test/ai', async(req,res) => {
+  const {key,provider} = req.body;
+  try {
+    setSetting(provider==='openai'?'openai_key':'claude_key', key);
+    setSetting('ai_provider', provider);
+    const result = await callAI('قل مرحباً فقط', 10);
+    res.json({success:true, message:result});
+  } catch(e) { res.status(500).json({error:e.message}); }
+});
+
+app.post('/api/test/telegram-channel', async(req,res) => {
+  const {channel} = req.body;
+  try {
+    const ch = channel.replace('@','').replace('https://t.me/','');
+    const rssUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(`https://rsshub.app/telegram/channel/${ch}`)}&count=3`;
+    const r = await axios.get(rssUrl, {timeout:10000});
+    if(r.data.status==='ok' && r.data.items?.length>0) {
+      res.json({success:true, count:r.data.items.length, sample:r.data.items[0].title?.substring(0,100)});
     } else {
-      settings[r.key] = r.value ? '***مخفي***' : '';
+      res.json({success:false, error:'لم يتم العثور على منشورات — تأكد أن القناة عامة'});
     }
-  });
-  res.json(settings);
+  } catch(e) { res.status(500).json({error:e.message}); }
 });
 
-app.post('/api/settings', (req, res) => {
-  const { key, value } = req.body;
-  setSetting(key, value);
-  res.json({ success: true });
-});
-
-app.post('/api/settings/bulk', (req, res) => {
-  const settings = req.body;
-  Object.entries(settings).forEach(([k, v]) => setSetting(k, v));
-  res.json({ success: true });
-});
-
-app.get('/api/sources', (req, res) => {
-  res.json(db.prepare('SELECT * FROM sources ORDER BY created_at DESC').all());
-});
-
-app.post('/api/sources', (req, res) => {
-  const { name, url, type } = req.body;
+// YouTube analysis
+app.post('/api/analyze/youtube', async(req,res) => {
+  const {url} = req.body;
+  const videoId = url?.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/)?.[1];
+  if(!videoId) return res.status(400).json({error:'رابط يوتيوب غير صحيح'});
   try {
-    const id = db.prepare('INSERT INTO sources (name, url, type) VALUES (?, ?, ?)').run(name, url, type || 'rss').lastInsertRowid;
-    res.json({ success: true, id });
-  } catch(e) {
-    res.status(400).json({ error: e.message });
-  }
+    let title = `فيديو يوتيوب`, desc = '', channel = '';
+    try {
+      const oe = await axios.get(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,{timeout:8000});
+      title = oe.data.title; channel = oe.data.author_name;
+    } catch(e) {}
+    const ytKey = getSetting('youtube_api_key');
+    if(ytKey) {
+      try {
+        const r = await axios.get(`https://www.googleapis.com/youtube/v3/videos?id=${videoId}&key=${ytKey}&part=snippet`);
+        if(r.data.items?.[0]) { title=r.data.items[0].snippet.title; desc=r.data.items[0].snippet.description?.substring(0,1000)||''; }
+      } catch(e) {}
+    }
+    const vidUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    const rewritten = await rewriteContent(title, desc||title, vidUrl, channel||'يوتيوب');
+    res.json({success:true, title, channel, videoId, thumb:`https://img.youtube.com/vi/${videoId}/mqdefault.jpg`, rewritten});
+  } catch(e) { res.status(500).json({error:e.message}); }
 });
 
-app.delete('/api/sources/:id', (req, res) => {
-  db.prepare('DELETE FROM sources WHERE id = ?').run(req.params.id);
-  res.json({ success: true });
+// Facebook OAuth helper
+app.get('/api/facebook/auth-url', (req,res) => {
+  const appId = getSetting('facebook_app_id');
+  if(!appId) return res.json({error:'أدخل Facebook App ID أولاً'});
+  const redirectUri = encodeURIComponent(`${req.protocol}://${req.get('host')}/api/facebook/callback`);
+  const scope = 'pages_manage_posts,pages_read_engagement,pages_show_list';
+  res.json({url:`https://www.facebook.com/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code`});
 });
 
-app.patch('/api/sources/:id/toggle', (req, res) => {
-  const src = db.prepare('SELECT active FROM sources WHERE id = ?').get(req.params.id);
-  db.prepare('UPDATE sources SET active = ? WHERE id = ?').run(src.active ? 0 : 1, req.params.id);
-  res.json({ success: true });
+app.get('/', (req,res) => {
+  const tryPaths = [
+    path.join(__dirname,'public','index.html'),
+    path.join(__dirname,'index.html'),
+    path.join(process.cwd(),'public','index.html'),
+    path.join(process.cwd(),'index.html')
+  ];
+  for(const p of tryPaths) { try{ if(fs.existsSync(p)) return res.sendFile(p); }catch(e){} }
+  res.send('<h2>✅ Server Running!</h2><p>public/index.html not found</p>');
 });
 
-app.get('/api/posts', (req, res) => {
-  const posts = db.prepare('SELECT p.*, s.name as source_name FROM posts p LEFT JOIN sources s ON p.source_id = s.id ORDER BY p.created_at DESC LIMIT 50').all();
-  res.json(posts);
-});
+const PORT = process.env.PORT||3000;
+app.listen(PORT, () => console.log(`🚀 http://localhost:${PORT}`));
 
-app.post('/api/posts/:id/publish', async (req, res) => {
-  const post = db.prepare('SELECT * FROM posts WHERE id = ?').get(req.params.id);
-  if (!post) return res.status(404).json({ error: 'منشور غير موجود' });
+// ===== YouTube Analysis =====
+app.post('/api/youtube/analyze', async (req, res) => {
+  const { url } = req.body;
+  if (!url) return res.status(400).json({ error: 'أدخل رابط الفيديو' });
+
+  const videoId = url.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/)?.[1];
+  if (!videoId) return res.status(400).json({ error: 'رابط يوتيوب غير صحيح' });
+
   try {
-    const logs = await processAndPublish(post);
-    res.json({ success: true, logs });
+    let title = `فيديو يوتيوب ${videoId}`;
+    let description = '';
+    let channelName = '';
+    const ytKey = getSetting('youtube_api_key');
+
+    // جلب معلومات الفيديو
+    if (ytKey) {
+      const r = await axios.get(`https://www.googleapis.com/youtube/v3/videos?id=${videoId}&key=${ytKey}&part=snippet,contentDetails`);
+      if (r.data.items?.[0]) {
+        title = r.data.items[0].snippet.title;
+        description = r.data.items[0].snippet.description?.substring(0, 1000) || '';
+        channelName = r.data.items[0].snippet.channelTitle;
+      }
+    } else {
+      try {
+        const oe = await axios.get(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
+        title = oe.data.title;
+        channelName = oe.data.author_name;
+      } catch(e) {}
+    }
+
+    // تحليل بالذكاء الاصطناعي
+    const lang = getSetting('content_lang', 'ar');
+    const langTxt = lang === 'ar' ? 'باللغة العربية' : 'in English';
+    const prompt = `حلّل هذا الفيديو وأعد صياغته ${langTxt}:
+عنوان: "${title}"
+القناة: ${channelName}
+الوصف: ${description}
+الرابط: https://www.youtube.com/watch?v=${videoId}
+
+اكتب:
+[SUMMARY] ملخص شامل 200-300 كلمة [/SUMMARY]
+[TWITTER] منشور تويتر مختصر مع الرابط [/TWITTER]
+[FACEBOOK] منشور فيسبوك جذاب مع الرابط [/FACEBOOK]
+[INSTAGRAM] نص إنستغرام مع هاشتاقات [/INSTAGRAM]
+[TELEGRAM] تحليل موسع للتيليغرام مع الرابط [/TELEGRAM]`;
+
+    const aiResult = await callAI(prompt, 2000);
+
+    const extract = (tag) => {
+      const m = aiResult.match(new RegExp(`\\[${tag}\\]([\\s\\S]*?)\\[\\/${tag}\\]`, 'i'));
+      return m ? m[1].trim() : '';
+    };
+
+    res.json({
+      success: true,
+      videoId,
+      title,
+      channelName,
+      thumbnail: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
+      url: `https://www.youtube.com/watch?v=${videoId}`,
+      summary: extract('SUMMARY'),
+      twitter: extract('TWITTER'),
+      facebook: extract('FACEBOOK'),
+      instagram: extract('INSTAGRAM'),
+      telegram: extract('TELEGRAM')
+    });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-app.delete('/api/posts/:id', (req, res) => {
-  db.prepare('DELETE FROM posts WHERE id = ?').run(req.params.id);
-  res.json({ success: true });
-});
+// ===== Telegram Channel as Source =====
+app.post('/api/telegram/channel/fetch', async (req, res) => {
+  const { channel } = req.body;
+  if (!channel) return res.status(400).json({ error: 'أدخل اسم القناة' });
 
-app.get('/api/logs', (req, res) => {
-  const logs = db.prepare(`
-    SELECT l.*, p.original_title
-    FROM publish_log l
-    LEFT JOIN posts p ON l.post_id = p.id
-    ORDER BY l.published_at DESC LIMIT 100
-  `).all();
-  res.json(logs);
-});
+  const ch = channel.replace('@', '').trim();
+  const results = [];
+  const errors = [];
 
-app.get('/api/schedules', (req, res) => {
-  res.json(db.prepare('SELECT * FROM schedules').all());
-});
-
-app.post('/api/schedules/:platform', (req, res) => {
-  const { enabled, time, posts_per_day } = req.body;
-  db.prepare('UPDATE schedules SET enabled = ?, time = ?, posts_per_day = ? WHERE platform = ?')
-    .run(enabled ? 1 : 0, time, posts_per_day, req.params.platform);
-  res.json({ success: true });
-});
-
-app.post('/api/run-now', async (req, res) => {
-  res.json({ message: 'بدأت الدورة اليومية في الخلفية' });
-  dailyCycle().catch(console.error);
-});
-
-app.get('/api/stats', (req, res) => {
-  const totalPosts = db.prepare('SELECT COUNT(*) as c FROM posts').get().c;
-  const publishedToday = db.prepare("SELECT COUNT(*) as c FROM publish_log WHERE date(published_at) = date('now') AND status = 'success'").get().c;
-  const totalSources = db.prepare('SELECT COUNT(*) as c FROM sources WHERE active = 1').get().c;
-  const errors = db.prepare("SELECT COUNT(*) as c FROM publish_log WHERE status = 'error' AND date(published_at) = date('now')").get().c;
-  res.json({ totalPosts, publishedToday, totalSources, errors });
-});
-
-app.post('/api/test/telegram', async (req, res) => {
-  const { token, chat } = req.body;
+  // محاولة 1: RSS via rss2json
   try {
-    const r = await axios.get(`https://api.telegram.org/bot${token}/getMe`);
-    if (r.data.ok) {
-      setSetting('telegram_token', token);
-      setSetting('telegram_chat', chat);
-      res.json({ success: true, username: r.data.result.username });
-    } else res.status(400).json({ error: r.data.description });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/test/ai', async (req, res) => {
-  const { key, provider } = req.body;
-  try {
-    setSetting(provider === 'openai' ? 'openai_key' : 'claude_key', key);
-    setSetting('ai_provider', provider);
-    const result = await callAI('قل مرحباً فقط', 10);
-    res.json({ success: true, message: result });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get('/', (req, res) => {
-  const possiblePaths = [
-    path.join(__dirname, 'public', 'index.html'),
-    path.join(__dirname, 'index.html'),
-    path.join(process.cwd(), 'public', 'index.html'),
-    path.join(process.cwd(), 'index.html')
-  ];
-
-  for (const p of possiblePaths) {
-    if (fs.existsSync(p)) {
-      return res.sendFile(p);
+    const rssUrl = `https://rsshub.app/telegram/channel/${ch}`;
+    const r = await axios.get(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}&count=10`, { timeout: 8000 });
+    if (r.data.status === 'ok' && r.data.items?.length > 0) {
+      r.data.items.forEach(item => {
+        results.push({
+          text: (item.content || item.title || '').replace(/<[^>]*>/g, '').substring(0, 500),
+          date: item.pubDate,
+          source: 'rsshub'
+        });
+      });
     }
+  } catch(e) { errors.push('rsshub: ' + e.message); }
+
+  // محاولة 2: t.me/s scraping via proxy
+  if (results.length === 0) {
+    try {
+      const r = await axios.get(`https://t.me/s/${ch}`, {
+        timeout: 8000,
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; bot)' }
+      });
+      const $ = cheerio.load(r.data);
+      $('.tgme_widget_message_text').each((i, el) => {
+        if (i < 10) {
+          results.push({
+            text: $(el).text().trim().substring(0, 500),
+            date: new Date().toISOString(),
+            source: 'tme'
+          });
+        }
+      });
+    } catch(e) { errors.push('tme: ' + e.message); }
   }
 
-  res.send(`
-    <h2>Server Running ✅</h2>
-    <p>__dirname: ${__dirname}</p>
-    <p>cwd: ${process.cwd()}</p>
-    <p>__dirname files: ${fs.readdirSync(__dirname).join(', ')}</p>
-    <p>cwd files: ${fs.readdirSync(process.cwd()).join(', ')}</p>
-  `);
+  if (results.length > 0) {
+    res.json({ success: true, channel: ch, posts: results });
+  } else {
+    res.json({ success: false, channel: ch, posts: [], errors, message: 'القناة خاصة أو لا تدعم القراءة الآلية' });
+  }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🚀 السيرفر يعمل على: http://localhost:${PORT}`);
-  console.log(`📊 لوحة التحكم: http://localhost:${PORT}`);
+// ===== Facebook Page Post =====
+app.post('/api/publish/facebook', async (req, res) => {
+  const { message, pageId } = req.body;
+  const pageToken = getSetting('facebook_page_token');
+  const pid = pageId || getSetting('facebook_page_id');
+
+  if (!pageToken || !pid) return res.status(400).json({ error: 'أدخل Facebook Page Token و Page ID في الإعدادات' });
+
+  try {
+    const r = await axios.post(`https://graph.facebook.com/v19.0/${pid}/feed`, {
+      message,
+      access_token: pageToken
+    });
+    res.json({ success: true, postId: r.data.id });
+  } catch(e) {
+    res.status(500).json({ error: e.data?.error?.message || e.message });
+  }
+});
+
+// ===== Test Facebook =====
+app.post('/api/test/facebook', async (req, res) => {
+  const { pageToken, pageId } = req.body;
+  try {
+    const r = await axios.get(`https://graph.facebook.com/v19.0/me?access_token=${pageToken}`);
+    if (r.data.id) {
+      setSetting('facebook_page_token', pageToken);
+      setSetting('facebook_page_id', pageId);
+      res.json({ success: true, name: r.data.name });
+    } else {
+      res.status(400).json({ error: 'توكن غير صحيح' });
+    }
+  } catch(e) {
+    res.status(500).json({ error: e.response?.data?.error?.message || e.message });
+  }
 });
