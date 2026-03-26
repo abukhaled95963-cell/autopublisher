@@ -197,6 +197,26 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
     </div>
   </div>
 
+  <!-- Make.com Webhook -->
+  <div class="conn-card" id="card-make">
+    <div class="conn-header">
+      <div class="conn-icon" style="background:rgba(100,200,50,.2)">⚡</div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:700">Make.com → فيسبوك</div><div style="font-size:10px;color:var(--t2)">أرسل المنشورات لـ Make.com وينشرها على فيسبوك</div></div>
+      <span id="make-badge" class="tag tag-s" style="display:none">✅ متصل</span>
+    </div>
+    <div class="steps">
+      1️⃣ افتح <a href="https://www.make.com" target="_blank">make.com</a> ← أنشئ Scenario جديد<br>
+      2️⃣ أضف وحدة <strong>Webhooks → Custom Webhook</strong> ← انسخ الرابط<br>
+      3️⃣ أضف وحدة <strong>Facebook Pages → Create a Post</strong><br>
+      4️⃣ اربط الـ Webhook بفيسبوك ← حدد حقل <strong>message</strong> من البيانات<br>
+      5️⃣ فعّل الـ Scenario ← الصق رابط الـ Webhook أدناه
+    </div>
+    <div class="al al-i">💡 عند كل نشر، سيُرسل المحتوى لـ Make.com الذي سينشره تلقائياً على صفحتك في فيسبوك</div>
+    <label>رابط الـ Webhook (من Make.com)</label>
+    <input type="url" id="make-webhook" placeholder="https://hook.eu2.make.com/xxxxxxxxxxxx">
+    <div id="make-status" class="sbar"><span class="dot da"></span> أدخل الرابط واضغط حفظ</div>
+    <button class="btn bg" onclick="saveMakeWebhook()" id="make-btn">💾 حفظ Webhook</button>
+  </div>
   <!-- AI -->
   <div class="conn-card" id="card-ai">
     <div class="conn-header">
@@ -222,26 +242,6 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
 </div>
 
 
-  <!-- Make.com Webhook -->
-  <div class="conn-card" id="card-make">
-    <div class="conn-header">
-      <div class="conn-icon" style="background:rgba(100,200,50,.2)">⚡</div>
-      <div style="flex:1"><div style="font-size:13px;font-weight:700">Make.com → فيسبوك</div><div style="font-size:10px;color:var(--t2)">أرسل المنشورات لـ Make.com وينشرها على فيسبوك</div></div>
-      <span id="make-badge" class="tag tag-s" style="display:none">✅ متصل</span>
-    </div>
-    <div class="steps">
-      1️⃣ افتح <a href="https://www.make.com" target="_blank">make.com</a> ← أنشئ Scenario جديد<br>
-      2️⃣ أضف وحدة <strong>Webhooks → Custom Webhook</strong> ← انسخ الرابط<br>
-      3️⃣ أضف وحدة <strong>Facebook Pages → Create a Post</strong><br>
-      4️⃣ اربط الـ Webhook بفيسبوك ← حدد حقل <strong>message</strong> من البيانات<br>
-      5️⃣ فعّل الـ Scenario ← الصق رابط الـ Webhook أدناه
-    </div>
-    <div class="al al-i">💡 عند كل نشر، سيُرسل المحتوى لـ Make.com الذي سينشره تلقائياً على صفحتك في فيسبوك</div>
-    <label>رابط الـ Webhook (من Make.com)</label>
-    <input type="url" id="make-webhook" placeholder="https://hook.eu2.make.com/xxxxxxxxxxxx">
-    <div id="make-status" class="sbar"><span class="dot da"></span> أدخل الرابط واضغط حفظ</div>
-    <button class="btn bg" onclick="saveMakeWebhook()" id="make-btn">💾 حفظ Webhook</button>
-  </div>
 
 <!-- Posts -->
 <div class="page" id="page-posts">
