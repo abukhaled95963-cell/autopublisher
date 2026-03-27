@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Ø§ÙÙØ´Ø± Ø§ÙØ¢ÙÙ Pro</title>
+<title>Auto Publisher Pro</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
@@ -66,486 +66,307 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
 .toggle.on::after{right:19px}
 .log-item{padding:8px;background:var(--bg3);border-radius:var(--rs);margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .tg-msg{background:var(--bg3);border-right:3px solid var(--tg);border-radius:0 var(--rs) var(--rs) 0;padding:10px;margin-bottom:7px}
-.version-badge{display:inline-flex;align-items:center;gap:4px;background:rgba(108,99,255,.15);color:#a89cff;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-.notif-pulse{animation:pulse 2s infinite}
 </style>
 </head>
 <body>
 <div class="app-header">
   <div style="display:flex;flex-direction:column">
-    <div class="app-title">ð¤ Ø§ÙÙØ´Ø± Ø§ÙØ¢ÙÙ Pro</div>
+    <div class="app-title">&#x1F916; &#x627;&#x644;&#x646;&#x634;&#x631; &#x627;&#x644;&#x622;&#x644;&#x64A; Pro</div>
     <div style="font-size:9px;color:var(--t2)" id="app-version">v1.0.0</div>
   </div>
   <div style="display:flex;align-items:center;gap:8px">
     <div id="notif-btn" onclick="showNotif()" style="position:relative;cursor:pointer;display:none">
-      <span style="font-size:20px">ð</span>
-      <span id="notif-dot" style="position:absolute;top:-2px;left:-2px;width:8px;height:8px;background:var(--rd);border-radius:50%;display:none"></span>
+      <span style="font-size:20px">&#x1F514;</span>
+      <span id="notif-dot" style="position:absolute;top:-2px;left:-2px;width:8px;height:8px;background:var(--rd);border-radius:50%;display:none;animation:pulse 2s infinite"></span>
     </div>
-    <button class="run-btn" onclick="runNow()" id="run-btn">â¶ï¸ ØªØ´ØºÙÙ Ø§ÙØ¢Ù</button>
+    <button class="run-btn" onclick="runNow()" id="run-btn">&#x25B6;&#xFE0F; &#x62A;&#x634;&#x63A;&#x64A;&#x644; &#x627;&#x644;&#x622;&#x646;</button>
   </div>
 </div>
-
-<!-- Notification Modal -->
 <div id="notif-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:flex-end">
   <div style="background:var(--bg2);border-radius:var(--r) var(--r) 0 0;padding:20px;width:100%;max-height:70vh;overflow-y:auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <div style="font-size:15px;font-weight:700">ð Ø¢Ø®Ø± ØªØ­Ø¯ÙØ«</div>
-      <button onclick="closeNotif()" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer">â</button>
+      <div style="font-size:15px;font-weight:700">&#x1F514; &#x622;&#x62E;&#x631; &#x62A;&#x62D;&#x62F;&#x64A;&#x62B;</div>
+      <button onclick="closeNotif()" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer">&#x2715;</button>
     </div>
     <div id="notif-version" style="font-size:12px;color:var(--t2);margin-bottom:10px"></div>
     <div id="notif-content" style="font-size:13px;line-height:1.8;background:var(--bg3);padding:12px;border-radius:var(--rs);color:var(--tx)"></div>
-    <div style="display:flex;gap:8px;margin-top:14px">
-      <button class="btn bg" onclick="closeNotif()" style="flex:1">â ÙÙÙØª</button>
-    </div>
+    <button class="btn bg" onclick="closeNotif()" style="margin-top:14px">&#x2705; &#x641;&#x647;&#x645;&#x62A;</button>
   </div>
 </div>
 <div class="main">
-
-<!-- Dashboard -->
 <div class="page active" id="page-dash">
   <div class="stats-row">
-    <div class="stat"><div class="stat-n" id="s-src" style="color:var(--ac)">-</div><div class="stat-l">ÙØµØ§Ø¯Ø±</div></div>
-    <div class="stat"><div class="stat-n" id="s-posts" style="color:var(--gn)">-</div><div class="stat-l">ÙÙØ´ÙØ±Ø§Øª</div></div>
-    <div class="stat"><div class="stat-n" id="s-today" style="color:var(--am)">-</div><div class="stat-l">Ø§ÙÙÙÙ</div></div>
-    <div class="stat"><div class="stat-n" id="s-err" style="color:var(--rd)">-</div><div class="stat-l">Ø£Ø®Ø·Ø§Ø¡</div></div>
+    <div class="stat"><div class="stat-n" id="s-src" style="color:var(--ac)">-</div><div class="stat-l">&#x645;&#x635;&#x627;&#x62F;&#x631;</div></div>
+    <div class="stat"><div class="stat-n" id="s-posts" style="color:var(--gn)">-</div><div class="stat-l">&#x645;&#x646;&#x634;&#x648;&#x631;&#x627;&#x62A;</div></div>
+    <div class="stat"><div class="stat-n" id="s-today" style="color:var(--am)">-</div><div class="stat-l">&#x627;&#x644;&#x64A;&#x648;&#x645;</div></div>
+    <div class="stat"><div class="stat-n" id="s-err" style="color:var(--rd)">-</div><div class="stat-l">&#x623;&#x62E;&#x637;&#x627;&#x621;</div></div>
   </div>
-  <div class="card"><div class="ct">ð° Ø¢Ø®Ø± Ø§ÙÙÙØ´ÙØ±Ø§Øª</div><div id="dash-posts"><div style="color:var(--t3);text-align:center;padding:16px;font-size:12px">ÙØ§ ØªÙØ¬Ø¯ ÙÙØ´ÙØ±Ø§Øª Ø¨Ø¹Ø¯ â Ø§Ø¶ØºØ· ØªØ´ØºÙÙ Ø§ÙØ¢Ù</div></div></div>
-  <div class="card"><div class="ct">ð Ø¢Ø®Ø± Ø§ÙÙØ´Ø§Ø·Ø§Øª</div><div id="dash-logs"><div style="color:var(--t3);text-align:center;padding:16px;font-size:12px">ÙØ§ ØªÙØ¬Ø¯ ÙØ´Ø§Ø·Ø§Øª</div></div></div>
+  <div class="card"><div class="ct">&#x1F4F0; &#x622;&#x62E;&#x631; &#x627;&#x644;&#x645;&#x646;&#x634;&#x648;&#x631;&#x627;&#x62A;</div><div id="dash-posts"><div style="color:var(--t3);text-align:center;padding:16px;font-size:12px">&#x644;&#x627; &#x62A;&#x648;&#x62C;&#x62F; &#x645;&#x646;&#x634;&#x648;&#x631;&#x627;&#x62A;</div></div></div>
+  <div class="card"><div class="ct">&#x1F4CB; &#x622;&#x62E;&#x631; &#x627;&#x644;&#x646;&#x634;&#x627;&#x637;&#x627;&#x62A;</div><div id="dash-logs"><div style="color:var(--t3);text-align:center;padding:16px;font-size:12px">&#x644;&#x627; &#x62A;&#x648;&#x62C;&#x62F; &#x646;&#x634;&#x627;&#x637;&#x627;&#x62A;</div></div></div>
 </div>
-
-<!-- Sources -->
 <div class="page" id="page-sources">
-  <div class="card">
-    <div class="ct">â Ø¥Ø¶Ø§ÙØ© ÙØµØ¯Ø±</div>
-    <div class="g2">
-      <div><label>Ø§ÙØ§Ø³Ù</label><input type="text" id="src-name" placeholder="ÙØ«Ø§Ù: BBC Ø¹Ø±Ø¨Ù"></div>
-      <div><label>Ø§ÙÙÙØ¹</label><select id="src-type"><option value="rss">ÙÙÙØ¹ / RSS</option><option value="youtube">ÙÙØªÙÙØ¨ ÙÙØ§Ø©</option><option value="telegram">ÙÙØ§Ø© ØªÙÙÙØºØ±Ø§Ù</option></select></div>
-    </div>
-    <label>Ø§ÙØ±Ø§Ø¨Ø·</label>
-    <input type="url" id="src-url" placeholder="https://...">
-    <div class="al al-i" style="margin-top:8px">ð¡ RSS: <code>https://feeds.bbcarabic.com/bbcarabic/rss.xml</code><br>ØªÙÙÙØºØ±Ø§Ù: <code>@channel_name</code></div>
-    <button class="btn bp" onclick="addSource()">â Ø¥Ø¶Ø§ÙØ©</button>
+  <div class="card"><div class="ct">&#x2795; &#x625;&#x636;&#x627;&#x641;&#x629; &#x645;&#x635;&#x62F;&#x631;</div>
+    <div class="g2"><div><label>&#x627;&#x644;&#x627;&#x633;&#x645;</label><input type="text" id="src-name" placeholder="BBC"></div>
+    <div><label>&#x627;&#x644;&#x646;&#x648;&#x639;</label><select id="src-type"><option value="rss">RSS</option><option value="youtube">YouTube</option><option value="telegram">Telegram</option></select></div></div>
+    <label>&#x627;&#x644;&#x631;&#x627;&#x628;&#x637;</label><input type="url" id="src-url" placeholder="https://...">
+    <button class="btn bp" onclick="addSource()">&#x2795; &#x625;&#x636;&#x627;&#x641;&#x629;</button>
   </div>
-
-  <div class="card">
-    <div class="ct">â¶ï¸ ØªØ­ÙÙÙ ÙÙØ¯ÙÙ ÙÙØªÙÙØ¨</div>
-    <label>Ø±Ø§Ø¨Ø· Ø§ÙÙÙØ¯ÙÙ</label>
+  <div class="card"><div class="ct">&#x25B6;&#xFE0F; YouTube</div>
+    <label>&#x631;&#x627;&#x628;&#x637; &#x627;&#x644;&#x641;&#x64A;&#x62F;&#x64A;&#x648;</label>
     <input type="url" id="yt-url" placeholder="https://www.youtube.com/watch?v=...">
-    <button class="btn bp" onclick="analyzeYT()" id="yt-btn" style="background:#ff0000">â¶ï¸ ØªØ­ÙÙÙ ÙØ¥Ø¹Ø§Ø¯Ø© ØµÙØ§ØºØ©</button>
+    <button class="btn bp" onclick="analyzeYT()" id="yt-btn" style="background:#ff0000">&#x25B6;&#xFE0F; &#x62A;&#x62D;&#x644;&#x64A;&#x644;</button>
     <div id="yt-result" style="display:none;margin-top:10px"></div>
   </div>
-
-  <div class="card">
-    <div class="ct">âï¸ ÙØ±Ø§Ø¡Ø© ÙÙØ§Ø© ØªÙÙÙØºØ±Ø§Ù</div>
-    <div class="al al-tg">Ø§ÙØ±Ø£ ÙÙØ´ÙØ±Ø§Øª Ø£Ù ÙÙØ§Ø© Ø¹Ø§ÙØ© ÙØ§Ø³ØªØ®Ø¯ÙÙØ§ ÙÙØµØ¯Ø±</div>
-    <div style="display:flex;gap:7px">
-      <input type="text" id="tg-ch-read" placeholder="channel_name (Ø¨Ø¯ÙÙ @)" style="flex:1">
-      <button class="btn btg btn-sm" onclick="readTGChannel()" id="tg-read-btn">ð ÙØ±Ø§Ø¡Ø©</button>
-    </div>
+  <div class="card"><div class="ct">&#x2708;&#xFE0F; Telegram</div>
+    <div style="display:flex;gap:7px"><input type="text" id="tg-ch-read" placeholder="channel_name" style="flex:1">
+    <button class="btn btg btn-sm" onclick="readTGChannel()" id="tg-read-btn">&#x1F4D6;</button></div>
     <div id="tg-read-result" style="display:none;margin-top:10px"></div>
   </div>
-
-  <div class="card">
-    <div class="ct">ð¡ Ø§ÙÙØµØ§Ø¯Ø± Ø§ÙÙØ¶Ø§ÙØ© <span id="src-count" style="font-size:11px;color:var(--t2)"></span></div>
-    <div id="sources-list"><div style="color:var(--t3);text-align:center;padding:16px;font-size:12px">ÙØ§ ØªÙØ¬Ø¯ ÙØµØ§Ø¯Ø±</div></div>
+  <div class="card"><div class="ct">&#x1F4E1; &#x627;&#x644;&#x645;&#x635;&#x627;&#x62F;&#x631; <span id="src-count" style="font-size:11px;color:var(--t2)"></span></div>
+    <div id="sources-list"><div style="color:var(--t3);text-align:center;padding:16px;font-size:12px">&#x644;&#x627; &#x62A;&#x648;&#x62C;&#x62F; &#x645;&#x635;&#x627;&#x62F;&#x631;</div></div>
   </div>
 </div>
-
-<!-- Connect -->
 <div class="page" id="page-connect">
-
-  <!-- Telegram -->
-  <div class="conn-card" id="card-tg">
-    <div class="conn-header">
-      <div class="conn-icon" style="background:rgba(42,171,238,.2)">âï¸</div>
-      <div style="flex:1"><div style="font-size:13px;font-weight:700">ØªÙÙÙØºØ±Ø§Ù</div><div style="font-size:10px;color:var(--t2)">ÙØ´Ø± ÙØ¨Ø§Ø´Ø± â Ø§ÙØ£Ø³ÙÙ</div></div>
-      <span id="tg-badge" class="tag tag-s" style="display:none">â ÙØªØµÙ</span>
-    </div>
-    <div class="steps">
-      1ï¸â£ Ø§ÙØªØ­ ØªÙÙÙØºØ±Ø§Ù â Ø§Ø¨Ø­Ø« Ø¹Ù <strong>@BotFather</strong><br>
-      2ï¸â£ Ø£Ø±Ø³Ù <strong>/newbot</strong> â Ø§Ø®ØªØ± Ø§Ø³ÙØ§Ù â Ø§ÙØ³Ø® <strong>Ø§ÙØªÙÙÙ</strong><br>
-      3ï¸â£ ÙÙØ§ØªÙ â <strong>Administrators</strong> â Ø£Ø¶Ù Ø§ÙØ¨ÙØª â ØµÙØ§Ø­ÙØ© Ø§ÙÙØ´Ø±<br>
-      4ï¸â£ Ø§ÙÙÙÙØ§Øª Ø§ÙØ¹Ø§ÙØ©: <strong>@Ø§Ø³ÙÙØ§</strong> â Ø§ÙØ®Ø§ØµØ©: Ø£Ø±Ø³Ù Ø±Ø³Ø§ÙØ© Ø«Ù Ø§ÙØªØ­ /getUpdates
-    </div>
+  <div class="conn-card" id="card-tg"><div class="conn-header"><div class="conn-icon" style="background:rgba(42,171,238,.2)">&#x2708;&#xFE0F;</div><div style="flex:1"><div style="font-size:13px;font-weight:700">Telegram</div><div style="font-size:10px;color:var(--t2)">&#x646;&#x634;&#x631; &#x645;&#x628;&#x627;&#x634;&#x631;</div></div><span id="tg-badge" class="tag tag-s" style="display:none">&#x2705;</span></div>
+    <div class="steps">1&#xFE0F;&#x20E3; &#x627;&#x628;&#x62D;&#x62B; &#x639;&#x646; <strong>@BotFather</strong> &#x2190; &#x623;&#x631;&#x633;&#x644; <strong>/newbot</strong><br>2&#xFE0F;&#x20E3; &#x627;&#x646;&#x633;&#x62E; <strong>&#x627;&#x644;&#x62A;&#x648;&#x643;&#x646;</strong><br>3&#xFE0F;&#x20E3; &#x642;&#x646;&#x627;&#x62A;&#x643; &#x2190; Administrators &#x2190; &#x623;&#x636;&#x641; &#x627;&#x644;&#x628;&#x648;&#x62A;</div>
     <label>Bot Token</label><input type="password" id="tg-token" placeholder="123456789:ABCDef...">
-    <label>ÙØ¹Ø±Ù Ø§ÙÙÙØ§Ø©</label><input type="text" id="tg-chat" placeholder="@my_channel">
-    <div id="tg-status" class="sbar"><span class="dot da"></span> Ø£Ø¯Ø®Ù Ø§ÙØ¨ÙØ§ÙØ§Øª ÙØ§Ø¶ØºØ· Ø§Ø®ØªØ¨Ø§Ø±</div>
-    <div class="btn-row">
-      <button class="btn btg" onclick="testTG()" id="tg-test-btn" style="flex:2">ð§ª Ø§Ø®ØªØ¨Ø§Ø± ÙØ­ÙØ¸</button>
-      <button class="btn bo btn-sm" onclick="document.getElementById('card-tg').style.opacity='.5'" style="flex:1">ØªØ®Ø·Ù</button>
-    </div>
+    <label>&#x645;&#x639;&#x631;&#x641; &#x627;&#x644;&#x642;&#x646;&#x627;&#x629;</label><input type="text" id="tg-chat" placeholder="@my_channel">
+    <div id="tg-status" class="sbar"><span class="dot da"></span></div>
+    <div class="btn-row"><button class="btn btg" onclick="testTG()" id="tg-test-btn" style="flex:2">&#x1F9EA;</button><button class="btn bo btn-sm" onclick="document.getElementById('card-tg').style.opacity='.5'" style="flex:1">&#x62A;&#x62E;&#x637;&#x64A;</button></div>
   </div>
-
-  <!-- Facebook -->
-  <div class="conn-card" id="card-fb">
-    <div class="conn-header">
-      <div class="conn-icon" style="background:rgba(24,119,242,.2)">ð</div>
-      <div style="flex:1"><div style="font-size:13px;font-weight:700">ÙÙØ³Ø¨ÙÙ (ØµÙØ­Ø©)</div><div style="font-size:10px;color:var(--t2)">ÙØ´Ø± Ø¹ÙÙ ØµÙØ­ØªÙ Ø¹Ø¨Ø± Graph API</div></div>
-      <span id="fb-badge" class="tag tag-s" style="display:none">â ÙØªØµÙ</span>
-    </div>
-    <div class="steps">
-      1ï¸â£ Ø§Ø°ÙØ¨ ÙÙ <a href="https://developers.facebook.com/tools/explorer" target="_blank">Graph API Explorer</a><br>
-      2ï¸â£ <strong>Get Token</strong> â <strong>Get Page Access Token</strong> â Ø§Ø®ØªØ± ØµÙØ­ØªÙ<br>
-      3ï¸â£ Ø§ÙØ³Ø® Ø§ÙÙ <strong>Access Token</strong><br>
-      4ï¸â£ Ø§ÙÙ Page ID: ÙÙ URL ØµÙØ­ØªÙ Ø£Ù <strong>Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ø§ÙØµÙØ­Ø© â ÙØ¹ÙÙÙØ§Øª Ø§ÙØµÙØ­Ø©</strong>
-    </div>
-    <div class="al al-fb">ð¡ ÙÙØªÙÙÙ Ø§ÙØ¯Ø§Ø¦Ù: Ø§Ø³ØªØ®Ø¯Ù <a href="https://developers.facebook.com/tools/debug/accesstoken" target="_blank" style="color:#6aabff">Token Debugger</a> ÙØªÙØ¯ÙØ¯Ù</div>
+  <div class="conn-card" id="card-make"><div class="conn-header"><div class="conn-icon" style="background:rgba(108,99,255,.2)">&#x2699;&#xFE0F;</div><div style="flex:1"><div style="font-size:13px;font-weight:700">Make.com</div><div style="font-size:10px;color:var(--t2)">Facebook + Twitter + Instagram</div></div><span id="make-badge" class="tag tag-s" style="display:none">&#x2705;</span></div>
+    <div class="steps">1&#xFE0F;&#x20E3; <a href="https://make.com" target="_blank">make.com</a> &#x2190; New Scenario<br>2&#xFE0F;&#x20E3; Webhooks &#x2190; Custom Webhook</div>
+    <label>Make.com Webhook URL</label><input type="url" id="make-url" placeholder="https://hook.eu1.make.com/...">
+    <div id="make-status" class="sbar"><span class="dot da"></span></div>
+    <button class="btn bg" onclick="saveMake()">&#x1F4BE;</button>
+  </div>
+  <div class="conn-card" id="card-fb"><div class="conn-header"><div class="conn-icon" style="background:rgba(24,119,242,.2)">&#x1F4D8;</div><div style="flex:1"><div style="font-size:13px;font-weight:700">Facebook</div><div style="font-size:10px;color:var(--t2)">Graph API</div></div><span id="fb-badge" class="tag tag-s" style="display:none">&#x2705;</span></div>
+    <div class="steps">1&#xFE0F;&#x20E3; <a href="https://developers.facebook.com/tools/explorer" target="_blank">Graph API Explorer</a><br>2&#xFE0F;&#x20E3; Get Token &#x2190; Get Page Access Token</div>
     <label>Page Access Token</label><input type="password" id="fb-token" placeholder="EAAxxxx...">
-    <label>Page ID</label><input type="text" id="fb-page-id" placeholder="123456789012345">
-    <div id="fb-status" class="sbar"><span class="dot da"></span> Ø£Ø¯Ø®Ù Ø§ÙØ¨ÙØ§ÙØ§Øª ÙØ§Ø¶ØºØ· Ø§Ø®ØªØ¨Ø§Ø±</div>
-    <div class="btn-row">
-      <a href="https://developers.facebook.com/tools/explorer" target="_blank" style="text-decoration:none;flex:1">
-        <button class="btn bfb" style="margin-top:0">ð Graph Explorer</button>
-      </a>
-      <button class="btn bp btn-sm" onclick="testFB()" id="fb-test-btn" style="flex:1;margin-top:0">ð§ª Ø§Ø®ØªØ¨Ø§Ø±</button>
-    </div>
+    <label>Page ID</label><input type="text" id="fb-page-id" placeholder="123456789">
+    <div id="fb-status" class="sbar"><span class="dot da"></span></div>
+    <div class="btn-row"><a href="https://developers.facebook.com/tools/explorer" target="_blank" style="text-decoration:none;flex:1"><button class="btn bfb" style="margin-top:0">&#x1F517; Explorer</button></a><button class="btn bp btn-sm" onclick="testFB()" style="flex:1;margin-top:0">&#x1F9EA;</button></div>
   </div>
-
-  <!-- Make.com -->
-  <div class="conn-card" id="card-make">
-    <div class="conn-header">
-      <div class="conn-icon" style="background:rgba(108,99,255,.2)">âï¸</div>
-      <div style="flex:1"><div style="font-size:13px;font-weight:700">Make.com (ÙÙØ³Ø¨ÙÙ + ÙÙØµØ§Øª Ø£Ø®Ø±Ù)</div><div style="font-size:10px;color:var(--t2)">Ø£Ø³ÙÙ Ø·Ø±ÙÙØ© ÙØ±Ø¨Ø· ÙÙØ³Ø¨ÙÙ â Ø¨Ø¯ÙÙ ØªÙÙÙ</div></div>
-      <span id="make-badge" class="tag tag-s" style="display:none">â ÙØªØµÙ</span>
-    </div>
-    <div class="steps">
-      1ï¸â£ Ø§ÙØªØ­ <a href="https://make.com" target="_blank">make.com</a> â Ø§ÙØ³ÙÙØ§Ø±ÙÙ Ø§ÙÙÙØ¬ÙØ¯<br>
-      2ï¸â£ Ø§Ø¶ØºØ· <strong>+</strong> â Ø§Ø¨Ø­Ø« Ø¹Ù <strong>Facebook Pages</strong> â Create a Post<br>
-      3ï¸â£ Ø§Ø±Ø¨Ø· Ø­Ø³Ø§Ø¨Ù Ø¨Ø¶ØºØ·Ø© ÙØ§Ø­Ø¯Ø© â Ø§Ø®ØªØ± ØµÙØ­ØªÙ<br>
-      4ï¸â£ ÙÙ Ø­ÙÙ Message Ø§Ø®ØªØ± Ø§ÙÙØªØºÙØ± ÙÙ Ø§ÙÙ Webhook<br>
-      5ï¸â£ Ø§Ø­ÙØ¸ ÙØ§ÙØ³Ø® Ø±Ø§Ø¨Ø· Ø§ÙÙ Webhook ÙÙ Ø£ÙÙ Ø®Ø·ÙØ©
-    </div>
-    <div class="al al-i">ð¡ ÙÙØ³ Ø§ÙÙ Webhook ÙÙÙÙÙ Ø§ÙÙØ´Ø± Ø¹ÙÙ ÙÙØ³Ø¨ÙÙ + ØªÙÙØªØ± + Ø¥ÙØ³ØªØºØ±Ø§Ù ÙØ¹Ø§Ù ÙÙ ÙÙØ³ Ø§ÙØ³ÙÙØ§Ø±ÙÙ</div>
-    <label>Make.com Webhook URL</label>
-    <input type="url" id="make-url" placeholder="https://hook.eu1.make.com/...">
-    <div id="make-status" class="sbar"><span class="dot da"></span> Ø£Ø¯Ø®Ù Ø§ÙØ±Ø§Ø¨Ø· ÙØ§Ø¶ØºØ· Ø­ÙØ¸</div>
-    <div class="btn-row">
-      <a href="https://make.com" target="_blank" style="text-decoration:none;flex:1">
-        <button class="btn bp" style="background:#6c63ff;margin-top:0">ð Ø§ÙØªØ­ Make.com</button>
-      </a>
-      <button class="btn bg btn-sm" onclick="saveMake()" style="flex:1;margin-top:0">ð¾ Ø­ÙØ¸</button>
-    </div>
+  <div class="conn-card" id="card-ai"><div class="conn-header"><div class="conn-icon" style="background:rgba(108,99,255,.2)">&#x1F916;</div><div style="flex:1"><div style="font-size:13px;font-weight:700">AI Key</div></div><span id="ai-badge" class="tag tag-s" style="display:none">&#x2705;</span></div>
+    <div style="display:flex;gap:6px;margin-bottom:8px"><button class="btn bp btn-sm" onclick="setAI('claude')" id="ai-cl-btn" style="flex:1">&#x1F916; Claude</button><button class="btn bo btn-sm" onclick="setAI('openai')" id="ai-oa-btn" style="flex:1">&#x26A1; OpenAI</button></div>
+    <div id="ai-cl-sec"><label>Claude Key</label><input type="password" id="ai-cl-key" placeholder="sk-ant-api03-..."></div>
+    <div id="ai-oa-sec" style="display:none"><label>OpenAI Key</label><input type="password" id="ai-oa-key" placeholder="sk-..."></div>
+    <div id="ai-status" class="sbar"><span class="dot da"></span></div>
+    <button class="btn bp" onclick="testAI()" id="ai-btn">&#x1F9EA;</button>
   </div>
-
-  <!-- Buffer Twitter+Instagram -->
-  <div class="conn-card" id="card-buf">
-    <div class="conn-header">
-      <div class="conn-icon" style="background:rgba(0,0,0,.3)">ð</div>
-      <div style="flex:1"><div style="font-size:13px;font-weight:700">ØªÙÙØªØ± / X + Ø¥ÙØ³ØªØºØ±Ø§Ù</div><div style="font-size:10px;color:var(--t2)">Ø¹Ø¨Ø± Buffer â Ø±Ø¨Ø· ÙØ§Ø­Ø¯ ÙÙØ§Ø«ÙÙÙ</div></div>
-      <span id="buf-badge" class="tag tag-s" style="display:none">â ÙØªØµÙ</span>
-    </div>
-    <div class="steps">
-      1ï¸â£ <a href="https://buffer.com" target="_blank">buffer.com</a> â Ø³Ø¬ÙÙ ÙØ¬Ø§ÙØ§Ù<br>
-      2ï¸â£ Connect Channel â Ø£Ø¶Ù ØªÙÙØªØ± ÙØ¥ÙØ³ØªØºØ±Ø§Ù<br>
-      3ï¸â£ <a href="https://buffer.com/developers/apps" target="_blank">buffer.com/developers/apps</a> â Create App â Ø§ÙØ³Ø® Token
-    </div>
-    <label>Buffer Access Token</label><input type="password" id="buf-token" placeholder="access_token_here...">
-    <div id="buf-status" class="sbar"><span class="dot da"></span> Ø£Ø¯Ø®Ù Ø§ÙØªÙÙÙ ÙØ§Ø¶ØºØ· Ø­ÙØ¸</div>
-    <div class="btn-row">
-      <a href="https://buffer.com/developers/apps" target="_blank" style="text-decoration:none;flex:1">
-        <button class="btn bp" style="background:#4A90E2;margin-top:0">ð Ø§Ø­ØµÙ Ø¹ÙÙ Token</button>
-      </a>
-      <button class="btn bg btn-sm" onclick="saveBuf()" style="flex:1;margin-top:0">ð¾ Ø­ÙØ¸</button>
-    </div>
-  </div>
-
-  <!-- AI -->
-  <div class="conn-card" id="card-ai">
-    <div class="conn-header">
-      <div class="conn-icon" style="background:rgba(108,99,255,.2)">ð¤</div>
-      <div style="flex:1"><div style="font-size:13px;font-weight:700">ÙÙØªØ§Ø­ Ø§ÙØ°ÙØ§Ø¡ Ø§ÙØ§ØµØ·ÙØ§Ø¹Ù</div><div style="font-size:10px;color:var(--t2)">Ø¶Ø±ÙØ±Ù ÙØ¥Ø¹Ø§Ø¯Ø© Ø§ÙØµÙØ§ØºØ©</div></div>
-      <span id="ai-badge" class="tag tag-s" style="display:none">â ÙØªØµÙ</span>
-    </div>
-    <div style="display:flex;gap:6px;margin-bottom:8px">
-      <button class="btn bp btn-sm" onclick="setAI('claude')" id="ai-cl-btn" style="flex:1">ð¤ Claude</button>
-      <button class="btn bo btn-sm" onclick="setAI('openai')" id="ai-oa-btn" style="flex:1">â¡ OpenAI</button>
-    </div>
-    <div id="ai-cl-sec">
-      <label>Claude API Key â <a href="https://console.anthropic.com" target="_blank" style="color:#a89cff">console.anthropic.com</a> â API Keys</label>
-      <input type="password" id="ai-cl-key" placeholder="sk-ant-api03-...">
-    </div>
-    <div id="ai-oa-sec" style="display:none">
-      <label>OpenAI API Key â <a href="https://platform.openai.com/api-keys" target="_blank" style="color:var(--gn)">platform.openai.com</a></label>
-      <input type="password" id="ai-oa-key" placeholder="sk-...">
-    </div>
-    <div id="ai-status" class="sbar"><span class="dot da"></span> Ø£Ø¯Ø®Ù Ø§ÙÙÙØªØ§Ø­ ÙØ§Ø¶ØºØ· Ø§Ø®ØªØ¨Ø§Ø±</div>
-    <button class="btn bp" onclick="testAI()" id="ai-btn">ð§ª Ø§Ø®ØªØ¨Ø§Ø± ÙØ­ÙØ¸</button>
+  <div class="conn-card" id="card-github"><div class="conn-header"><div class="conn-icon" style="background:rgba(255,255,255,.1)">&#x1F419;</div><div style="flex:1"><div style="font-size:13px;font-weight:700">GitHub</div></div><span id="github-badge" class="tag tag-s" style="display:none">&#x2705;</span></div>
+    <div class="steps">1&#xFE0F;&#x20E3; <a href="https://github.com/settings/tokens/new" target="_blank">github.com/settings/tokens/new</a><br>2&#xFE0F;&#x20E3; &#x627;&#x62E;&#x62A;&#x631; repo &#x2190; Generate token</div>
+    <label>GitHub Token</label><input type="password" id="github-token" placeholder="ghp_xxxx">
+    <label>&#x627;&#x633;&#x645; &#x627;&#x644;&#x645;&#x633;&#x62A;&#x648;&#x62F;&#x639;</label><input type="text" id="github-repo" placeholder="username/autopublisher">
+    <div id="github-status" class="sbar"><span class="dot da"></span></div>
+    <div class="btn-row"><a href="https://github.com/settings/tokens/new" target="_blank" style="text-decoration:none;flex:1"><button class="btn bp" style="background:#333;margin-top:0">&#x1F419; GitHub</button></a><button class="btn bg btn-sm" onclick="testGitHub()" id="github-btn" style="flex:1;margin-top:0">&#x1F9EA;</button></div>
   </div>
 </div>
-
-<!-- Posts -->
 <div class="page" id="page-posts">
-  <div style="font-size:17px;font-weight:700;margin-bottom:14px">ð Ø§ÙÙÙØ´ÙØ±Ø§Øª</div>
-  <div id="posts-list"><div style="color:var(--t3);text-align:center;padding:24px;font-size:12px">ÙØ§ ØªÙØ¬Ø¯ ÙÙØ´ÙØ±Ø§Øª Ø¨Ø¹Ø¯</div></div>
+  <div style="font-size:17px;font-weight:700;margin-bottom:14px">&#x1F4DD; &#x627;&#x644;&#x645;&#x646;&#x634;&#x648;&#x631;&#x627;&#x62A;</div>
+  <div id="posts-list"><div style="color:var(--t3);text-align:center;padding:24px;font-size:12px">&#x644;&#x627; &#x62A;&#x648;&#x62C;&#x62F; &#x645;&#x646;&#x634;&#x648;&#x631;&#x627;&#x62A;</div></div>
 </div>
-
-<!-- Settings -->
 <div class="page" id="page-settings">
-  <div class="card">
-    <div class="ct">âï¸ Ø§ÙÙØªØ§Ø¨Ø© ÙØ§ÙØ¬Ø¯ÙÙØ©</div>
-    <label>Ø£Ø³ÙÙØ¨ Ø§ÙÙØªØ§Ø¨Ø©</label>
-    <select id="writing-tone"><option value="informative">Ø¥Ø®Ø¨Ø§Ø±Ù ÙÙØ¶ÙØ¹Ù</option><option value="analytical">ØªØ­ÙÙÙÙ</option><option value="engaging">Ø¬Ø°Ø§Ø¨ ÙØ´ÙÙ</option><option value="neutral">ÙØ­Ø§ÙØ¯</option></select>
-    <label>ÙØºØ© Ø§ÙÙØ­ØªÙÙ</label>
-    <select id="content-lang"><option value="ar">Ø¹Ø±Ø¨Ù</option><option value="en">English</option><option value="both">Ø¹Ø±Ø¨Ù + Ø¥ÙØ¬ÙÙØ²Ù</option></select>
-    <label>Ø§ÙÙØ§Ø´ØªØ§ÙØ§Øª</label>
-    <input type="text" id="hashtags" placeholder="#Ø£Ø®Ø¨Ø§Ø± #ØªÙÙÙØ© #AI">
-    <label>ÙÙØª Ø§ÙØ¬ÙØ¨ Ø§ÙÙÙÙÙ</label>
-    <input type="time" id="check-time" value="08:00">
-    <label>Ø§ÙÙØ´Ø±</label>
-    <select id="auto-publish"><option value="1">ØªÙÙØ§Ø¦Ù</option><option value="0">ÙØ¯ÙÙ</option></select>
-    <button class="btn bp" onclick="saveSettings()">ð¾ Ø­ÙØ¸</button>
-  </div>
-  <!-- Auto Update Card -->
   <div class="card" style="background:linear-gradient(135deg,rgba(108,99,255,.1),rgba(0,212,160,.08));border-color:var(--ac)">
-    <div class="ct">ð¤ Ø§ÙØªØ­Ø¯ÙØ« Ø§ÙØ°ÙÙ Ø§ÙØªÙÙØ§Ø¦Ù</div>
-    <div class="al al-i" style="margin-bottom:10px">Ø§ÙØªØ¨ Ø·ÙØ¨Ù Ø¨Ø§ÙØ¹Ø±Ø¨Ù Ø£Ù Ø§ÙØ¥ÙØ¬ÙÙØ²Ù â AI ÙØ¹Ø¯ÙÙ Ø§ÙÙÙØ¯ ÙÙØ±ÙØ¹Ù Ø¹ÙÙ GitHub ØªÙÙØ§Ø¦ÙØ§Ù</div>
-
-    <!-- Ø§Ø®ØªÙØ§Ø± AI -->
-    <label>ÙØ­Ø±Ù Ø§ÙØ°ÙØ§Ø¡ Ø§ÙØ§ØµØ·ÙØ§Ø¹Ù</label>
-    <div style="display:flex;gap:6px;margin-bottom:10px">
-      <button class="btn bp btn-sm" onclick="setUpdateAI('claude')" id="upd-cl-btn" style="flex:1">ð¤ Claude</button>
-      <button class="btn bo btn-sm" onclick="setUpdateAI('openai')" id="upd-oa-btn" style="flex:1">â¡ ChatGPT</button>
-    </div>
-
-    <label>Ø·ÙØ¨ Ø§ÙØªØ¹Ø¯ÙÙ</label>
-    <textarea id="update-request" style="min-height:90px" placeholder="ÙØ«Ø§Ù: Ø£Ø¶Ù ÙØ³Ù Ø¥Ø­ØµØ§Ø¦ÙØ§Øª ÙÙ Ø§ÙØµÙØ­Ø© Ø§ÙØ±Ø¦ÙØ³ÙØ©&#10;ÙØ«Ø§Ù: Ø£Ø¶Ù Ø²Ø± ÙØ´Ø§Ø±ÙØ© ÙÙ ÙÙ ÙÙØ´ÙØ±&#10;ÙØ«Ø§Ù: ØºÙÙØ± ØªØµÙÙÙ Ø§ÙØ´Ø±ÙØ· Ø§ÙØ³ÙÙÙ"></textarea>
-    <button class="btn bp" onclick="requestUpdate()" id="update-btn">ð ØªØ·Ø¨ÙÙ Ø§ÙØªØ¹Ø¯ÙÙ Ø§ÙØ¢Ù</button>
+    <div class="ct">&#x1F916; &#x627;&#x644;&#x62A;&#x62D;&#x62F;&#x64A;&#x62B; &#x627;&#x644;&#x630;&#x643;&#x64A;</div>
+    <div class="al al-i" style="margin-bottom:10px">&#x627;&#x643;&#x62A;&#x628; &#x637;&#x644;&#x628;&#x643; &#x648;&#x633;&#x64A;&#x639;&#x62F;&#x644; AI &#x627;&#x644;&#x62A;&#x637;&#x628;&#x64A;&#x642;</div>
+    <div style="display:flex;gap:6px;margin-bottom:8px"><button class="btn bp btn-sm" onclick="setUpdateAI('claude')" id="upd-cl-btn" style="flex:1">&#x1F916; Claude</button><button class="btn bo btn-sm" onclick="setUpdateAI('openai')" id="upd-oa-btn" style="flex:1">&#x26A1; ChatGPT</button></div>
+    <textarea id="update-request" style="min-height:90px" placeholder="&#x645;&#x62B;&#x627;&#x644;: &#x623;&#x636;&#x641; &#x632;&#x631; &#x645;&#x634;&#x627;&#x631;&#x643;&#x629;"></textarea>
+    <button class="btn bp" onclick="requestUpdate()" id="update-btn">&#x1F680; &#x62A;&#x637;&#x628;&#x64A;&#x642;</button>
     <div id="update-status" style="display:none;margin-top:8px;font-size:11px;padding:10px;border-radius:var(--rs);text-align:center;line-height:1.7"></div>
   </div>
-
-  <!-- Rollback Card -->
-  <div class="card" id="rollback-card">
-    <div class="ct">â©ï¸ Ø§ÙØ±Ø¬ÙØ¹ ÙØ¥ØµØ¯Ø§Ø± Ø³Ø§Ø¨Ù
-      <button class="btn bo btn-sm" onclick="loadCommits()" style="margin-top:0">ð ØªØ­Ø¯ÙØ« Ø§ÙÙØ§Ø¦ÙØ©</button>
-    </div>
-    <div class="al al-w" style="margin-bottom:10px">ÙÙ Ø­Ø§Ù ÙØ´Ù Ø§ÙØªØ¹Ø¯ÙÙ ÙÙÙÙÙ Ø§ÙØ±Ø¬ÙØ¹ ÙØ£Ù Ø¥ØµØ¯Ø§Ø± Ø³Ø§Ø¨Ù Ø¨Ø¶ØºØ·Ø© ÙØ§Ø­Ø¯Ø©</div>
-    <div id="commits-list">
-      <div style="text-align:center;padding:14px;color:var(--t3);font-size:11px">Ø§Ø¶ØºØ· "ØªØ­Ø¯ÙØ« Ø§ÙÙØ§Ø¦ÙØ©" ÙØ¹Ø±Ø¶ Ø§ÙØ¥ØµØ¯Ø§Ø±Ø§Øª Ø§ÙØ³Ø§Ø¨ÙØ©</div>
-    </div>
+  <div class="card">
+    <div class="ct" style="display:flex;align-items:center;justify-content:space-between"><span>&#x21A9;&#xFE0F; Rollback</span><button class="btn bo btn-sm" onclick="loadCommits()" style="margin-top:0">&#x1F504;</button></div>
+    <div class="al al-w" style="margin-bottom:10px">&#x641;&#x64A; &#x62D;&#x627;&#x644; &#x641;&#x634;&#x644; &#x627;&#x644;&#x62A;&#x639;&#x62F;&#x64A;&#x644;</div>
+    <div id="commits-list"><div style="text-align:center;padding:14px;color:var(--t3);font-size:11px">&#x627;&#x636;&#x63A;&#x637; &#x1F504;</div></div>
     <div id="rollback-status" style="display:none;margin-top:8px;font-size:11px;padding:8px;border-radius:var(--rs);text-align:center"></div>
   </div>
-
-  <!-- GitHub Settings -->
-  <div class="conn-card" id="card-github">
-    <div class="conn-header">
-      <div class="conn-icon" style="background:rgba(255,255,255,.1)">ð</div>
-      <div style="flex:1"><div style="font-size:13px;font-weight:700">GitHub (ÙÙØªØ­Ø¯ÙØ« Ø§ÙØªÙÙØ§Ø¦Ù)</div><div style="font-size:10px;color:var(--t2)">ÙØ·ÙÙØ¨ ÙÙÙØ²Ø© Ø§ÙØªØ­Ø¯ÙØ« Ø§ÙØ°ÙÙ</div></div>
-      <span id="github-badge" class="tag tag-s" style="display:none">â ÙØªØµÙ</span>
-    </div>
-    <div class="steps">
-      1ï¸â£ Ø§Ø°ÙØ¨ ÙÙ <a href="https://github.com/settings/tokens/new" target="_blank">github.com/settings/tokens/new</a><br>
-      2ï¸â£ Ø§ÙØªØ¨ Ø§Ø³ÙØ§Ù â Ø§Ø®ØªØ± <strong>repo</strong> ÙÙ Ø§ÙØµÙØ§Ø­ÙØ§Øª<br>
-      3ï¸â£ Ø§Ø¶ØºØ· <strong>Generate token</strong> â Ø§ÙØ³Ø® Ø§ÙØªÙÙÙ<br>
-      4ï¸â£ Ø§Ø³Ù Ø§ÙÙØ³ØªÙØ¯Ø¹: <strong>username/repo-name</strong>
-    </div>
-    <label>GitHub Personal Access Token</label>
-    <input type="password" id="github-token" placeholder="ghp_xxxxxxxxxxxx">
-    <label>Ø§Ø³Ù Ø§ÙÙØ³ØªÙØ¯Ø¹</label>
-    <input type="text" id="github-repo" placeholder="abukhaled95963-cell/autopublisher">
-    <div id="github-status" class="sbar"><span class="dot da"></span> Ø£Ø¯Ø®Ù Ø§ÙØ¨ÙØ§ÙØ§Øª ÙØ§Ø¶ØºØ· Ø§Ø®ØªØ¨Ø§Ø±</div>
-    <div class="btn-row">
-      <a href="https://github.com/settings/tokens/new" target="_blank" style="text-decoration:none;flex:1">
-        <button class="btn bp" style="background:#333;margin-top:0">ð GitHub Tokens</button>
-      </a>
-      <button class="btn bg btn-sm" onclick="testGitHub()" id="github-btn" style="flex:1;margin-top:0">ð§ª Ø§Ø®ØªØ¨Ø§Ø±</button>
-    </div>
+  <div class="card"><div class="ct">&#x2699;&#xFE0F; &#x627;&#x644;&#x643;&#x62A;&#x627;&#x628;&#x629;</div>
+    <label>&#x623;&#x633;&#x644;&#x648;&#x628;</label>
+    <select id="writing-tone"><option value="informative">&#x625;&#x62E;&#x628;&#x627;&#x631;&#x64A;</option><option value="analytical">&#x62A;&#x62D;&#x644;&#x64A;&#x644;&#x64A;</option><option value="engaging">&#x62C;&#x630;&#x627;&#x628;</option><option value="neutral">&#x645;&#x62D;&#x627;&#x64A;&#x62F;</option></select>
+    <label>&#x627;&#x644;&#x644;&#x63A;&#x629;</label>
+    <select id="content-lang"><option value="ar">&#x639;&#x631;&#x628;&#x64A;</option><option value="en">English</option><option value="both">&#x639;&#x631;&#x628;&#x64A; + English</option></select>
+    <label>&#x627;&#x644;&#x647;&#x627;&#x634;&#x62A;&#x627;&#x642;&#x627;&#x62A;</label><input type="text" id="hashtags" placeholder="#AI">
+    <label>&#x648;&#x642;&#x62A; &#x627;&#x644;&#x62C;&#x644;&#x628;</label><input type="time" id="check-time" value="08:00">
+    <label>&#x627;&#x644;&#x646;&#x634;&#x631;</label>
+    <select id="auto-publish"><option value="1">&#x62A;&#x644;&#x642;&#x627;&#x626;&#x64A;</option><option value="0">&#x64A;&#x62F;&#x648;&#x64A;</option></select>
+    <button class="btn bp" onclick="saveSettings()">&#x1F4BE;</button>
   </div>
-
-  <div class="card">
-    <div class="ct">ð YouTube API Key (Ø§Ø®ØªÙØ§Ø±Ù)</div>
-    <div class="al al-i">Ø¨Ø¯ÙÙÙ: ÙÙØ¯ÙÙÙØ§Øª ÙÙØ· â ÙØ¹Ù: ÙÙÙØ§Øª ÙØ§ÙÙØ©</div>
-    <label><a href="https://console.cloud.google.com" target="_blank" style="color:#a89cff">console.cloud.google.com</a> â YouTube Data API v3</label>
+  <div class="card"><div class="ct">&#x1F511; YouTube API Key</div>
     <input type="password" id="yt-key" placeholder="AIzaSy...">
-    <button class="btn bp" onclick="saveYTKey()">ð¾ Ø­ÙØ¸</button>
+    <button class="btn bp" onclick="saveYTKey()">&#x1F4BE;</button>
   </div>
-  <div class="card">
-    <div class="ct">ð Ø³Ø¬Ù Ø§ÙÙØ´Ø§Ø·</div>
-    <div id="logs-list"><div style="color:var(--t3);text-align:center;padding:14px;font-size:12px">ÙØ§ ØªÙØ¬Ø¯ Ø³Ø¬ÙØ§Øª</div></div>
+  <div class="card"><div class="ct">&#x1F4CB; &#x633;&#x62C;&#x644; &#x627;&#x644;&#x646;&#x634;&#x627;&#x637;</div>
+    <div id="logs-list"><div style="color:var(--t3);text-align:center;padding:14px;font-size:12px">&#x644;&#x627; &#x62A;&#x648;&#x62C;&#x62F; &#x633;&#x62C;&#x644;&#x627;&#x62A;</div></div>
   </div>
 </div>
-
 </div>
-
-<!-- Bottom Nav -->
 <div class="bottom-nav">
-  <div class="bnav-item active" onclick="nav('dash',this)"><span class="bnav-icon">ð</span>Ø§ÙØ±Ø¦ÙØ³ÙØ©</div>
-  <div class="bnav-item" onclick="nav('sources',this)"><span class="bnav-icon">ð</span>Ø§ÙÙØµØ§Ø¯Ø±</div>
-  <div class="bnav-item" onclick="nav('connect',this)"><span class="bnav-icon">ð</span>Ø§ÙØ±Ø¨Ø·</div>
-  <div class="bnav-item" onclick="nav('posts',this)"><span class="bnav-icon">ð</span>Ø§ÙÙÙØ´ÙØ±Ø§Øª</div>
-  <div class="bnav-item" onclick="nav('settings',this)"><span class="bnav-icon">âï¸</span>Ø§ÙØ¥Ø¹Ø¯Ø§Ø¯Ø§Øª</div>
+  <div class="bnav-item active" onclick="nav('dash',this)"><span class="bnav-icon">&#x1F4CA;</span>&#x627;&#x644;&#x631;&#x626;&#x64A;&#x633;&#x64A;&#x629;</div>
+  <div class="bnav-item" onclick="nav('sources',this)"><span class="bnav-icon">&#x1F310;</span>&#x627;&#x644;&#x645;&#x635;&#x627;&#x62F;&#x631;</div>
+  <div class="bnav-item" onclick="nav('connect',this)"><span class="bnav-icon">&#x1F517;</span>&#x627;&#x644;&#x631;&#x628;&#x637;</div>
+  <div class="bnav-item" onclick="nav('posts',this)"><span class="bnav-icon">&#x1F4DD;</span>&#x627;&#x644;&#x645;&#x646;&#x634;&#x648;&#x631;&#x627;&#x62A;</div>
+  <div class="bnav-item" onclick="nav('settings',this)"><span class="bnav-icon">&#x2699;&#xFE0F;</span>&#x625;&#x639;&#x62F;&#x627;&#x62F;&#x627;&#x62A;</div>
 </div>
-
 <script>
-const API='';let curAI='claude';
-function nav(p,el){document.querySelectorAll('.bnav-item').forEach(i=>i.classList.remove('active'));if(el)el.classList.add('active');document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));document.getElementById('page-'+p).classList.add('active');({dash:loadDash,sources:loadSources,posts:loadPosts,settings:loadSettings})[p]?.();}
-async function api(url,method='GET',body=null){const opts={method,headers:{'Content-Type':'application/json'}};if(body)opts.body=JSON.stringify(body);return(await fetch(API+url,opts)).json();}
-async function saveMake(){
-  const url=document.getElementById('make-url').value.trim();
-  if(!url){alert('\u00d8\u00a3\u00d8\u00af\u00d8\u00ae\u00d9\u0084 Webhook URL!');return;}
-  await api('/api/settings/bulk','POST',{make_webhook:url});
-  document.getElementById('make-status').innerHTML='<span class="dot dg"></span> \u00e2\u009c\u0085 \u00d8\u00aa\u00d9\u0085 \u00d8\u00a7\u00d9\u0084\u00d8\u00ad\u00d9\u0081\u00d8\u00b8';
-  document.getElementById('make-badge').style.display='inline-block';
-  document.getElementById('card-make').classList.add('connected');
-  alert('\u00e2\u009c\u0085 \u00d8\u00aa\u00d9\u0085 \u00d8\u00ad\u00d9\u0081\u00d8\u00b8 Make.com Webhook!');
+var API='';
+var curAI='claude';
+var updateAI='claude';
+function nav(p,el){
+  document.querySelectorAll('.bnav-item').forEach(function(i){i.classList.remove('active');});
+  if(el)el.classList.add('active');
+  document.querySelectorAll('.page').forEach(function(x){x.classList.remove('active');});
+  document.getElementById('page-'+p).classList.add('active');
+  if(p==='dash')loadDash();
+  else if(p==='sources')loadSources();
+  else if(p==='posts')loadPosts();
+  else if(p==='settings')loadSettings();
 }
-let updateAI='claude';
-function setUpdateAI(ai){
-  updateAI=ai;
-  document.getElementById('upd-cl-btn').className='btn btn-sm '+(ai==='claude'?'bp':'bo');
-  document.getElementById('upd-oa-btn').className='btn btn-sm '+(ai==='openai'?'bp':'bo');
+async function apiFetch(url,method,body){
+  method=method||'GET';
+  var opts={method:method,headers:{'Content-Type':'application/json'}};
+  if(body)opts.body=JSON.stringify(body);
+  var r=await fetch(API+url,opts);
+  return r.json();
 }
-
-async function requestUpdate(){
-  const request=document.getElementById('update-request').value.trim();
-  if(!request){alert('\u00d8\u00a7\u00d9\u0083\u00d8\u00aa\u00d8\u00a8 \u00d8\u00b7\u00d9\u0084\u00d8\u00a8 \u00d8\u00a7\u00d9\u0084\u00d8\u00aa\u00d8\u00b9\u00d8\u00af\u00d9\u008a\u00d9\u0084!');return;}
-  const ghToken=localStorage.getItem('gh_token');
-  const ghRepo=localStorage.getItem('gh_repo');
-  if(!ghToken||!ghRepo){alert('\u00d8\u00a3\u00d8\u00b9\u00d8\u00af\u00d9\u0091 GitHub Token \u00d8\u00a3\u00d9\u0088\u00d9\u0084\u00d8\u00a7\u00d9\u008b!');nav('settings',null);return;}
-  const btn=document.getElementById('update-btn');
-  const status=document.getElementById('update-status');
-  btn.innerHTML='<div class="sp"></div> \u00d8\u00ac\u00d8\u00a7\u00d8\u00b1\u00d9\u008d \u00d8\u00a7\u00d9\u0084\u00d8\u00aa\u00d8\u00b9\u00d8\u00af\u00d9\u008a\u00d9\u0084...';btn.disabled=true;
-  status.style.display='block';
-  status.style.background='rgba(108,99,255,.1)';status.style.color='#a89cff';
-  status.innerHTML='\u00f0\u009f\u00a4\u0096 '+updateAI+' \u00d9\u008a\u00d8\u00ad\u00d9\u0084\u00d9\u0084 \u00d8\u00a7\u00d9\u0084\u00d8\u00b7\u00d9\u0084\u00d8\u00a8 \u00d9\u0088\u00d9\u008a\u00d8\u00b9\u00d8\u00af\u00d9\u0091\u00d9\u0084 \u00d8\u00a7\u00d9\u0084\u00d9\u0083\u00d9\u0088\u00d8\u00af...<br><small>\u00d9\u0082\u00d8\u00af \u00d9\u008a\u00d8\u00b3\u00d8\u00aa\u00d8\u00ba\u00d8\u00b1\u00d9\u0082 30-60 \u00d8\u00ab\u00d8\u00a7\u00d9\u0086\u00d9\u008a\u00d8\u00a9</small>';
+async function loadDash(){
+  try{var s=await apiFetch('/api/stats');document.getElementById('s-src').textContent=s.totalSources||0;document.getElementById('s-posts').textContent=s.totalPosts||0;document.getElementById('s-today').textContent=s.publishedToday||0;document.getElementById('s-err').textContent=s.errors||0;}catch(e){}
   try{
-    const r=await api('/api/auto-update','POST',{request,ai_provider:updateAI});
-    if(r.success){
-      status.style.background='rgba(0,212,160,.1)';status.style.color='var(--gn)';
-      const verText=r.version?` \u00e2\u0080\u0094 \u00d8\u00a7\u00d9\u0084\u00d8\u00a5\u00d8\u00b5\u00d8\u00af\u00d8\u00a7\u00d8\u00b1: v${r.version}`:'';
-      status.innerHTML='\u00e2\u009c\u0085 '+r.message+verText+'<br><small>\u00f0\u009f\u0094\u0084 \u00d8\u00a7\u00d9\u0086\u00d8\u00aa\u00d8\u00b8\u00d8\u00b1 \u00d8\u00af\u00d9\u0082\u00d9\u008a\u00d9\u0082\u00d8\u00a9 \u00d8\u00ab\u00d9\u0085 \u00d8\u00a3\u00d8\u00b9\u00d8\u00af \u00d8\u00aa\u00d8\u00ad\u00d9\u0085\u00d9\u008a\u00d9\u0084 \u00d8\u00a7\u00d9\u0084\u00d8\u00b5\u00d9\u0081\u00d8\u00ad\u00d8\u00a9</small>';
-      document.getElementById('update-request').value='';
-      document.getElementById('app-version').textContent='v'+(r.version||'');
-      loadCommits();
-    }else{
-      status.style.background='rgba(255,107,107,.1)';status.style.color='var(--rd)';
-      status.innerHTML='\u00e2\u009d\u008c '+r.error+'<br><small>\u00d9\u008a\u00d9\u0085\u00d9\u0083\u00d9\u0086\u00d9\u0083 \u00d8\u00a7\u00d9\u0084\u00d8\u00b1\u00d8\u00ac\u00d9\u0088\u00d8\u00b9 \u00d9\u0084\u00d8\u00a5\u00d8\u00b5\u00d8\u00af\u00d8\u00a7\u00d8\u00b1 \u00d8\u00b3\u00d8\u00a7\u00d8\u00a8\u00d9\u0082 \u00d8\u00a3\u00d8\u00af\u00d9\u0086\u00d8\u00a7\u00d9\u0087</small>';
-    }
-  }catch(e){
-    status.style.background='rgba(255,107,107,.1)';status.style.color='var(--rd)';
-    status.innerHTML='\u00e2\u009d\u008c '+e.message;
-  }
-  btn.innerHTML='\u00f0\u009f\u009a\u0080 \u00d8\u00aa\u00d8\u00b7\u00d8\u00a8\u00d9\u008a\u00d9\u0082 \u00d8\u00a7\u00d9\u0084\u00d8\u00aa\u00d8\u00b9\u00d8\u00af\u00d9\u008a\u00d9\u0084 \u00d8\u00a7\u00d9\u0084\u00d8\u00a2\u00d9\u0086';btn.disabled=false;
-}
-
-async function loadCommits(){
-  const list=document.getElementById('commits-list');
-  list.innerHTML='<div style="text-align:center;padding:10px;font-size:11px;color:var(--t2)"><div class="sp" style="border-top-color:var(--am)"></div> \u00d8\u00ac\u00d8\u00a7\u00d8\u00b1\u00d9\u008d \u00d8\u00a7\u00d9\u0084\u00d8\u00aa\u00d8\u00ad\u00d9\u0085\u00d9\u008a\u00d9\u0084...</div>';
+    var posts=await apiFetch('/api/posts');
+    var dp=document.getElementById('dash-posts');
+    if(!posts||!posts.length){dp.innerHTML='<div style="color:var(--t3);text-align:center;padding:16px;font-size:12px">No posts yet</div>';}
+    else{dp.innerHTML=posts.slice(0,5).map(function(p){var st=p.status==='published'?'tag-s':p.status==='ready'?'tag-p':'tag-e';return '<div class="post-item"><div style="font-size:12px;font-weight:600;margin-bottom:3px">'+(p.original_title||'-')+'</div><div style="font-size:10px;color:var(--t2)">'+(p.source_name||'')+' <span class="tag '+st+'">'+p.status+'</span></div></div>';}).join('');}
+  }catch(e){}
   try{
-    const r=await api('/api/github/commits');
-    if(r.success&&r.commits.length>0){
-      list.innerHTML=r.commits.map((c,i)=>`
-        <div style="display:flex;align-items:center;gap:8px;padding:8px;background:var(--bg3);border-radius:var(--rs);margin-bottom:6px">
-          <div style="flex:1;min-width:0">
-            <div style="font-size:11px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.message}</div>
-            <div style="font-size:10px;color:var(--t2)">${new Date(c.date).toLocaleString('ar')} \u00e2\u0080\u00a2 <code style="font-size:9px">${c.sha.substring(0,7)}</code></div>
-          </div>
-          ${i===0?'<span class="tag tag-s" style="flex-shrink:0">\u00d8\u00a7\u00d9\u0084\u00d8\u00ad\u00d8\u00a7\u00d9\u0084\u00d9\u008a</span>':`<button class="btn bo btn-sm" onclick="rollback('${c.sha}','${c.message.replace(/'/g,'')}')">\u00e2\u0086\u00a9\u00ef\u00b8\u008f \u00d8\u00b1\u00d8\u00ac\u00d9\u0088\u00d8\u00b9</button>`}
-        </div>`).join('');
-    }else{
-      list.innerHTML='<div style="text-align:center;padding:14px;color:var(--t3);font-size:11px">'+( r.error||'\u00d9\u0084\u00d8\u00a7 \u00d8\u00aa\u00d9\u0088\u00d8\u00ac\u00d8\u00af \u00d8\u00a5\u00d8\u00b5\u00d8\u00af\u00d8\u00a7\u00d8\u00b1\u00d8\u00a7\u00d8\u00aa')+'</div>';
-    }
-  }catch(e){list.innerHTML='<div style="text-align:center;padding:14px;color:var(--rd);font-size:11px">\u00e2\u009d\u008c \u00d8\u00a3\u00d8\u00b9\u00d8\u00af\u00d9\u0091 GitHub \u00d8\u00a3\u00d9\u0088\u00d9\u0084\u00d8\u00a7\u00d9\u008b</div>';}
-}
-
-async function rollback(sha,msg){
-  if(!confirm('\u00d8\u00b1\u00d8\u00ac\u00d9\u0088\u00d8\u00b9 \u00d9\u0084\u00d9\u0084\u00d8\u00a5\u00d8\u00b5\u00d8\u00af\u00d8\u00a7\u00d8\u00b1: "'+msg+'"\u00d8\u009f
-\u00d8\u00b3\u00d9\u008a\u00d8\u00aa\u00d9\u0085 \u00d8\u00a7\u00d8\u00b3\u00d8\u00aa\u00d8\u00a8\u00d8\u00af\u00d8\u00a7\u00d9\u0084 \u00d8\u00a7\u00d9\u0084\u00d9\u0086\u00d8\u00b3\u00d8\u00ae\u00d8\u00a9 \u00d8\u00a7\u00d9\u0084\u00d8\u00ad\u00d8\u00a7\u00d9\u0084\u00d9\u008a\u00d8\u00a9.'))return;
-  const status=document.getElementById('rollback-status');
-  status.style.display='block';
-  status.style.background='rgba(255,179,71,.1)';status.style.color='var(--am)';
-  status.textContent='\u00e2\u008f\u00b3 \u00d8\u00ac\u00d8\u00a7\u00d8\u00b1\u00d9\u008d \u00d8\u00a7\u00d9\u0084\u00d8\u00b1\u00d8\u00ac\u00d9\u0088\u00d8\u00b9 \u00d9\u0084\u00d9\u0084\u00d8\u00a5\u00d8\u00b5\u00d8\u00af\u00d8\u00a7\u00d8\u00b1...';
-  try{
-    const r=await api('/api/github/rollback','POST',{sha});
-    if(r.success){
-      status.style.background='rgba(0,212,160,.1)';status.style.color='var(--gn)';
-      status.textContent='\u00e2\u009c\u0085 '+r.message;
-      loadCommits();
-    }else{
-      status.style.background='rgba(255,107,107,.1)';status.style.color='var(--rd)';
-      status.textContent='\u00e2\u009d\u008c '+r.error;
-    }
-  }catch(e){
-    status.style.background='rgba(255,107,107,.1)';status.style.color='var(--rd)';
-    status.textContent='\u00e2\u009d\u008c '+e.message;
-  }
-}
-
-async function testGitHub(){
-  const token=document.getElementById('github-token').value.trim();
-  const repo=document.getElementById('github-repo').value.trim();
-  if(!token||!repo){alert('\u00d8\u00a3\u00d8\u00af\u00d8\u00ae\u00d9\u0084 \u00d8\u00a7\u00d9\u0084\u00d8\u00aa\u00d9\u0088\u00d9\u0083\u00d9\u0086 \u00d9\u0088\u00d8\u00a7\u00d8\u00b3\u00d9\u0085 \u00d8\u00a7\u00d9\u0084\u00d9\u0085\u00d8\u00b3\u00d8\u00aa\u00d9\u0088\u00d8\u00af\u00d8\u00b9!');return;}
-  const btn=document.getElementById('github-btn');
-  btn.innerHTML='<div class="sp"></div>';btn.disabled=true;
-  try{
-    const r=await api('/api/test/github','POST',{token,repo});
-    if(r.success){
-      document.getElementById('github-status').innerHTML='<span class="dot dg"></span> \u00e2\u009c\u0085 \u00d9\u0085\u00d8\u00aa\u00d8\u00b5\u00d9\u0084 \u00e2\u0080\u0094 '+r.name;
-      document.getElementById('github-badge').style.display='inline-block';
-      document.getElementById('card-github').classList.add('connected');
-      localStorage.setItem('gh_token',token);
-      localStorage.setItem('gh_repo',repo);
-    }else{
-      document.getElementById('github-status').innerHTML='<span class="dot dr"></span> \u00e2\u009d\u008c '+r.error;
-    }
-  }catch(e){document.getElementById('github-status').innerHTML='<span class="dot da"></span> \u00e2\u009a\u00a0\u00ef\u00b8\u008f '+e.message;}
-  btn.innerHTML='\u00f0\u009f\u00a7\u00aa \u00d8\u00a7\u00d8\u00ae\u00d8\u00aa\u00d8\u00a8\u00d8\u00a7\u00d8\u00b1';btn.disabled=false;
-}
-
-// ===== Version & Notifications =====
-async function checkVersion(){
-  try{
-    const r=await api('/api/version');
-    document.getElementById('app-version').textContent='v'+r.version;
-    if(r.updateSeen==='0'&&r.updateNotes){
-      // \u00d8\u00a5\u00d8\u00b8\u00d9\u0087\u00d8\u00a7\u00d8\u00b1 \u00d8\u00b2\u00d8\u00b1 \u00d8\u00a7\u00d9\u0084\u00d8\u00a5\u00d8\u00b4\u00d8\u00b9\u00d8\u00a7\u00d8\u00b1
-      const notifBtn=document.getElementById('notif-btn');
-      const notifDot=document.getElementById('notif-dot');
-      notifBtn.style.display='block';
-      notifDot.style.display='block';
-      notifDot.classList.add('notif-pulse');
-      // \u00d8\u00ad\u00d9\u0081\u00d8\u00b8 \u00d8\u00a8\u00d9\u008a\u00d8\u00a7\u00d9\u0086\u00d8\u00a7\u00d8\u00aa \u00d8\u00a7\u00d9\u0084\u00d8\u00aa\u00d8\u00ad\u00d8\u00af\u00d9\u008a\u00d8\u00ab
-      window.lastUpdateNotes=r.updateNotes;
-      window.lastUpdateDate=r.lastUpdate;
-      window.lastVersion=r.version;
-    }
+    var logs=await apiFetch('/api/logs');
+    var dl=document.getElementById('dash-logs');
+    if(!logs||!logs.length){dl.innerHTML='<div style="color:var(--t3);text-align:center;padding:16px;font-size:12px">No activity</div>';}
+    else{dl.innerHTML=logs.slice(0,6).map(function(l){return '<div class="log-item"><div style="flex:1;min-width:0"><div style="font-size:11px">'+l.platform+'</div><div style="font-size:10px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(l.original_title||l.message||'')+'</div></div><span class="tag '+(l.status==='success'?'tag-s':'tag-e')+'">'+(l.status==='success'?'OK':'ERR')+'</span></div>';}).join('');}
   }catch(e){}
 }
-
-function showNotif(){
-  const modal=document.getElementById('notif-modal');
-  modal.style.display='flex';
-  document.getElementById('notif-version').textContent='\u00f0\u009f\u0086\u0095 \u00d8\u00a7\u00d9\u0084\u00d8\u00a5\u00d8\u00b5\u00d8\u00af\u00d8\u00a7\u00d8\u00b1 v'+(window.lastVersion||'')+'  \u00e2\u0080\u00a2  '+(window.lastUpdateDate?new Date(window.lastUpdateDate).toLocaleString('ar'):'');
-  document.getElementById('notif-content').textContent=window.lastUpdateNotes||'';
+async function loadSources(){
+  try{
+    var srcs=await apiFetch('/api/sources');
+    document.getElementById('src-count').textContent=srcs.length?'('+srcs.length+')':'';
+    var list=document.getElementById('sources-list');
+    if(!srcs.length){list.innerHTML='<div style="color:var(--t3);text-align:center;padding:16px;font-size:12px">No sources</div>';return;}
+    list.innerHTML=srcs.map(function(s){return '<div class="src-item"><div class="src-info"><div style="font-size:12px;font-weight:600">'+s.name+'</div><div style="font-size:10px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+s.url+'</div></div><div class="toggle '+(s.active?'on':'')+' " onclick="toggleSrc('+s.id+',this)"></div><button class="btn br btn-sm" onclick="deleteSrc('+s.id+')" style="width:32px;padding:5px;margin-top:0">X</button></div>';}).join('');
+  }catch(e){}
 }
-
-async function closeNotif(){
-  document.getElementById('notif-modal').style.display='none';
-  document.getElementById('notif-dot').style.display='none';
-  await api('/api/version/seen','POST');
+async function addSource(){
+  var name=document.getElementById('src-name').value.trim();
+  var url=document.getElementById('src-url').value.trim();
+  var type=document.getElementById('src-type').value;
+  if(!name||!url){alert('Enter name and URL');return;}
+  var r=await apiFetch('/api/sources','POST',{name:name,url:url,type:type});
+  if(r.success){document.getElementById('src-name').value='';document.getElementById('src-url').value='';loadSources();}else alert('Error: '+r.error);
 }
-
-async function loadDash(){const s=await api('/api/stats');document.getElementById('s-src').textContent=s.totalSources;document.getElementById('s-posts').textContent=s.totalPosts;document.getElementById('s-today').textContent=s.publishedToday;document.getElementById('s-err').textContent=s.errors;const posts=await api('/api/posts');const dp=document.getElementById('dash-posts');if(!posts.length){dp.innerHTML='<div style="color:var(--t3);text-align:center;padding:16px;font-size:12px">\u00d9\u0084\u00d8\u00a7 \u00d8\u00aa\u00d9\u0088\u00d8\u00ac\u00d8\u00af \u00d9\u0085\u00d9\u0086\u00d8\u00b4\u00d9\u0088\u00d8\u00b1\u00d8\u00a7\u00d8\u00aa \u00e2\u0080\u0094 \u00d8\u00a7\u00d8\u00b6\u00d8\u00ba\u00d8\u00b7 \u00d8\u00aa\u00d8\u00b4\u00d8\u00ba\u00d9\u008a\u00d9\u0084 \u00d8\u00a7\u00d9\u0084\u00d8\u00a2\u00d9\u0086</div>';}else{dp.innerHTML=posts.slice(0,5).map(p=>`<div class="post-item"><div style="font-size:12px;font-weight:600;margin-bottom:3px">${p.original_title||'\u00e2\u0080\u0094'}</div><div style="font-size:10px;color:var(--t2)">${p.source_name||''} \u00e2\u0080\u00a2 ${p.created_at?.substring(0,10)||''} <span class="tag ${p.status==='published'?'tag-s':p.status==='ready'?'tag-p':'tag-e'}">${p.status==='published'?'\u00e2\u009c\u0085 \u00d9\u0086\u00d9\u008f\u00d8\u00b4\u00d8\u00b1':p.status==='ready'?'\u00d8\u00ac\u00d8\u00a7\u00d9\u0087\u00d8\u00b2':'\u00d8\u00ae\u00d8\u00b7\u00d8\u00a3'}</span></div></div>`).join('');}const logs=await api('/api/logs');const dl=document.getElementById('dash-logs');const icons={twitter:'\u00f0\u009d\u0095\u008f',facebook:'\u00f0\u009f\u0093\u0098',instagram:'\u00f0\u009f\u0093\u00b8',telegram:'\u00e2\u009c\u0088\u00ef\u00b8\u008f',blogger:'\u00f0\u009f\u0093\u009d'};if(!logs.length){dl.innerHTML='<div style="color:var(--t3);text-align:center;padding:16px;font-size:12px">\u00d9\u0084\u00d8\u00a7 \u00d8\u00aa\u00d9\u0088\u00d8\u00ac\u00d8\u00af \u00d9\u0086\u00d8\u00b4\u00d8\u00a7\u00d8\u00b7\u00d8\u00a7\u00d8\u00aa</div>';}else{dl.innerHTML=logs.slice(0,6).map(l=>`<div class="log-item"><div style="flex:1;min-width:0"><div style="font-size:11px">${icons[l.platform]||'\u00f0\u009f\u0093\u008c'} ${l.platform} <span style="color:var(--t2);font-size:10px">${l.published_at?.substring(0,16)||''}</span></div><div style="font-size:10px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.original_title||l.message||''}</div></div><span class="tag ${l.status==='success'?'tag-s':'tag-e'}">${l.status==='success'?'\u00e2\u009c\u0085':'\u00e2\u009d\u008c'}</span></div>`).join('');}}
-async function loadSources(){const srcs=await api('/api/sources');document.getElementById('src-count').textContent=srcs.length?`(${srcs.length})`:'';const list=document.getElementById('sources-list');if(!srcs.length){list.innerHTML='<div style="color:var(--t3);text-align:center;padding:16px;font-size:12px">\u00d9\u0084\u00d8\u00a7 \u00d8\u00aa\u00d9\u0088\u00d8\u00ac\u00d8\u00af \u00d9\u0085\u00d8\u00b5\u00d8\u00a7\u00d8\u00af\u00d8\u00b1</div>';return;}const icons={rss:'\u00f0\u009f\u008c\u0090',youtube:'\u00e2\u0096\u00b6\u00ef\u00b8\u008f',telegram:'\u00e2\u009c\u0088\u00ef\u00b8\u008f'};list.innerHTML=srcs.map(s=>`<div class="src-item"><div class="src-info"><div style="font-size:12px;font-weight:600">${icons[s.type]||'\u00f0\u009f\u008c\u0090'} ${s.name}</div><div style="font-size:10px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.url}</div>${s.last_check?`<div style="font-size:10px;color:var(--gn)">\u00e2\u009c\u0085 ${s.last_check.substring(0,16)}</div>`:''}</div><div class="toggle ${s.active?'on':''}" onclick="toggleSrc(${s.id},this)"></div><button class="btn br btn-sm" onclick="deleteSrc(${s.id})" style="width:32px;padding:5px;margin-top:0">\u00f0\u009f\u0097\u0091</button></div>`).join('');}
-async function addSource(){const name=document.getElementById('src-name').value.trim();const url=document.getElementById('src-url').value.trim();const type=document.getElementById('src-type').value;if(!name||!url){alert('\u00d8\u00a3\u00d8\u00af\u00d8\u00ae\u00d9\u0084 \u00d8\u00a7\u00d9\u0084\u00d8\u00a7\u00d8\u00b3\u00d9\u0085 \u00d9\u0088\u00d8\u00a7\u00d9\u0084\u00d8\u00b1\u00d8\u00a7\u00d8\u00a8\u00d8\u00b7!');return;}const r=await api('/api/sources','POST',{name,url,type});if(r.success){document.getElementById('src-name').value='';document.getElementById('src-url').value='';loadSources();alert('\u00e2\u009c\u0085 \u00d8\u00aa\u00d9\u0085\u00d8\u00aa \u00d8\u00a7\u00d9\u0084\u00d8\u00a5\u00d8\u00b6\u00d8\u00a7\u00d9\u0081\u00d8\u00a9!');}else alert('\u00e2\u009d\u008c '+r.error);}
-async function deleteSrc(id){if(!confirm('\u00d8\u00ad\u00d8\u00b0\u00d9\u0081\u00d8\u009f'))return;await api('/api/sources/'+id,'DELETE');loadSources();}
-async function toggleSrc(id,el){el.classList.toggle('on');await api('/api/sources/'+id+'/toggle','PATCH');}
-async function analyzeYT(){const url=document.getElementById('yt-url').value.trim();if(!url){alert('\u00d8\u00a3\u00d8\u00af\u00d8\u00ae\u00d9\u0084 \u00d8\u00b1\u00d8\u00a7\u00d8\u00a8\u00d8\u00b7 \u00d8\u00a7\u00d9\u0084\u00d9\u0081\u00d9\u008a\u00d8\u00af\u00d9\u008a\u00d9\u0088!');return;}const btn=document.getElementById('yt-btn');btn.innerHTML='<div class="sp"></div> \u00d8\u00ac\u00d8\u00a7\u00d8\u00b1\u00d9\u008d \u00d8\u00a7\u00d9\u0084\u00d8\u00aa\u00d8\u00ad\u00d9\u0084\u00d9\u008a\u00d9\u0084...';btn.disabled=true;try{const r=await api('/api/youtube/analyze','POST',{url});if(r.success){const area=document.getElementById('yt-result');area.style.display='block';area.innerHTML=`<div class="yt-preview"><img src="${r.thumbnail}" class="yt-thumb"><div><div style="font-size:12px;font-weight:600;line-height:1.4">${r.title}</div><div style="font-size:10px;color:var(--t2);margin-top:3px">\u00f0\u009f\u0093\u00ba ${r.channelName}</div></div></div>${r.summary?`<div style="background:var(--bg3);border-radius:var(--rs);padding:10px;font-size:11px;line-height:1.8;margin-bottom:8px;color:var(--t2)">${r.summary.substring(0,300)}...</div>`:''}<div style="display:flex;gap:6px;flex-wrap:wrap">${r.telegram?`<button class="btn btg btn-sm" onclick="sendToTG('${encodeURIComponent(r.telegram)}')">\u00e2\u009c\u0088\u00ef\u00b8\u008f \u00d8\u00aa\u00d9\u008a\u00d9\u0084\u00d9\u008a\u00d8\u00ba\u00d8\u00b1\u00d8\u00a7\u00d9\u0085</button>`:''} ${r.facebook?`<button class="btn btn-sm bfb" style="width:auto;margin-top:0" onclick="navigator.clipboard.writeText(decodeURIComponent('${encodeURIComponent(r.facebook)}')).then(()=>alert('\u00d8\u00aa\u00d9\u0085 \u00d9\u0086\u00d8\u00b3\u00d8\u00ae \u00d9\u0085\u00d9\u0086\u00d8\u00b4\u00d9\u0088\u00d8\u00b1 \u00d9\u0081\u00d9\u008a\u00d8\u00b3\u00d8\u00a8\u00d9\u0088\u00d9\u0083!'))">\u00f0\u009f\u0093\u0098 \u00d9\u0086\u00d8\u00b3\u00d8\u00ae \u00d9\u0081\u00d9\u008a\u00d8\u00b3\u00d8\u00a8\u00d9\u0088\u00d9\u0083</button>`:''} ${r.twitter?`<button class="btn btn-sm bo" style="width:auto;margin-top:0" onclick="navigator.clipboard.writeText(decodeURIComponent('${encodeURIComponent(r.twitter)}')).then(()=>alert('\u00d8\u00aa\u00d9\u0085 \u00d9\u0086\u00d8\u00b3\u00d8\u00ae \u00d8\u00aa\u00d9\u0088\u00d9\u008a\u00d8\u00aa\u00d8\u00b1!'))">\u00f0\u009d\u0095\u008f \u00d9\u0086\u00d8\u00b3\u00d8\u00ae</button>`:''}</div>`;}else{alert('\u00e2\u009d\u008c '+r.error);}}catch(e){alert('\u00e2\u009d\u008c '+e.message);}btn.innerHTML='\u00e2\u0096\u00b6\u00ef\u00b8\u008f \u00d8\u00aa\u00d8\u00ad\u00d9\u0084\u00d9\u008a\u00d9\u0084 \u00d9\u0088\u00d8\u00a5\u00d8\u00b9\u00d8\u00a7\u00d8\u00af\u00d8\u00a9 \u00d8\u00b5\u00d9\u008a\u00d8\u00a7\u00d8\u00ba\u00d8\u00a9';btn.disabled=false;}
-async function sendToTG(encoded){const content=decodeURIComponent(encoded);const token=localStorage.getItem('tg_t');const chat=localStorage.getItem('tg_c');if(!token||!chat){alert('\u00d8\u00a3\u00d8\u00b9\u00d8\u00af\u00d9\u0091 \u00d8\u00aa\u00d9\u008a\u00d9\u0084\u00d9\u008a\u00d8\u00ba\u00d8\u00b1\u00d8\u00a7\u00d9\u0085 \u00d8\u00a3\u00d9\u0088\u00d9\u0084\u00d8\u00a7\u00d9\u008b \u00d9\u0085\u00d9\u0086 \u00d8\u00aa\u00d8\u00a8\u00d9\u0088\u00d9\u008a\u00d8\u00a8 \u00d8\u00a7\u00d9\u0084\u00d8\u00b1\u00d8\u00a8\u00d8\u00b7!');return;}try{const r=await fetch(`https://api.telegram.org/bot${token}/sendMessage`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:chat,text:content})});const d=await r.json();if(d.ok)alert('\u00e2\u009c\u0085 \u00d8\u00aa\u00d9\u0085 \u00d8\u00a7\u00d9\u0084\u00d8\u00a5\u00d8\u00b1\u00d8\u00b3\u00d8\u00a7\u00d9\u0084 \u00d8\u00b9\u00d9\u0084\u00d9\u0089 \u00d8\u00aa\u00d9\u008a\u00d9\u0084\u00d9\u008a\u00d8\u00ba\u00d8\u00b1\u00d8\u00a7\u00d9\u0085!');else alert('\u00e2\u009d\u008c '+d.description);}catch(e){alert('\u00e2\u009d\u008c '+e.message);}}
-async function readTGChannel(){const ch=document.getElementById('tg-ch-read').value.trim().replace('@','');if(!ch){alert('\u00d8\u00a3\u00d8\u00af\u00d8\u00ae\u00d9\u0084 \u00d8\u00a7\u00d8\u00b3\u00d9\u0085 \u00d8\u00a7\u00d9\u0084\u00d9\u0082\u00d9\u0086\u00d8\u00a7\u00d8\u00a9!');return;}const btn=document.getElementById('tg-read-btn');btn.innerHTML='<div class="sp"></div>';btn.disabled=true;try{const r=await api('/api/telegram/channel/fetch','POST',{channel:ch});const area=document.getElementById('tg-read-result');area.style.display='block';if(r.success&&r.posts.length>0){window.tgPosts=r.posts;area.innerHTML=`<div style="font-size:11px;color:var(--gn);margin-bottom:7px">\u00e2\u009c\u0085 ${r.posts.length} \u00d9\u0085\u00d9\u0086\u00d8\u00b4\u00d9\u0088\u00d8\u00b1 \u00d9\u0085\u00d9\u0086 @${ch}</div>`+r.posts.map((p,i)=>`<div class="tg-msg"><div style="font-size:11px;line-height:1.7;margin-bottom:5px">${p.text.substring(0,200)}${p.text.length>200?'...':''}</div><div style="display:flex;gap:4px"><button class="btn bp btn-sm" onclick="addTGSource('${ch}')">\u00e2\u009e\u0095 \u00d8\u00a5\u00d8\u00b6\u00d8\u00a7\u00d9\u0081\u00d8\u00a9 @${ch} \u00d9\u0083\u00d9\u0085\u00d8\u00b5\u00d8\u00af\u00d8\u00b1</button><button class="btn bo btn-sm" onclick="navigator.clipboard.writeText(window.tgPosts[${i}].text).then(()=>alert('\u00d8\u00aa\u00d9\u0085!'))">\u00f0\u009f\u0093\u008b \u00d9\u0086\u00d8\u00b3\u00d8\u00ae</button></div></div>`).join('');}else{area.innerHTML=`<div class="al al-w">\u00e2\u009a\u00a0\u00ef\u00b8\u008f ${r.message||'\u00d9\u0084\u00d9\u0085 \u00d9\u008a\u00d8\u00aa\u00d9\u0085 \u00d8\u00a7\u00d9\u0084\u00d8\u00b9\u00d8\u00ab\u00d9\u0088\u00d8\u00b1 \u00d8\u00b9\u00d9\u0084\u00d9\u0089 \u00d9\u0085\u00d9\u0086\u00d8\u00b4\u00d9\u0088\u00d8\u00b1\u00d8\u00a7\u00d8\u00aa'}<br>\u00d8\u00aa\u00d8\u00a3\u00d9\u0083\u00d8\u00af \u00d8\u00a3\u00d9\u0086 \u00d8\u00a7\u00d9\u0084\u00d9\u0082\u00d9\u0086\u00d8\u00a7\u00d8\u00a9 <strong>\u00d8\u00b9\u00d8\u00a7\u00d9\u0085\u00d8\u00a9</strong> \u00d9\u0088\u00d9\u0085\u00d9\u0081\u00d8\u00aa\u00d9\u0088\u00d8\u00ad\u00d8\u00a9</div>`;}}catch(e){alert('\u00e2\u009d\u008c '+e.message);}btn.innerHTML='\u00f0\u009f\u0093\u0096 \u00d9\u0082\u00d8\u00b1\u00d8\u00a7\u00d8\u00a1\u00d8\u00a9';btn.disabled=false;}
-async function addTGSource(ch){const r=await api('/api/sources','POST',{name:'@'+ch,url:`https://t.me/s/${ch}`,type:'telegram'});if(r.success){alert('\u00e2\u009c\u0085 \u00d8\u00aa\u00d9\u0085\u00d8\u00aa \u00d8\u00a5\u00d8\u00b6\u00d8\u00a7\u00d9\u0081\u00d8\u00a9 @'+ch+' \u00d9\u0083\u00d9\u0085\u00d8\u00b5\u00d8\u00af\u00d8\u00b1!');loadSources();}else alert('\u00d8\u00a7\u00d9\u0084\u00d9\u0085\u00d8\u00b5\u00d8\u00af\u00d8\u00b1 \u00d9\u0085\u00d8\u00b6\u00d8\u00a7\u00d9\u0081 \u00d9\u0085\u00d8\u00b3\u00d8\u00a8\u00d9\u0082\u00d8\u00a7\u00d9\u008b');}
-async function testTG(){const token=document.getElementById('tg-token').value.trim();const chat=document.getElementById('tg-chat').value.trim();if(!token){alert('\u00d8\u00a3\u00d8\u00af\u00d8\u00ae\u00d9\u0084 Bot Token!');return;}const btn=document.getElementById('tg-test-btn');btn.innerHTML='<div class="sp"></div>';btn.disabled=true;try{const r=await api('/api/test/telegram','POST',{token,chat});if(r.success){document.getElementById('tg-status').innerHTML=`<span class="dot dg"></span> \u00e2\u009c\u0085 \u00d8\u00a7\u00d9\u0084\u00d8\u00a8\u00d9\u0088\u00d8\u00aa: @${r.username}`;document.getElementById('tg-badge').style.display='inline-block';document.getElementById('card-tg').classList.add('connected');localStorage.setItem('tg_t',token);localStorage.setItem('tg_c',chat);}else{document.getElementById('tg-status').innerHTML=`<span class="dot dr"></span> \u00e2\u009d\u008c ${r.error}`;}}catch(e){document.getElementById('tg-status').innerHTML=`<span class="dot da"></span> \u00e2\u009a\u00a0\u00ef\u00b8\u008f \u00d8\u00aa\u00d8\u00b9\u00d8\u00b0\u00d8\u00b1`;}btn.innerHTML='\u00f0\u009f\u00a7\u00aa \u00d8\u00a7\u00d8\u00ae\u00d8\u00aa\u00d8\u00a8\u00d8\u00a7\u00d8\u00b1 \u00d9\u0088\u00d8\u00ad\u00d9\u0081\u00d8\u00b8';btn.disabled=false;}
-async function testFB(){const token=document.getElementById('fb-token').value.trim();const pageId=document.getElementById('fb-page-id').value.trim();if(!token||!pageId){alert('\u00d8\u00a3\u00d8\u00af\u00d8\u00ae\u00d9\u0084 Token \u00d9\u0088 Page ID!');return;}const btn=document.getElementById('fb-test-btn');btn.innerHTML='<div class="sp"></div>';btn.disabled=true;try{const r=await api('/api/test/facebook','POST',{pageToken:token,pageId});if(r.success){document.getElementById('fb-status').innerHTML=`<span class="dot dg"></span> \u00e2\u009c\u0085 ${r.name}`;document.getElementById('fb-badge').style.display='inline-block';document.getElementById('card-fb').classList.add('connected');}else{document.getElementById('fb-status').innerHTML=`<span class="dot dr"></span> \u00e2\u009d\u008c ${r.error}`;}}catch(e){document.getElementById('fb-status').innerHTML=`<span class="dot da"></span> \u00e2\u009a\u00a0\u00ef\u00b8\u008f ${e.message}`;}btn.innerHTML='\u00f0\u009f\u00a7\u00aa \u00d8\u00a7\u00d8\u00ae\u00d8\u00aa\u00d8\u00a8\u00d8\u00a7\u00d8\u00b1';btn.disabled=false;}
-async function saveBuf(){const token=document.getElementById('buf-token').value.trim();if(!token){alert('\u00d8\u00a3\u00d8\u00af\u00d8\u00ae\u00d9\u0084 Token!');return;}await api('/api/settings/bulk','POST',{buffer_token:token});document.getElementById('buf-status').innerHTML='<span class="dot dg"></span> \u00e2\u009c\u0085 \u00d8\u00aa\u00d9\u0085 \u00d8\u00a7\u00d9\u0084\u00d8\u00ad\u00d9\u0081\u00d8\u00b8';document.getElementById('buf-badge').style.display='inline-block';document.getElementById('card-buf').classList.add('connected');alert('\u00e2\u009c\u0085 \u00d8\u00aa\u00d9\u0085 \u00d8\u00ad\u00d9\u0081\u00d8\u00b8 Buffer Token!');}
+async function deleteSrc(id){if(!confirm('Delete?'))return;await apiFetch('/api/sources/'+id,'DELETE');loadSources();}
+async function toggleSrc(id,el){el.classList.toggle('on');await apiFetch('/api/sources/'+id+'/toggle','PATCH');}
+async function analyzeYT(){
+  var url=document.getElementById('yt-url').value.trim();
+  if(!url){alert('Enter video URL');return;}
+  var btn=document.getElementById('yt-btn');btn.innerHTML='<div class="sp"></div>';btn.disabled=true;
+  try{var r=await apiFetch('/api/youtube/analyze','POST',{url:url});if(r.success){var area=document.getElementById('yt-result');area.style.display='block';area.innerHTML='<div class="yt-preview"><img src="'+r.thumbnail+'" class="yt-thumb"><div><div style="font-size:12px;font-weight:600">'+r.title+'</div></div></div>';}else{alert('Error: '+r.error);}}catch(e){alert('Error: '+e.message);}
+  btn.innerHTML='Analyze';btn.disabled=false;
+}
+async function readTGChannel(){
+  var ch=document.getElementById('tg-ch-read').value.trim().replace('@','');
+  if(!ch){alert('Enter channel name');return;}
+  var btn=document.getElementById('tg-read-btn');btn.innerHTML='<div class="sp"></div>';btn.disabled=true;
+  try{var r=await apiFetch('/api/telegram/channel/fetch','POST',{channel:ch});var area=document.getElementById('tg-read-result');area.style.display='block';if(r.success&&r.posts.length>0){area.innerHTML='<div style="font-size:11px;color:var(--gn);margin-bottom:7px">'+r.posts.length+' posts</div>'+r.posts.slice(0,3).map(function(p){return '<div class="tg-msg"><div style="font-size:11px">'+p.text.substring(0,150)+'</div><button class="btn bp btn-sm" onclick="addTGSrc(\"'+ch+'\")">Add source</button></div>';}).join('');}else{area.innerHTML='<div class="al al-w">Not found or private</div>';}}catch(e){alert('Error: '+e.message);}
+  btn.innerHTML='Read';btn.disabled=false;
+}
+async function addTGSrc(ch){var r=await apiFetch('/api/sources','POST',{name:'@'+ch,url:'https://t.me/s/'+ch,type:'telegram'});if(r.success)alert('Added');else alert('Already added');}
+async function testTG(){
+  var token=document.getElementById('tg-token').value.trim();
+  var chat=document.getElementById('tg-chat').value.trim();
+  if(!token){alert('Enter Bot Token');return;}
+  var btn=document.getElementById('tg-test-btn');btn.innerHTML='<div class="sp"></div>';btn.disabled=true;
+  try{var r=await apiFetch('/api/test/telegram','POST',{token:token,chat:chat});if(r.success){document.getElementById('tg-status').innerHTML='<span class="dot dg"></span> @'+r.username;document.getElementById('tg-badge').style.display='inline-block';document.getElementById('card-tg').classList.add('connected');localStorage.setItem('tg_t',token);localStorage.setItem('tg_c',chat);}else{document.getElementById('tg-status').innerHTML='<span class="dot dr"></span> Error';}}catch(e){document.getElementById('tg-status').innerHTML='<span class="dot da"></span> Failed';}
+  btn.innerHTML='Test';btn.disabled=false;
+}
+async function saveMake(){var url=document.getElementById('make-url').value.trim();if(!url){alert('Enter Webhook URL');return;}await apiFetch('/api/settings/bulk','POST',{make_webhook:url});document.getElementById('make-status').innerHTML='<span class="dot dg"></span> Saved';document.getElementById('make-badge').style.display='inline-block';document.getElementById('card-make').classList.add('connected');}
+async function testFB(){
+  var token=document.getElementById('fb-token').value.trim();
+  var pageId=document.getElementById('fb-page-id').value.trim();
+  if(!token||!pageId){alert('Enter Token and Page ID');return;}
+  var btn=document.getElementById('fb-test-btn');btn.innerHTML='<div class="sp"></div>';btn.disabled=true;
+  try{var r=await apiFetch('/api/test/facebook','POST',{pageToken:token,pageId:pageId});if(r.success){document.getElementById('fb-status').innerHTML='<span class="dot dg"></span> '+r.name;document.getElementById('fb-badge').style.display='inline-block';document.getElementById('card-fb').classList.add('connected');}else{document.getElementById('fb-status').innerHTML='<span class="dot dr"></span> '+r.error;}}catch(e){document.getElementById('fb-status').innerHTML='<span class="dot da"></span> Failed';}
+  btn.innerHTML='Test';btn.disabled=false;
+}
 function setAI(p){curAI=p;document.getElementById('ai-cl-btn').className='btn btn-sm '+(p==='claude'?'bp':'bo');document.getElementById('ai-oa-btn').className='btn btn-sm '+(p==='openai'?'bp':'bo');document.getElementById('ai-cl-sec').style.display=p==='claude'?'block':'none';document.getElementById('ai-oa-sec').style.display=p==='openai'?'block':'none';}
-async function testAI(){const key=curAI==='claude'?document.getElementById('ai-cl-key').value.trim():document.getElementById('ai-oa-key').value.trim();if(!key){alert('\u00d8\u00a3\u00d8\u00af\u00d8\u00ae\u00d9\u0084 \u00d8\u00a7\u00d9\u0084\u00d9\u0085\u00d9\u0081\u00d8\u00aa\u00d8\u00a7\u00d8\u00ad!');return;}const btn=document.getElementById('ai-btn');btn.innerHTML='<div class="sp"></div>';btn.disabled=true;try{const r=await api('/api/test/ai','POST',{key,provider:curAI});if(r.success){document.getElementById('ai-status').innerHTML=`<span class="dot dg"></span> \u00e2\u009c\u0085 ${curAI} \u00d9\u008a\u00d8\u00b9\u00d9\u0085\u00d9\u0084!`;document.getElementById('ai-badge').style.display='inline-block';document.getElementById('card-ai').classList.add('connected');}else{document.getElementById('ai-status').innerHTML=`<span class="dot dr"></span> \u00e2\u009d\u008c ${r.error}`;}}catch(e){document.getElementById('ai-status').innerHTML=`<span class="dot da"></span> \u00e2\u009a\u00a0\u00ef\u00b8\u008f ${e.message}`;}btn.innerHTML='\u00f0\u009f\u00a7\u00aa \u00d8\u00a7\u00d8\u00ae\u00d8\u00aa\u00d8\u00a8\u00d8\u00a7\u00d8\u00b1 \u00d9\u0088\u00d8\u00ad\u00d9\u0081\u00d8\u00b8';btn.disabled=false;}
-async function loadPosts(){const posts=await api('/api/posts');const list=document.getElementById('posts-list');if(!posts.length){list.innerHTML='<div style="color:var(--t3);text-align:center;padding:24px;font-size:12px">\u00d9\u0084\u00d8\u00a7 \u00d8\u00aa\u00d9\u0088\u00d8\u00ac\u00d8\u00af \u00d9\u0085\u00d9\u0086\u00d8\u00b4\u00d9\u0088\u00d8\u00b1\u00d8\u00a7\u00d8\u00aa \u00d8\u00a8\u00d8\u00b9\u00d8\u00af</div>';return;}list.innerHTML=posts.map(p=>`<div class="card" style="margin-bottom:8px"><div style="font-size:12px;font-weight:600;margin-bottom:4px">${p.original_title||'\u00e2\u0080\u0094'}</div><div style="font-size:10px;color:var(--t2);margin-bottom:8px">${p.source_name||''} \u00e2\u0080\u00a2 ${p.created_at?.substring(0,16)||''}</div><div style="display:flex;align-items:center;justify-content:space-between"><span class="tag ${p.status==='published'?'tag-s':p.status==='ready'?'tag-p':'tag-e'}">${p.status==='published'?'\u00e2\u009c\u0085 \u00d9\u0086\u00d9\u008f\u00d8\u00b4\u00d8\u00b1':p.status==='ready'?'\u00f0\u009f\u009f\u00a3 \u00d8\u00ac\u00d8\u00a7\u00d9\u0087\u00d8\u00b2':'\u00e2\u009d\u008c \u00d8\u00ae\u00d8\u00b7\u00d8\u00a3'}</span><div style="display:flex;gap:5px">${p.status==='ready'?`<button class="btn bg btn-sm" onclick="pubPost(${p.id},this)">\u00f0\u009f\u009a\u0080 \u00d9\u0086\u00d8\u00b4\u00d8\u00b1</button>`:''}<button class="btn br btn-sm" onclick="delPost(${p.id})">\u00f0\u009f\u0097\u0091</button></div></div></div>`).join('');}
-async function pubPost(id,btn){btn.innerHTML='<div class="sp"></div>';btn.disabled=true;const r=await api('/api/posts/'+id+'/publish','POST');if(r.success){alert('\u00e2\u009c\u0085 \u00d8\u00aa\u00d9\u0085!\n'+r.logs.map(l=>l.platform+': '+l.status).join('\n'));loadPosts();}else alert('\u00e2\u009d\u008c '+r.error);}
-async function delPost(id){if(!confirm('\u00d8\u00ad\u00d8\u00b0\u00d9\u0081\u00d8\u009f'))return;await api('/api/posts/'+id,'DELETE');loadPosts();}
-async function loadSettings(){const s=await api('/api/settings');if(s.writing_tone)document.getElementById('writing-tone').value=s.writing_tone;if(s.content_lang)document.getElementById('content-lang').value=s.content_lang;if(s.hashtags)document.getElementById('hashtags').value=s.hashtags;if(s.check_time)document.getElementById('check-time').value=s.check_time;if(s.auto_publish)document.getElementById('auto-publish').value=s.auto_publish;const logs=await api('/api/logs');const ll=document.getElementById('logs-list');if(!logs.length){ll.innerHTML='<div style="color:var(--t3);text-align:center;padding:14px;font-size:12px">\u00d9\u0084\u00d8\u00a7 \u00d8\u00aa\u00d9\u0088\u00d8\u00ac\u00d8\u00af \u00d8\u00b3\u00d8\u00ac\u00d9\u0084\u00d8\u00a7\u00d8\u00aa</div>';return;}const icons={twitter:'\u00f0\u009d\u0095\u008f',facebook:'\u00f0\u009f\u0093\u0098',instagram:'\u00f0\u009f\u0093\u00b8',telegram:'\u00e2\u009c\u0088\u00ef\u00b8\u008f',blogger:'\u00f0\u009f\u0093\u009d'};ll.innerHTML=logs.slice(0,20).map(l=>`<div class="log-item"><div style="flex:1;min-width:0"><div style="font-size:11px">${icons[l.platform]||'\u00f0\u009f\u0093\u008c'} ${l.platform} <span style="color:var(--t2);font-size:10px">${l.published_at?.substring(0,16)||''}</span></div><div style="font-size:10px;color:var(--t2);overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${l.original_title||l.message||''}</div></div><span class="tag ${l.status==='success'?'tag-s':'tag-e'}">${l.status==='success'?'\u00e2\u009c\u0085':'\u00e2\u009d\u008c'}</span></div>`).join('');}
-async function saveSettings(){await api('/api/settings/bulk','POST',{writing_tone:document.getElementById('writing-tone').value,content_lang:document.getElementById('content-lang').value,hashtags:document.getElementById('hashtags').value,check_time:document.getElementById('check-time').value,auto_publish:document.getElementById('auto-publish').value});alert('\u00e2\u009c\u0085 \u00d8\u00aa\u00d9\u0085 \u00d8\u00a7\u00d9\u0084\u00d8\u00ad\u00d9\u0081\u00d8\u00b8!');}
-async function saveYTKey(){const key=document.getElementById('yt-key').value.trim();await api('/api/settings/bulk','POST',{youtube_api_key:key});alert('\u00e2\u009c\u0085 \u00d8\u00aa\u00d9\u0085 \u00d8\u00a7\u00d9\u0084\u00d8\u00ad\u00d9\u0081\u00d8\u00b8!');}
-async function runNow(){const btn=document.getElementById('run-btn');btn.innerHTML='<div class="sp" style="border-top-color:#fff"></div>';btn.disabled=true;await api('/api/run-now','POST');setTimeout(()=>{btn.innerHTML='\u00e2\u0096\u00b6\u00ef\u00b8\u008f \u00d8\u00aa\u00d8\u00b4\u00d8\u00ba\u00d9\u008a\u00d9\u0084 \u00d8\u00a7\u00d9\u0084\u00d8\u00a2\u00d9\u0086';btn.disabled=false;},3000);setTimeout(loadDash,4000);}
+async function testAI(){
+  var key=curAI==='claude'?document.getElementById('ai-cl-key').value.trim():document.getElementById('ai-oa-key').value.trim();
+  if(!key){alert('Enter API key');return;}
+  var btn=document.getElementById('ai-btn');btn.innerHTML='<div class="sp"></div>';btn.disabled=true;
+  try{var r=await apiFetch('/api/test/ai','POST',{key:key,provider:curAI});if(r.success){document.getElementById('ai-status').innerHTML='<span class="dot dg"></span> OK';document.getElementById('ai-badge').style.display='inline-block';document.getElementById('card-ai').classList.add('connected');}else{document.getElementById('ai-status').innerHTML='<span class="dot dr"></span> '+r.error;}}catch(e){document.getElementById('ai-status').innerHTML='<span class="dot da"></span> Failed';}
+  btn.innerHTML='Test';btn.disabled=false;
+}
+async function testGitHub(){
+  var token=document.getElementById('github-token').value.trim();
+  var repo=document.getElementById('github-repo').value.trim();
+  if(!token||!repo){alert('Enter token and repo');return;}
+  var btn=document.getElementById('github-btn');btn.innerHTML='<div class="sp"></div>';btn.disabled=true;
+  try{var r=await apiFetch('/api/test/github','POST',{token:token,repo:repo});if(r.success){document.getElementById('github-status').innerHTML='<span class="dot dg"></span> '+r.name;document.getElementById('github-badge').style.display='inline-block';document.getElementById('card-github').classList.add('connected');localStorage.setItem('gh_token',token);localStorage.setItem('gh_repo',repo);}else{document.getElementById('github-status').innerHTML='<span class="dot dr"></span> '+r.error;}}catch(e){document.getElementById('github-status').innerHTML='<span class="dot da"></span> Failed';}
+  btn.innerHTML='Test';btn.disabled=false;
+}
+async function loadPosts(){
+  try{var posts=await apiFetch('/api/posts');var list=document.getElementById('posts-list');if(!posts||!posts.length){list.innerHTML='<div style="color:var(--t3);text-align:center;padding:24px;font-size:12px">No posts yet</div>';return;}list.innerHTML=posts.map(function(p){var st=p.status==='published'?'tag-s':p.status==='ready'?'tag-p':'tag-e';return '<div class="card" style="margin-bottom:8px"><div style="font-size:12px;font-weight:600;margin-bottom:4px">'+(p.original_title||'-')+'</div><div style="font-size:10px;color:var(--t2);margin-bottom:8px">'+(p.source_name||'')+' '+(p.created_at?p.created_at.substring(0,16):'')+'</div><div style="display:flex;align-items:center;justify-content:space-between"><span class="tag '+st+'">'+p.status+'</span><div style="display:flex;gap:5px">'+(p.status==='ready'?'<button class="btn bg btn-sm" onclick="pubPost('+p.id+',this)">Publish</button>':'')+'<button class="btn br btn-sm" onclick="delPost('+p.id+')">Del</button></div></div></div>';}).join('');}catch(e){}
+}
+async function pubPost(id,btn){btn.innerHTML='<div class="sp"></div>';btn.disabled=true;var r=await apiFetch('/api/posts/'+id+'/publish','POST');if(r.success){alert('Published!');loadPosts();}else alert('Error: '+r.error);}
+async function delPost(id){if(!confirm('Delete?'))return;await apiFetch('/api/posts/'+id,'DELETE');loadPosts();}
+async function loadSettings(){
+  try{
+    var s=await apiFetch('/api/settings');
+    if(s.writing_tone)document.getElementById('writing-tone').value=s.writing_tone;
+    if(s.content_lang)document.getElementById('content-lang').value=s.content_lang;
+    if(s.hashtags)document.getElementById('hashtags').value=s.hashtags;
+    if(s.check_time)document.getElementById('check-time').value=s.check_time;
+    if(s.auto_publish)document.getElementById('auto-publish').value=s.auto_publish;
+    var logs=await apiFetch('/api/logs');
+    var ll=document.getElementById('logs-list');
+    if(!logs||!logs.length){ll.innerHTML='<div style="color:var(--t3);text-align:center;padding:14px;font-size:12px">No logs</div>';return;}
+    ll.innerHTML=logs.slice(0,20).map(function(l){return '<div class="log-item"><div style="flex:1;min-width:0"><div style="font-size:11px">'+l.platform+' '+(l.published_at?l.published_at.substring(0,16):'')+'</div><div style="font-size:10px;color:var(--t2);overflow:hidden;white-space:nowrap;text-overflow:ellipsis">'+(l.original_title||l.message||'')+'</div></div><span class="tag '+(l.status==='success'?'tag-s':'tag-e')+'">'+(l.status==='success'?'OK':'ERR')+'</span></div>';}).join('');
+  }catch(e){}
+}
+async function saveSettings(){await apiFetch('/api/settings/bulk','POST',{writing_tone:document.getElementById('writing-tone').value,content_lang:document.getElementById('content-lang').value,hashtags:document.getElementById('hashtags').value,check_time:document.getElementById('check-time').value,auto_publish:document.getElementById('auto-publish').value});alert('Saved!');}
+async function saveYTKey(){var key=document.getElementById('yt-key').value.trim();await apiFetch('/api/settings/bulk','POST',{youtube_api_key:key});alert('Saved!');}
+async function runNow(){
+  var btn=document.getElementById('run-btn');btn.innerHTML='<div class="sp" style="border-top-color:#fff"></div>';btn.disabled=true;
+  await apiFetch('/api/run-now','POST');
+  setTimeout(function(){btn.innerHTML='Run Now';btn.disabled=false;},3000);
+  setTimeout(loadDash,4000);
+}
+function setUpdateAI(ai){updateAI=ai;document.getElementById('upd-cl-btn').className='btn btn-sm '+(ai==='claude'?'bp':'bo');document.getElementById('upd-oa-btn').className='btn btn-sm '+(ai==='openai'?'bp':'bo');}
+async function requestUpdate(){
+  var request=document.getElementById('update-request').value.trim();
+  if(!request){alert('Enter update request');return;}
+  var ghToken=localStorage.getItem('gh_token');
+  var ghRepo=localStorage.getItem('gh_repo');
+  if(!ghToken||!ghRepo){alert('Setup GitHub first');return;}
+  var btn=document.getElementById('update-btn');var status=document.getElementById('update-status');
+  btn.innerHTML='<div class="sp"></div>';btn.disabled=true;
+  status.style.display='block';status.style.background='rgba(108,99,255,.1)';status.style.color='#a89cff';status.textContent='Processing...';
+  try{var r=await apiFetch('/api/auto-update','POST',{request:request,ai_provider:updateAI});if(r.success){status.style.background='rgba(0,212,160,.1)';status.style.color='var(--gn)';status.textContent=r.message+(r.version?' v'+r.version:'');document.getElementById('update-request').value='';if(r.version)document.getElementById('app-version').textContent='v'+r.version;loadCommits();}else{status.style.background='rgba(255,107,107,.1)';status.style.color='var(--rd)';status.textContent='Error: '+r.error;}}catch(e){status.style.background='rgba(255,107,107,.1)';status.style.color='var(--rd)';status.textContent='Error: '+e.message;}
+  btn.innerHTML='Apply';btn.disabled=false;
+}
+async function loadCommits(){
+  var list=document.getElementById('commits-list');
+  list.innerHTML='<div style="text-align:center;padding:10px"><div class="sp"></div></div>';
+  try{var r=await apiFetch('/api/github/commits');if(r.success&&r.commits.length>0){list.innerHTML=r.commits.map(function(c,i){return '<div style="display:flex;align-items:center;gap:8px;padding:8px;background:var(--bg3);border-radius:var(--rs);margin-bottom:6px"><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+c.message+'</div><div style="font-size:10px;color:var(--t2)">'+new Date(c.date).toLocaleString()+'</div></div>'+(i===0?'<span class="tag tag-s">Current</span>':'<button class="btn bo btn-sm" onclick="rollback(\"'+c.sha+'\",\"'+c.message.replace(/"/g,\'\')+'\")">Rollback</button>')+'</div>';}).join('');}else{list.innerHTML='<div style="text-align:center;padding:14px;color:var(--t3);font-size:11px">'+(r.error||'No commits')+'</div>';}}catch(e){list.innerHTML='<div style="text-align:center;padding:14px;color:var(--rd);font-size:11px">Setup GitHub first</div>';}
+}
+async function rollback(sha,msg){
+  if(!confirm('Rollback to: '+msg))return;
+  var status=document.getElementById('rollback-status');status.style.display='block';status.style.background='rgba(255,179,71,.1)';status.style.color='var(--am)';status.textContent='Rolling back...';
+  try{var r=await apiFetch('/api/github/rollback','POST',{sha:sha});if(r.success){status.style.background='rgba(0,212,160,.1)';status.style.color='var(--gn)';status.textContent=r.message;loadCommits();}else{status.style.background='rgba(255,107,107,.1)';status.style.color='var(--rd)';status.textContent='Error: '+r.error;}}catch(e){status.style.background='rgba(255,107,107,.1)';status.style.color='var(--rd)';status.textContent='Error: '+e.message;}
+}
+async function checkVersion(){
+  try{var r=await apiFetch('/api/version');document.getElementById('app-version').textContent='v'+r.version;if(r.updateSeen==='0'&&r.updateNotes){document.getElementById('notif-btn').style.display='block';document.getElementById('notif-dot').style.display='block';window.lastUpdateNotes=r.updateNotes;window.lastUpdateDate=r.lastUpdate;window.lastVersion=r.version;}}catch(e){}
+}
+function showNotif(){document.getElementById('notif-modal').style.display='flex';document.getElementById('notif-version').textContent='v'+(window.lastVersion||'');document.getElementById('notif-content').textContent=window.lastUpdateNotes||'';}
+async function closeNotif(){document.getElementById('notif-modal').style.display='none';document.getElementById('notif-dot').style.display='none';await apiFetch('/api/version/seen','POST');}
 loadDash();
 checkVersion();
 </script>
