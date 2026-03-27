@@ -13,6 +13,7 @@ const parser = new Parser();
 const db = new Database('autopublisher.db');
 
 app.use(cors());
+app.use((req, res, next) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); next(); });
 app.use(express.json());
 
 // Static files
