@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>النشر الآلي Pro</title>
+<title>Ø§ÙÙØ´Ø± Ø§ÙØ¢ÙÙ Pro</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
@@ -66,64 +66,89 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
 .toggle.on::after{right:19px}
 .log-item{padding:8px;background:var(--bg3);border-radius:var(--rs);margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .tg-msg{background:var(--bg3);border-right:3px solid var(--tg);border-radius:0 var(--rs) var(--rs) 0;padding:10px;margin-bottom:7px}
+.version-badge{display:inline-flex;align-items:center;gap:4px;background:rgba(108,99,255,.15);color:#a89cff;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.notif-pulse{animation:pulse 2s infinite}
 </style>
 </head>
 <body>
 <div class="app-header">
-  <div class="app-title">🤖 النشر الآلي Pro</div>
-  <button class="run-btn" onclick="runNow()" id="run-btn">▶️ تشغيل الآن</button>
+  <div style="display:flex;flex-direction:column">
+    <div class="app-title">ð¤ Ø§ÙÙØ´Ø± Ø§ÙØ¢ÙÙ Pro</div>
+    <div style="font-size:9px;color:var(--t2)" id="app-version">v1.0.0</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <div id="notif-btn" onclick="showNotif()" style="position:relative;cursor:pointer;display:none">
+      <span style="font-size:20px">ð</span>
+      <span id="notif-dot" style="position:absolute;top:-2px;left:-2px;width:8px;height:8px;background:var(--rd);border-radius:50%;display:none"></span>
+    </div>
+    <button class="run-btn" onclick="runNow()" id="run-btn">â¶ï¸ ØªØ´ØºÙÙ Ø§ÙØ¢Ù</button>
+  </div>
+</div>
+
+<!-- Notification Modal -->
+<div id="notif-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:flex-end">
+  <div style="background:var(--bg2);border-radius:var(--r) var(--r) 0 0;padding:20px;width:100%;max-height:70vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div style="font-size:15px;font-weight:700">ð Ø¢Ø®Ø± ØªØ­Ø¯ÙØ«</div>
+      <button onclick="closeNotif()" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer">â</button>
+    </div>
+    <div id="notif-version" style="font-size:12px;color:var(--t2);margin-bottom:10px"></div>
+    <div id="notif-content" style="font-size:13px;line-height:1.8;background:var(--bg3);padding:12px;border-radius:var(--rs);color:var(--tx)"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn bg" onclick="closeNotif()" style="flex:1">â ÙÙÙØª</button>
+    </div>
+  </div>
 </div>
 <div class="main">
 
 <!-- Dashboard -->
 <div class="page active" id="page-dash">
   <div class="stats-row">
-    <div class="stat"><div class="stat-n" id="s-src" style="color:var(--ac)">-</div><div class="stat-l">مصادر</div></div>
-    <div class="stat"><div class="stat-n" id="s-posts" style="color:var(--gn)">-</div><div class="stat-l">منشورات</div></div>
-    <div class="stat"><div class="stat-n" id="s-today" style="color:var(--am)">-</div><div class="stat-l">اليوم</div></div>
-    <div class="stat"><div class="stat-n" id="s-err" style="color:var(--rd)">-</div><div class="stat-l">أخطاء</div></div>
+    <div class="stat"><div class="stat-n" id="s-src" style="color:var(--ac)">-</div><div class="stat-l">ÙØµØ§Ø¯Ø±</div></div>
+    <div class="stat"><div class="stat-n" id="s-posts" style="color:var(--gn)">-</div><div class="stat-l">ÙÙØ´ÙØ±Ø§Øª</div></div>
+    <div class="stat"><div class="stat-n" id="s-today" style="color:var(--am)">-</div><div class="stat-l">Ø§ÙÙÙÙ</div></div>
+    <div class="stat"><div class="stat-n" id="s-err" style="color:var(--rd)">-</div><div class="stat-l">Ø£Ø®Ø·Ø§Ø¡</div></div>
   </div>
-  <div class="card"><div class="ct">📰 آخر المنشورات</div><div id="dash-posts"><div style="color:var(--t3);text-align:center;padding:16px;font-size:12px">لا توجد منشورات بعد — اضغط تشغيل الآن</div></div></div>
-  <div class="card"><div class="ct">📋 آخر النشاطات</div><div id="dash-logs"><div style="color:var(--t3);text-align:center;padding:16px;font-size:12px">لا توجد نشاطات</div></div></div>
+  <div class="card"><div class="ct">ð° Ø¢Ø®Ø± Ø§ÙÙÙØ´ÙØ±Ø§Øª</div><div id="dash-posts"><div style="color:var(--t3);text-align:center;padding:16px;font-size:12px">ÙØ§ ØªÙØ¬Ø¯ ÙÙØ´ÙØ±Ø§Øª Ø¨Ø¹Ø¯ â Ø§Ø¶ØºØ· ØªØ´ØºÙÙ Ø§ÙØ¢Ù</div></div></div>
+  <div class="card"><div class="ct">ð Ø¢Ø®Ø± Ø§ÙÙØ´Ø§Ø·Ø§Øª</div><div id="dash-logs"><div style="color:var(--t3);text-align:center;padding:16px;font-size:12px">ÙØ§ ØªÙØ¬Ø¯ ÙØ´Ø§Ø·Ø§Øª</div></div></div>
 </div>
 
 <!-- Sources -->
 <div class="page" id="page-sources">
   <div class="card">
-    <div class="ct">➕ إضافة مصدر</div>
+    <div class="ct">â Ø¥Ø¶Ø§ÙØ© ÙØµØ¯Ø±</div>
     <div class="g2">
-      <div><label>الاسم</label><input type="text" id="src-name" placeholder="مثال: BBC عربي"></div>
-      <div><label>النوع</label><select id="src-type"><option value="rss">موقع / RSS</option><option value="youtube">يوتيوب قناة</option><option value="telegram">قناة تيليغرام</option><option value="youtube_channel">قناة يوتيوب 📺</option></select></div>
+      <div><label>Ø§ÙØ§Ø³Ù</label><input type="text" id="src-name" placeholder="ÙØ«Ø§Ù: BBC Ø¹Ø±Ø¨Ù"></div>
+      <div><label>Ø§ÙÙÙØ¹</label><select id="src-type"><option value="rss">ÙÙÙØ¹ / RSS</option><option value="youtube">ÙÙØªÙÙØ¨ ÙÙØ§Ø©</option><option value="telegram">ÙÙØ§Ø© ØªÙÙÙØºØ±Ø§Ù</option></select></div>
     </div>
-    <label>الرابط</label>
+    <label>Ø§ÙØ±Ø§Ø¨Ø·</label>
     <input type="url" id="src-url" placeholder="https://...">
-    <div class="al al-i" style="margin-top:8px">💡 RSS: <code>https://feeds.bbcarabic.com/bbcarabic/rss.xml</code><br>تيليغرام: <code>@channel_name</code><br>قناة يوتيوب: <code>https://www.youtube.com/@channelname</code></div>
-    <button class="btn bp" onclick="addSource()">➕ إضافة</button>
+    <div class="al al-i" style="margin-top:8px">ð¡ RSS: <code>https://feeds.bbcarabic.com/bbcarabic/rss.xml</code><br>ØªÙÙÙØºØ±Ø§Ù: <code>@channel_name</code></div>
+    <button class="btn bp" onclick="addSource()">â Ø¥Ø¶Ø§ÙØ©</button>
   </div>
 
   <div class="card">
-    <div class="ct">▶️ تحليل فيديو يوتيوب</div>
-    <label>رابط الفيديو</label>
+    <div class="ct">â¶ï¸ ØªØ­ÙÙÙ ÙÙØ¯ÙÙ ÙÙØªÙÙØ¨</div>
+    <label>Ø±Ø§Ø¨Ø· Ø§ÙÙÙØ¯ÙÙ</label>
     <input type="url" id="yt-url" placeholder="https://www.youtube.com/watch?v=...">
-    <button class="btn bp" onclick="analyzeYT()" id="yt-btn" style="background:#ff0000">▶️ تحليل وإعادة صياغة</button>
+    <button class="btn bp" onclick="analyzeYT()" id="yt-btn" style="background:#ff0000">â¶ï¸ ØªØ­ÙÙÙ ÙØ¥Ø¹Ø§Ø¯Ø© ØµÙØ§ØºØ©</button>
     <div id="yt-result" style="display:none;margin-top:10px"></div>
   </div>
 
   <div class="card">
-    <div class="ct">✈️ قراءة قناة تيليغرام</div>
-    <div class="al al-tg">اقرأ منشورات أي قناة عامة واستخدمها كمصدر</div>
+    <div class="ct">âï¸ ÙØ±Ø§Ø¡Ø© ÙÙØ§Ø© ØªÙÙÙØºØ±Ø§Ù</div>
+    <div class="al al-tg">Ø§ÙØ±Ø£ ÙÙØ´ÙØ±Ø§Øª Ø£Ù ÙÙØ§Ø© Ø¹Ø§ÙØ© ÙØ§Ø³ØªØ®Ø¯ÙÙØ§ ÙÙØµØ¯Ø±</div>
     <div style="display:flex;gap:7px">
-      <input type="text" id="tg-ch-read" placeholder="channel_name (بدون @)" style="flex:1">
-      <button class="btn btg btn-sm" onclick="readTGChannel()" id="tg-read-btn">📖 قراءة</button>
+      <input type="text" id="tg-ch-read" placeholder="channel_name (Ø¨Ø¯ÙÙ @)" style="flex:1">
+      <button class="btn btg btn-sm" onclick="readTGChannel()" id="tg-read-btn">ð ÙØ±Ø§Ø¡Ø©</button>
     </div>
     <div id="tg-read-result" style="display:none;margin-top:10px"></div>
   </div>
 
-  
-  <div id="yt-notif-list" style="display:none" class="card"></div>
   <div class="card">
-    <div class="ct">📡 المصادر المضافة <span id="src-count" style="font-size:11px;color:var(--t2)"></span></div>
-    <div id="sources-list"><div style="color:var(--t3);text-align:center;padding:16px;font-size:12px">لا توجد مصادر</div></div>
+    <div class="ct">ð¡ Ø§ÙÙØµØ§Ø¯Ø± Ø§ÙÙØ¶Ø§ÙØ© <span id="src-count" style="font-size:11px;color:var(--t2)"></span></div>
+    <div id="sources-list"><div style="color:var(--t3);text-align:center;padding:16px;font-size:12px">ÙØ§ ØªÙØ¬Ø¯ ÙØµØ§Ø¯Ø±</div></div>
   </div>
 </div>
 
@@ -133,150 +158,210 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
   <!-- Telegram -->
   <div class="conn-card" id="card-tg">
     <div class="conn-header">
-      <div class="conn-icon" style="background:rgba(42,171,238,.2)">✈️</div>
-      <div style="flex:1"><div style="font-size:13px;font-weight:700">تيليغرام</div><div style="font-size:10px;color:var(--t2)">نشر مباشر — الأسهل</div></div>
-      <span id="tg-badge" class="tag tag-s" style="display:none">✅ متصل</span>
+      <div class="conn-icon" style="background:rgba(42,171,238,.2)">âï¸</div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:700">ØªÙÙÙØºØ±Ø§Ù</div><div style="font-size:10px;color:var(--t2)">ÙØ´Ø± ÙØ¨Ø§Ø´Ø± â Ø§ÙØ£Ø³ÙÙ</div></div>
+      <span id="tg-badge" class="tag tag-s" style="display:none">â ÙØªØµÙ</span>
     </div>
     <div class="steps">
-      1️⃣ افتح تيليغرام ← ابحث عن <strong>@BotFather</strong><br>
-      2️⃣ أرسل <strong>/newbot</strong> ← اختر اسماً ← انسخ <strong>التوكن</strong><br>
-      3️⃣ قناتك ← <strong>Administrators</strong> ← أضف البوت ← صلاحية النشر<br>
-      4️⃣ القنوات العامة: <strong>@اسمها</strong> — الخاصة: أرسل رسالة ثم افتح /getUpdates
+      1ï¸â£ Ø§ÙØªØ­ ØªÙÙÙØºØ±Ø§Ù â Ø§Ø¨Ø­Ø« Ø¹Ù <strong>@BotFather</strong><br>
+      2ï¸â£ Ø£Ø±Ø³Ù <strong>/newbot</strong> â Ø§Ø®ØªØ± Ø§Ø³ÙØ§Ù â Ø§ÙØ³Ø® <strong>Ø§ÙØªÙÙÙ</strong><br>
+      3ï¸â£ ÙÙØ§ØªÙ â <strong>Administrators</strong> â Ø£Ø¶Ù Ø§ÙØ¨ÙØª â ØµÙØ§Ø­ÙØ© Ø§ÙÙØ´Ø±<br>
+      4ï¸â£ Ø§ÙÙÙÙØ§Øª Ø§ÙØ¹Ø§ÙØ©: <strong>@Ø§Ø³ÙÙØ§</strong> â Ø§ÙØ®Ø§ØµØ©: Ø£Ø±Ø³Ù Ø±Ø³Ø§ÙØ© Ø«Ù Ø§ÙØªØ­ /getUpdates
     </div>
     <label>Bot Token</label><input type="password" id="tg-token" placeholder="123456789:ABCDef...">
-    <label>معرف القناة</label><input type="text" id="tg-chat" placeholder="@my_channel">
-    <div id="tg-status" class="sbar"><span class="dot da"></span> أدخل البيانات واضغط اختبار</div>
+    <label>ÙØ¹Ø±Ù Ø§ÙÙÙØ§Ø©</label><input type="text" id="tg-chat" placeholder="@my_channel">
+    <div id="tg-status" class="sbar"><span class="dot da"></span> Ø£Ø¯Ø®Ù Ø§ÙØ¨ÙØ§ÙØ§Øª ÙØ§Ø¶ØºØ· Ø§Ø®ØªØ¨Ø§Ø±</div>
     <div class="btn-row">
-      <button class="btn btg" onclick="testTG()" id="tg-test-btn" style="flex:2">🧪 اختبار وحفظ</button>
-      <button class="btn bo btn-sm" onclick="document.getElementById('card-tg').style.opacity='.5'" style="flex:1">تخطي</button>
+      <button class="btn btg" onclick="testTG()" id="tg-test-btn" style="flex:2">ð§ª Ø§Ø®ØªØ¨Ø§Ø± ÙØ­ÙØ¸</button>
+      <button class="btn bo btn-sm" onclick="document.getElementById('card-tg').style.opacity='.5'" style="flex:1">ØªØ®Ø·Ù</button>
     </div>
   </div>
 
   <!-- Facebook -->
   <div class="conn-card" id="card-fb">
     <div class="conn-header">
-      <div class="conn-icon" style="background:rgba(24,119,242,.2)">📘</div>
-      <div style="flex:1"><div style="font-size:13px;font-weight:700">فيسبوك (صفحة)</div><div style="font-size:10px;color:var(--t2)">نشر على صفحتك عبر Graph API</div></div>
-      <span id="fb-badge" class="tag tag-s" style="display:none">✅ متصل</span>
+      <div class="conn-icon" style="background:rgba(24,119,242,.2)">ð</div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:700">ÙÙØ³Ø¨ÙÙ (ØµÙØ­Ø©)</div><div style="font-size:10px;color:var(--t2)">ÙØ´Ø± Ø¹ÙÙ ØµÙØ­ØªÙ Ø¹Ø¨Ø± Graph API</div></div>
+      <span id="fb-badge" class="tag tag-s" style="display:none">â ÙØªØµÙ</span>
     </div>
     <div class="steps">
-      1️⃣ اذهب لـ <a href="https://developers.facebook.com/tools/explorer" target="_blank">Graph API Explorer</a><br>
-      2️⃣ <strong>Get Token</strong> ← <strong>Get Page Access Token</strong> ← اختر صفحتك<br>
-      3️⃣ انسخ الـ <strong>Access Token</strong><br>
-      4️⃣ الـ Page ID: من URL صفحتك أو <strong>إعدادات الصفحة ← معلومات الصفحة</strong>
+      1ï¸â£ Ø§Ø°ÙØ¨ ÙÙ <a href="https://developers.facebook.com/tools/explorer" target="_blank">Graph API Explorer</a><br>
+      2ï¸â£ <strong>Get Token</strong> â <strong>Get Page Access Token</strong> â Ø§Ø®ØªØ± ØµÙØ­ØªÙ<br>
+      3ï¸â£ Ø§ÙØ³Ø® Ø§ÙÙ <strong>Access Token</strong><br>
+      4ï¸â£ Ø§ÙÙ Page ID: ÙÙ URL ØµÙØ­ØªÙ Ø£Ù <strong>Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ø§ÙØµÙØ­Ø© â ÙØ¹ÙÙÙØ§Øª Ø§ÙØµÙØ­Ø©</strong>
     </div>
-    <div class="al al-fb">💡 للتوكن الدائم: استخدم <a href="https://developers.facebook.com/tools/debug/accesstoken" target="_blank" style="color:#6aabff">Token Debugger</a> لتمديده</div>
+    <div class="al al-fb">ð¡ ÙÙØªÙÙÙ Ø§ÙØ¯Ø§Ø¦Ù: Ø§Ø³ØªØ®Ø¯Ù <a href="https://developers.facebook.com/tools/debug/accesstoken" target="_blank" style="color:#6aabff">Token Debugger</a> ÙØªÙØ¯ÙØ¯Ù</div>
     <label>Page Access Token</label><input type="password" id="fb-token" placeholder="EAAxxxx...">
     <label>Page ID</label><input type="text" id="fb-page-id" placeholder="123456789012345">
-    <div id="fb-status" class="sbar"><span class="dot da"></span> أدخل البيانات واضغط اختبار</div>
+    <div id="fb-status" class="sbar"><span class="dot da"></span> Ø£Ø¯Ø®Ù Ø§ÙØ¨ÙØ§ÙØ§Øª ÙØ§Ø¶ØºØ· Ø§Ø®ØªØ¨Ø§Ø±</div>
     <div class="btn-row">
       <a href="https://developers.facebook.com/tools/explorer" target="_blank" style="text-decoration:none;flex:1">
-        <button class="btn bfb" style="margin-top:0">🔗 Graph Explorer</button>
+        <button class="btn bfb" style="margin-top:0">ð Graph Explorer</button>
       </a>
-      <button class="btn bp btn-sm" onclick="testFB()" id="fb-test-btn" style="flex:1;margin-top:0">🧪 اختبار</button>
+      <button class="btn bp btn-sm" onclick="testFB()" id="fb-test-btn" style="flex:1;margin-top:0">ð§ª Ø§Ø®ØªØ¨Ø§Ø±</button>
+    </div>
+  </div>
+
+  <!-- Make.com -->
+  <div class="conn-card" id="card-make">
+    <div class="conn-header">
+      <div class="conn-icon" style="background:rgba(108,99,255,.2)">âï¸</div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:700">Make.com (ÙÙØ³Ø¨ÙÙ + ÙÙØµØ§Øª Ø£Ø®Ø±Ù)</div><div style="font-size:10px;color:var(--t2)">Ø£Ø³ÙÙ Ø·Ø±ÙÙØ© ÙØ±Ø¨Ø· ÙÙØ³Ø¨ÙÙ â Ø¨Ø¯ÙÙ ØªÙÙÙ</div></div>
+      <span id="make-badge" class="tag tag-s" style="display:none">â ÙØªØµÙ</span>
+    </div>
+    <div class="steps">
+      1ï¸â£ Ø§ÙØªØ­ <a href="https://make.com" target="_blank">make.com</a> â Ø§ÙØ³ÙÙØ§Ø±ÙÙ Ø§ÙÙÙØ¬ÙØ¯<br>
+      2ï¸â£ Ø§Ø¶ØºØ· <strong>+</strong> â Ø§Ø¨Ø­Ø« Ø¹Ù <strong>Facebook Pages</strong> â Create a Post<br>
+      3ï¸â£ Ø§Ø±Ø¨Ø· Ø­Ø³Ø§Ø¨Ù Ø¨Ø¶ØºØ·Ø© ÙØ§Ø­Ø¯Ø© â Ø§Ø®ØªØ± ØµÙØ­ØªÙ<br>
+      4ï¸â£ ÙÙ Ø­ÙÙ Message Ø§Ø®ØªØ± Ø§ÙÙØªØºÙØ± ÙÙ Ø§ÙÙ Webhook<br>
+      5ï¸â£ Ø§Ø­ÙØ¸ ÙØ§ÙØ³Ø® Ø±Ø§Ø¨Ø· Ø§ÙÙ Webhook ÙÙ Ø£ÙÙ Ø®Ø·ÙØ©
+    </div>
+    <div class="al al-i">ð¡ ÙÙØ³ Ø§ÙÙ Webhook ÙÙÙÙÙ Ø§ÙÙØ´Ø± Ø¹ÙÙ ÙÙØ³Ø¨ÙÙ + ØªÙÙØªØ± + Ø¥ÙØ³ØªØºØ±Ø§Ù ÙØ¹Ø§Ù ÙÙ ÙÙØ³ Ø§ÙØ³ÙÙØ§Ø±ÙÙ</div>
+    <label>Make.com Webhook URL</label>
+    <input type="url" id="make-url" placeholder="https://hook.eu1.make.com/...">
+    <div id="make-status" class="sbar"><span class="dot da"></span> Ø£Ø¯Ø®Ù Ø§ÙØ±Ø§Ø¨Ø· ÙØ§Ø¶ØºØ· Ø­ÙØ¸</div>
+    <div class="btn-row">
+      <a href="https://make.com" target="_blank" style="text-decoration:none;flex:1">
+        <button class="btn bp" style="background:#6c63ff;margin-top:0">ð Ø§ÙØªØ­ Make.com</button>
+      </a>
+      <button class="btn bg btn-sm" onclick="saveMake()" style="flex:1;margin-top:0">ð¾ Ø­ÙØ¸</button>
     </div>
   </div>
 
   <!-- Buffer Twitter+Instagram -->
   <div class="conn-card" id="card-buf">
     <div class="conn-header">
-      <div class="conn-icon" style="background:rgba(0,0,0,.3)">𝕏</div>
-      <div style="flex:1"><div style="font-size:13px;font-weight:700">تويتر / X + إنستغرام</div><div style="font-size:10px;color:var(--t2)">عبر Buffer — ربط واحد للاثنين</div></div>
-      <span id="buf-badge" class="tag tag-s" style="display:none">✅ متصل</span>
+      <div class="conn-icon" style="background:rgba(0,0,0,.3)">ð</div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:700">ØªÙÙØªØ± / X + Ø¥ÙØ³ØªØºØ±Ø§Ù</div><div style="font-size:10px;color:var(--t2)">Ø¹Ø¨Ø± Buffer â Ø±Ø¨Ø· ÙØ§Ø­Ø¯ ÙÙØ§Ø«ÙÙÙ</div></div>
+      <span id="buf-badge" class="tag tag-s" style="display:none">â ÙØªØµÙ</span>
     </div>
     <div class="steps">
-      1️⃣ <a href="https://buffer.com" target="_blank">buffer.com</a> ← سجّل مجاناً<br>
-      2️⃣ Connect Channel ← أضف تويتر وإنستغرام<br>
-      3️⃣ <a href="https://buffer.com/developers/apps" target="_blank">buffer.com/developers/apps</a> ← Create App ← انسخ Token
+      1ï¸â£ <a href="https://buffer.com" target="_blank">buffer.com</a> â Ø³Ø¬ÙÙ ÙØ¬Ø§ÙØ§Ù<br>
+      2ï¸â£ Connect Channel â Ø£Ø¶Ù ØªÙÙØªØ± ÙØ¥ÙØ³ØªØºØ±Ø§Ù<br>
+      3ï¸â£ <a href="https://buffer.com/developers/apps" target="_blank">buffer.com/developers/apps</a> â Create App â Ø§ÙØ³Ø® Token
     </div>
     <label>Buffer Access Token</label><input type="password" id="buf-token" placeholder="access_token_here...">
-    <div id="buf-status" class="sbar"><span class="dot da"></span> أدخل التوكن واضغط حفظ</div>
+    <div id="buf-status" class="sbar"><span class="dot da"></span> Ø£Ø¯Ø®Ù Ø§ÙØªÙÙÙ ÙØ§Ø¶ØºØ· Ø­ÙØ¸</div>
     <div class="btn-row">
       <a href="https://buffer.com/developers/apps" target="_blank" style="text-decoration:none;flex:1">
-        <button class="btn bp" style="background:#4A90E2;margin-top:0">🔑 احصل على Token</button>
+        <button class="btn bp" style="background:#4A90E2;margin-top:0">ð Ø§Ø­ØµÙ Ø¹ÙÙ Token</button>
       </a>
-      <button class="btn bg btn-sm" onclick="saveBuf()" style="flex:1;margin-top:0">💾 حفظ</button>
+      <button class="btn bg btn-sm" onclick="saveBuf()" style="flex:1;margin-top:0">ð¾ Ø­ÙØ¸</button>
     </div>
   </div>
 
-  <!-- Make.com Webhook -->
-  <div class="conn-card" id="card-make">
-    <div class="conn-header">
-      <div class="conn-icon" style="background:rgba(100,200,50,.2)">⚡</div>
-      <div style="flex:1"><div style="font-size:13px;font-weight:700">Make.com → فيسبوك</div><div style="font-size:10px;color:var(--t2)">أرسل المنشورات لـ Make.com وينشرها على فيسبوك</div></div>
-      <span id="make-badge" class="tag tag-s" style="display:none">✅ متصل</span>
-    </div>
-    <div class="steps">
-      1️⃣ افتح <a href="https://www.make.com" target="_blank">make.com</a> ← أنشئ Scenario جديد<br>
-      2️⃣ أضف وحدة <strong>Webhooks → Custom Webhook</strong> ← انسخ الرابط<br>
-      3️⃣ أضف وحدة <strong>Facebook Pages → Create a Post</strong><br>
-      4️⃣ اربط الـ Webhook بفيسبوك ← حدد حقل <strong>message</strong> من البيانات<br>
-      5️⃣ فعّل الـ Scenario ← الصق رابط الـ Webhook أدناه
-    </div>
-    <div class="al al-i">💡 عند كل نشر، سيُرسل المحتوى لـ Make.com الذي سينشره تلقائياً على صفحتك في فيسبوك</div>
-    <label>رابط الـ Webhook (من Make.com)</label>
-    <input type="url" id="make-webhook" placeholder="https://hook.eu2.make.com/xxxxxxxxxxxx">
-    <div id="make-status" class="sbar"><span class="dot da"></span> أدخل الرابط واضغط حفظ</div>
-    <button class="btn bg" onclick="saveMakeWebhook()" id="make-btn">💾 حفظ Webhook</button>
-  </div>
   <!-- AI -->
   <div class="conn-card" id="card-ai">
     <div class="conn-header">
-      <div class="conn-icon" style="background:rgba(108,99,255,.2)">🤖</div>
-      <div style="flex:1"><div style="font-size:13px;font-weight:700">مفتاح الذكاء الاصطناعي</div><div style="font-size:10px;color:var(--t2)">ضروري لإعادة الصياغة</div></div>
-      <span id="ai-badge" class="tag tag-s" style="display:none">✅ متصل</span>
+      <div class="conn-icon" style="background:rgba(108,99,255,.2)">ð¤</div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:700">ÙÙØªØ§Ø­ Ø§ÙØ°ÙØ§Ø¡ Ø§ÙØ§ØµØ·ÙØ§Ø¹Ù</div><div style="font-size:10px;color:var(--t2)">Ø¶Ø±ÙØ±Ù ÙØ¥Ø¹Ø§Ø¯Ø© Ø§ÙØµÙØ§ØºØ©</div></div>
+      <span id="ai-badge" class="tag tag-s" style="display:none">â ÙØªØµÙ</span>
     </div>
     <div style="display:flex;gap:6px;margin-bottom:8px">
-      <button class="btn bp btn-sm" onclick="setAI('claude')" id="ai-cl-btn" style="flex:1">🤖 Claude</button>
-      <button class="btn bo btn-sm" onclick="setAI('openai')" id="ai-oa-btn" style="flex:1">⚡ OpenAI</button>
+      <button class="btn bp btn-sm" onclick="setAI('claude')" id="ai-cl-btn" style="flex:1">ð¤ Claude</button>
+      <button class="btn bo btn-sm" onclick="setAI('openai')" id="ai-oa-btn" style="flex:1">â¡ OpenAI</button>
     </div>
     <div id="ai-cl-sec">
-      <label>Claude API Key — <a href="https://console.anthropic.com" target="_blank" style="color:#a89cff">console.anthropic.com</a> ← API Keys</label>
+      <label>Claude API Key â <a href="https://console.anthropic.com" target="_blank" style="color:#a89cff">console.anthropic.com</a> â API Keys</label>
       <input type="password" id="ai-cl-key" placeholder="sk-ant-api03-...">
     </div>
     <div id="ai-oa-sec" style="display:none">
-      <label>OpenAI API Key — <a href="https://platform.openai.com/api-keys" target="_blank" style="color:var(--gn)">platform.openai.com</a></label>
+      <label>OpenAI API Key â <a href="https://platform.openai.com/api-keys" target="_blank" style="color:var(--gn)">platform.openai.com</a></label>
       <input type="password" id="ai-oa-key" placeholder="sk-...">
     </div>
-    <div id="ai-status" class="sbar"><span class="dot da"></span> أدخل المفتاح واضغط اختبار</div>
-    <button class="btn bp" onclick="testAI()" id="ai-btn">🧪 اختبار وحفظ</button>
+    <div id="ai-status" class="sbar"><span class="dot da"></span> Ø£Ø¯Ø®Ù Ø§ÙÙÙØªØ§Ø­ ÙØ§Ø¶ØºØ· Ø§Ø®ØªØ¨Ø§Ø±</div>
+    <button class="btn bp" onclick="testAI()" id="ai-btn">ð§ª Ø§Ø®ØªØ¨Ø§Ø± ÙØ­ÙØ¸</button>
   </div>
 </div>
 
-
-
 <!-- Posts -->
 <div class="page" id="page-posts">
-  <div style="font-size:17px;font-weight:700;margin-bottom:14px">📝 المنشورات</div>
-  <div id="posts-list"><div style="color:var(--t3);text-align:center;padding:24px;font-size:12px">لا توجد منشورات بعد</div></div>
+  <div style="font-size:17px;font-weight:700;margin-bottom:14px">ð Ø§ÙÙÙØ´ÙØ±Ø§Øª</div>
+  <div id="posts-list"><div style="color:var(--t3);text-align:center;padding:24px;font-size:12px">ÙØ§ ØªÙØ¬Ø¯ ÙÙØ´ÙØ±Ø§Øª Ø¨Ø¹Ø¯</div></div>
 </div>
 
 <!-- Settings -->
 <div class="page" id="page-settings">
   <div class="card">
-    <div class="ct">✍️ الكتابة والجدولة</div>
-    <label>أسلوب الكتابة</label>
-    <select id="writing-tone"><option value="informative">إخباري موضوعي</option><option value="analytical">تحليلي</option><option value="engaging">جذاب وشيق</option><option value="neutral">محايد</option></select>
-    <label>لغة المحتوى</label>
-    <select id="content-lang"><option value="ar">عربي</option><option value="en">English</option><option value="both">عربي + إنجليزي</option></select>
-    <label>الهاشتاقات</label>
-    <input type="text" id="hashtags" placeholder="#أخبار #تقنية #AI">
-    <label>وقت الجلب اليومي</label>
+    <div class="ct">âï¸ Ø§ÙÙØªØ§Ø¨Ø© ÙØ§ÙØ¬Ø¯ÙÙØ©</div>
+    <label>Ø£Ø³ÙÙØ¨ Ø§ÙÙØªØ§Ø¨Ø©</label>
+    <select id="writing-tone"><option value="informative">Ø¥Ø®Ø¨Ø§Ø±Ù ÙÙØ¶ÙØ¹Ù</option><option value="analytical">ØªØ­ÙÙÙÙ</option><option value="engaging">Ø¬Ø°Ø§Ø¨ ÙØ´ÙÙ</option><option value="neutral">ÙØ­Ø§ÙØ¯</option></select>
+    <label>ÙØºØ© Ø§ÙÙØ­ØªÙÙ</label>
+    <select id="content-lang"><option value="ar">Ø¹Ø±Ø¨Ù</option><option value="en">English</option><option value="both">Ø¹Ø±Ø¨Ù + Ø¥ÙØ¬ÙÙØ²Ù</option></select>
+    <label>Ø§ÙÙØ§Ø´ØªØ§ÙØ§Øª</label>
+    <input type="text" id="hashtags" placeholder="#Ø£Ø®Ø¨Ø§Ø± #ØªÙÙÙØ© #AI">
+    <label>ÙÙØª Ø§ÙØ¬ÙØ¨ Ø§ÙÙÙÙÙ</label>
     <input type="time" id="check-time" value="08:00">
-    <label>النشر</label>
-    <select id="auto-publish"><option value="1">تلقائي</option><option value="0">يدوي</option></select>
-    <button class="btn bp" onclick="saveSettings()">💾 حفظ</button>
+    <label>Ø§ÙÙØ´Ø±</label>
+    <select id="auto-publish"><option value="1">ØªÙÙØ§Ø¦Ù</option><option value="0">ÙØ¯ÙÙ</option></select>
+    <button class="btn bp" onclick="saveSettings()">ð¾ Ø­ÙØ¸</button>
   </div>
+  <!-- Auto Update Card -->
+  <div class="card" style="background:linear-gradient(135deg,rgba(108,99,255,.1),rgba(0,212,160,.08));border-color:var(--ac)">
+    <div class="ct">ð¤ Ø§ÙØªØ­Ø¯ÙØ« Ø§ÙØ°ÙÙ Ø§ÙØªÙÙØ§Ø¦Ù</div>
+    <div class="al al-i" style="margin-bottom:10px">Ø§ÙØªØ¨ Ø·ÙØ¨Ù Ø¨Ø§ÙØ¹Ø±Ø¨Ù Ø£Ù Ø§ÙØ¥ÙØ¬ÙÙØ²Ù â AI ÙØ¹Ø¯ÙÙ Ø§ÙÙÙØ¯ ÙÙØ±ÙØ¹Ù Ø¹ÙÙ GitHub ØªÙÙØ§Ø¦ÙØ§Ù</div>
+
+    <!-- Ø§Ø®ØªÙØ§Ø± AI -->
+    <label>ÙØ­Ø±Ù Ø§ÙØ°ÙØ§Ø¡ Ø§ÙØ§ØµØ·ÙØ§Ø¹Ù</label>
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <button class="btn bp btn-sm" onclick="setUpdateAI('claude')" id="upd-cl-btn" style="flex:1">ð¤ Claude</button>
+      <button class="btn bo btn-sm" onclick="setUpdateAI('openai')" id="upd-oa-btn" style="flex:1">â¡ ChatGPT</button>
+    </div>
+
+    <label>Ø·ÙØ¨ Ø§ÙØªØ¹Ø¯ÙÙ</label>
+    <textarea id="update-request" style="min-height:90px" placeholder="ÙØ«Ø§Ù: Ø£Ø¶Ù ÙØ³Ù Ø¥Ø­ØµØ§Ø¦ÙØ§Øª ÙÙ Ø§ÙØµÙØ­Ø© Ø§ÙØ±Ø¦ÙØ³ÙØ©&#10;ÙØ«Ø§Ù: Ø£Ø¶Ù Ø²Ø± ÙØ´Ø§Ø±ÙØ© ÙÙ ÙÙ ÙÙØ´ÙØ±&#10;ÙØ«Ø§Ù: ØºÙÙØ± ØªØµÙÙÙ Ø§ÙØ´Ø±ÙØ· Ø§ÙØ³ÙÙÙ"></textarea>
+    <button class="btn bp" onclick="requestUpdate()" id="update-btn">ð ØªØ·Ø¨ÙÙ Ø§ÙØªØ¹Ø¯ÙÙ Ø§ÙØ¢Ù</button>
+    <div id="update-status" style="display:none;margin-top:8px;font-size:11px;padding:10px;border-radius:var(--rs);text-align:center;line-height:1.7"></div>
+  </div>
+
+  <!-- Rollback Card -->
+  <div class="card" id="rollback-card">
+    <div class="ct">â©ï¸ Ø§ÙØ±Ø¬ÙØ¹ ÙØ¥ØµØ¯Ø§Ø± Ø³Ø§Ø¨Ù
+      <button class="btn bo btn-sm" onclick="loadCommits()" style="margin-top:0">ð ØªØ­Ø¯ÙØ« Ø§ÙÙØ§Ø¦ÙØ©</button>
+    </div>
+    <div class="al al-w" style="margin-bottom:10px">ÙÙ Ø­Ø§Ù ÙØ´Ù Ø§ÙØªØ¹Ø¯ÙÙ ÙÙÙÙÙ Ø§ÙØ±Ø¬ÙØ¹ ÙØ£Ù Ø¥ØµØ¯Ø§Ø± Ø³Ø§Ø¨Ù Ø¨Ø¶ØºØ·Ø© ÙØ§Ø­Ø¯Ø©</div>
+    <div id="commits-list">
+      <div style="text-align:center;padding:14px;color:var(--t3);font-size:11px">Ø§Ø¶ØºØ· "ØªØ­Ø¯ÙØ« Ø§ÙÙØ§Ø¦ÙØ©" ÙØ¹Ø±Ø¶ Ø§ÙØ¥ØµØ¯Ø§Ø±Ø§Øª Ø§ÙØ³Ø§Ø¨ÙØ©</div>
+    </div>
+    <div id="rollback-status" style="display:none;margin-top:8px;font-size:11px;padding:8px;border-radius:var(--rs);text-align:center"></div>
+  </div>
+
+  <!-- GitHub Settings -->
+  <div class="conn-card" id="card-github">
+    <div class="conn-header">
+      <div class="conn-icon" style="background:rgba(255,255,255,.1)">ð</div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:700">GitHub (ÙÙØªØ­Ø¯ÙØ« Ø§ÙØªÙÙØ§Ø¦Ù)</div><div style="font-size:10px;color:var(--t2)">ÙØ·ÙÙØ¨ ÙÙÙØ²Ø© Ø§ÙØªØ­Ø¯ÙØ« Ø§ÙØ°ÙÙ</div></div>
+      <span id="github-badge" class="tag tag-s" style="display:none">â ÙØªØµÙ</span>
+    </div>
+    <div class="steps">
+      1ï¸â£ Ø§Ø°ÙØ¨ ÙÙ <a href="https://github.com/settings/tokens/new" target="_blank">github.com/settings/tokens/new</a><br>
+      2ï¸â£ Ø§ÙØªØ¨ Ø§Ø³ÙØ§Ù â Ø§Ø®ØªØ± <strong>repo</strong> ÙÙ Ø§ÙØµÙØ§Ø­ÙØ§Øª<br>
+      3ï¸â£ Ø§Ø¶ØºØ· <strong>Generate token</strong> â Ø§ÙØ³Ø® Ø§ÙØªÙÙÙ<br>
+      4ï¸â£ Ø§Ø³Ù Ø§ÙÙØ³ØªÙØ¯Ø¹: <strong>username/repo-name</strong>
+    </div>
+    <label>GitHub Personal Access Token</label>
+    <input type="password" id="github-token" placeholder="ghp_xxxxxxxxxxxx">
+    <label>Ø§Ø³Ù Ø§ÙÙØ³ØªÙØ¯Ø¹</label>
+    <input type="text" id="github-repo" placeholder="abukhaled95963-cell/autopublisher">
+    <div id="github-status" class="sbar"><span class="dot da"></span> Ø£Ø¯Ø®Ù Ø§ÙØ¨ÙØ§ÙØ§Øª ÙØ§Ø¶ØºØ· Ø§Ø®ØªØ¨Ø§Ø±</div>
+    <div class="btn-row">
+      <a href="https://github.com/settings/tokens/new" target="_blank" style="text-decoration:none;flex:1">
+        <button class="btn bp" style="background:#333;margin-top:0">ð GitHub Tokens</button>
+      </a>
+      <button class="btn bg btn-sm" onclick="testGitHub()" id="github-btn" style="flex:1;margin-top:0">ð§ª Ø§Ø®ØªØ¨Ø§Ø±</button>
+    </div>
+  </div>
+
   <div class="card">
-    <div class="ct">🔑 YouTube API Key (اختياري)</div>
-    <div class="al al-i">بدونه: فيديوهات فقط — معه: قنوات كاملة</div>
-    <label><a href="https://console.cloud.google.com" target="_blank" style="color:#a89cff">console.cloud.google.com</a> ← YouTube Data API v3</label>
+    <div class="ct">ð YouTube API Key (Ø§Ø®ØªÙØ§Ø±Ù)</div>
+    <div class="al al-i">Ø¨Ø¯ÙÙÙ: ÙÙØ¯ÙÙÙØ§Øª ÙÙØ· â ÙØ¹Ù: ÙÙÙØ§Øª ÙØ§ÙÙØ©</div>
+    <label><a href="https://console.cloud.google.com" target="_blank" style="color:#a89cff">console.cloud.google.com</a> â YouTube Data API v3</label>
     <input type="password" id="yt-key" placeholder="AIzaSy...">
-    <button class="btn bp" onclick="saveYTKey()">💾 حفظ</button>
+    <button class="btn bp" onclick="saveYTKey()">ð¾ Ø­ÙØ¸</button>
   </div>
   <div class="card">
-    <div class="ct">📋 سجل النشاط</div>
-    <div id="logs-list"><div style="color:var(--t3);text-align:center;padding:14px;font-size:12px">لا توجد سجلات</div></div>
+    <div class="ct">ð Ø³Ø¬Ù Ø§ÙÙØ´Ø§Ø·</div>
+    <div id="logs-list"><div style="color:var(--t3);text-align:center;padding:14px;font-size:12px">ÙØ§ ØªÙØ¬Ø¯ Ø³Ø¬ÙØ§Øª</div></div>
   </div>
 </div>
 
@@ -284,46 +369,185 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
 
 <!-- Bottom Nav -->
 <div class="bottom-nav">
-  <div class="bnav-item active" onclick="nav('dash',this)"><span class="bnav-icon">📊</span>الرئيسية</div>
-  <div class="bnav-item" onclick="nav('sources',this)"><span class="bnav-icon">🌐</span>المصادر<span id="yt-notif-badge" style="display:none;background:var(--rd);color:#fff;font-size:9px;padding:1px 5px;border-radius:10px;margin-right:2px"></span></div>
-  <div class="bnav-item" onclick="nav('connect',this)"><span class="bnav-icon">🔗</span>الربط</div>
-  <div class="bnav-item" onclick="nav('posts',this)"><span class="bnav-icon">📝</span>المنشورات</div>
-  <div class="bnav-item" onclick="nav('settings',this)"><span class="bnav-icon">⚙️</span>الإعدادات</div>
+  <div class="bnav-item active" onclick="nav('dash',this)"><span class="bnav-icon">ð</span>Ø§ÙØ±Ø¦ÙØ³ÙØ©</div>
+  <div class="bnav-item" onclick="nav('sources',this)"><span class="bnav-icon">ð</span>Ø§ÙÙØµØ§Ø¯Ø±</div>
+  <div class="bnav-item" onclick="nav('connect',this)"><span class="bnav-icon">ð</span>Ø§ÙØ±Ø¨Ø·</div>
+  <div class="bnav-item" onclick="nav('posts',this)"><span class="bnav-icon">ð</span>Ø§ÙÙÙØ´ÙØ±Ø§Øª</div>
+  <div class="bnav-item" onclick="nav('settings',this)"><span class="bnav-icon">âï¸</span>Ø§ÙØ¥Ø¹Ø¯Ø§Ø¯Ø§Øª</div>
 </div>
 
 <script>
 const API='';let curAI='claude';
 function nav(p,el){document.querySelectorAll('.bnav-item').forEach(i=>i.classList.remove('active'));if(el)el.classList.add('active');document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));document.getElementById('page-'+p).classList.add('active');({dash:loadDash,sources:loadSources,posts:loadPosts,settings:loadSettings})[p]?.();}
 async function api(url,method='GET',body=null){const opts={method,headers:{'Content-Type':'application/json'}};if(body)opts.body=JSON.stringify(body);return(await fetch(API+url,opts)).json();}
-async function loadDash(){const s=await api('/api/stats');document.getElementById('s-src').textContent=s.totalSources;document.getElementById('s-posts').textContent=s.totalPosts;document.getElementById('s-today').textContent=s.publishedToday;document.getElementById('s-err').textContent=s.errors;const posts=await api('/api/posts');const dp=document.getElementById('dash-posts');if(!posts.length){dp.innerHTML='<div style="color:var(--t3);text-align:center;padding:16px;font-size:12px">لا توجد منشورات — اضغط تشغيل الآن</div>';}else{dp.innerHTML=posts.slice(0,5).map(p=>`<div class="post-item"><div style="font-size:12px;font-weight:600;margin-bottom:3px">${p.original_title||'—'}</div><div style="font-size:10px;color:var(--t2)">${p.source_name||''} • ${p.created_at?.substring(0,10)||''} <span class="tag ${p.status==='published'?'tag-s':p.status==='ready'?'tag-p':'tag-e'}">${p.status==='published'?'✅ نُشر':p.status==='ready'?'جاهز':'خطأ'}</span></div></div>`).join('');}const logs=await api('/api/logs');const dl=document.getElementById('dash-logs');const icons={twitter:'𝕏',facebook:'📘',instagram:'📸',telegram:'✈️',blogger:'📝'};if(!logs.length){dl.innerHTML='<div style="color:var(--t3);text-align:center;padding:16px;font-size:12px">لا توجد نشاطات</div>';}else{dl.innerHTML=logs.slice(0,6).map(l=>`<div class="log-item"><div style="flex:1;min-width:0"><div style="font-size:11px">${icons[l.platform]||'📌'} ${l.platform} <span style="color:var(--t2);font-size:10px">${l.published_at?.substring(0,16)||''}</span></div><div style="font-size:10px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.original_title||l.message||''}</div></div><span class="tag ${l.status==='success'?'tag-s':'tag-e'}">${l.status==='success'?'✅':'❌'}</span></div>`).join('');}}
-async function loadSources(){const srcs=await api('/api/sources');document.getElementById('src-count').textContent=srcs.length?`(${srcs.length})`:'';const list=document.getElementById('sources-list');if(!srcs.length){list.innerHTML='<div style="color:var(--t3);text-align:center;padding:16px;font-size:12px">لا توجد مصادر</div>';return;}const icons={rss:'🌐',youtube:'▶️',telegram:'✈️',youtube_channel:'📺'};list.innerHTML=srcs.map(s=>`<div class="src-item"><div class="src-info"><div style="font-size:12px;font-weight:600">${icons[s.type]||'🌐'} ${s.name}</div><div style="font-size:10px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.url}</div>${s.last_check?`<div style="font-size:10px;color:var(--gn)">✅ ${s.last_check.substring(0,16)}</div>`:''}</div><div class="toggle ${s.active?'on':''}" onclick="toggleSrc(${s.id},this)"></div><button class="btn br btn-sm" onclick="deleteSrc(${s.id})" style="width:32px;padding:5px;margin-top:0">🗑</button></div>`).join('');}
-async function addSource(){const name=document.getElementById('src-name').value.trim();const url=document.getElementById('src-url').value.trim();const type=document.getElementById('src-type').value;if(!name||!url){alert('أدخل الاسم والرابط!');return;}const r=await api('/api/sources','POST',{name,url,type});if(r.success){document.getElementById('src-name').value='';document.getElementById('src-url').value='';loadSources();alert('✅ تمت الإضافة!');}else alert('❌ '+r.error);}
-async function deleteSrc(id){if(!confirm('حذف؟'))return;await api('/api/sources/'+id,'DELETE');loadSources();}
+async function saveMake(){
+  const url=document.getElementById('make-url').value.trim();
+  if(!url){alert('Ø£Ø¯Ø®Ù Webhook URL!');return;}
+  await api('/api/settings/bulk','POST',{make_webhook:url});
+  document.getElementById('make-status').innerHTML='<span class="dot dg"></span> â ØªÙ Ø§ÙØ­ÙØ¸';
+  document.getElementById('make-badge').style.display='inline-block';
+  document.getElementById('card-make').classList.add('connected');
+  alert('â ØªÙ Ø­ÙØ¸ Make.com Webhook!');
+}
+let updateAI='claude';
+function setUpdateAI(ai){
+  updateAI=ai;
+  document.getElementById('upd-cl-btn').className='btn btn-sm '+(ai==='claude'?'bp':'bo');
+  document.getElementById('upd-oa-btn').className='btn btn-sm '+(ai==='openai'?'bp':'bo');
+}
+
+async function requestUpdate(){
+  const request=document.getElementById('update-request').value.trim();
+  if(!request){alert('Ø§ÙØªØ¨ Ø·ÙØ¨ Ø§ÙØªØ¹Ø¯ÙÙ!');return;}
+  const ghToken=localStorage.getItem('gh_token');
+  const ghRepo=localStorage.getItem('gh_repo');
+  if(!ghToken||!ghRepo){alert('Ø£Ø¹Ø¯Ù GitHub Token Ø£ÙÙØ§Ù!');nav('settings',null);return;}
+  const btn=document.getElementById('update-btn');
+  const status=document.getElementById('update-status');
+  btn.innerHTML='<div class="sp"></div> Ø¬Ø§Ø±Ù Ø§ÙØªØ¹Ø¯ÙÙ...';btn.disabled=true;
+  status.style.display='block';
+  status.style.background='rgba(108,99,255,.1)';status.style.color='#a89cff';
+  status.innerHTML='ð¤ '+updateAI+' ÙØ­ÙÙ Ø§ÙØ·ÙØ¨ ÙÙØ¹Ø¯ÙÙ Ø§ÙÙÙØ¯...<br><small>ÙØ¯ ÙØ³ØªØºØ±Ù 30-60 Ø«Ø§ÙÙØ©</small>';
+  try{
+    const r=await api('/api/auto-update','POST',{request,ai_provider:updateAI});
+    if(r.success){
+      status.style.background='rgba(0,212,160,.1)';status.style.color='var(--gn)';
+      const verText=r.version?` â Ø§ÙØ¥ØµØ¯Ø§Ø±: v${r.version}`:'';
+      status.innerHTML='â '+r.message+verText+'<br><small>ð Ø§ÙØªØ¸Ø± Ø¯ÙÙÙØ© Ø«Ù Ø£Ø¹Ø¯ ØªØ­ÙÙÙ Ø§ÙØµÙØ­Ø©</small>';
+      document.getElementById('update-request').value='';
+      document.getElementById('app-version').textContent='v'+(r.version||'');
+      loadCommits();
+    }else{
+      status.style.background='rgba(255,107,107,.1)';status.style.color='var(--rd)';
+      status.innerHTML='â '+r.error+'<br><small>ÙÙÙÙÙ Ø§ÙØ±Ø¬ÙØ¹ ÙØ¥ØµØ¯Ø§Ø± Ø³Ø§Ø¨Ù Ø£Ø¯ÙØ§Ù</small>';
+    }
+  }catch(e){
+    status.style.background='rgba(255,107,107,.1)';status.style.color='var(--rd)';
+    status.innerHTML='â '+e.message;
+  }
+  btn.innerHTML='ð ØªØ·Ø¨ÙÙ Ø§ÙØªØ¹Ø¯ÙÙ Ø§ÙØ¢Ù';btn.disabled=false;
+}
+
+async function loadCommits(){
+  const list=document.getElementById('commits-list');
+  list.innerHTML='<div style="text-align:center;padding:10px;font-size:11px;color:var(--t2)"><div class="sp" style="border-top-color:var(--am)"></div> Ø¬Ø§Ø±Ù Ø§ÙØªØ­ÙÙÙ...</div>';
+  try{
+    const r=await api('/api/github/commits');
+    if(r.success&&r.commits.length>0){
+      list.innerHTML=r.commits.map((c,i)=>`
+        <div style="display:flex;align-items:center;gap:8px;padding:8px;background:var(--bg3);border-radius:var(--rs);margin-bottom:6px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:11px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.message}</div>
+            <div style="font-size:10px;color:var(--t2)">${new Date(c.date).toLocaleString('ar')} â¢ <code style="font-size:9px">${c.sha.substring(0,7)}</code></div>
+          </div>
+          ${i===0?'<span class="tag tag-s" style="flex-shrink:0">Ø§ÙØ­Ø§ÙÙ</span>':`<button class="btn bo btn-sm" onclick="rollback('${c.sha}','${c.message.replace(/'/g,'')}')">â©ï¸ Ø±Ø¬ÙØ¹</button>`}
+        </div>`).join('');
+    }else{
+      list.innerHTML='<div style="text-align:center;padding:14px;color:var(--t3);font-size:11px">'+( r.error||'ÙØ§ ØªÙØ¬Ø¯ Ø¥ØµØ¯Ø§Ø±Ø§Øª')+'</div>';
+    }
+  }catch(e){list.innerHTML='<div style="text-align:center;padding:14px;color:var(--rd);font-size:11px">â Ø£Ø¹Ø¯Ù GitHub Ø£ÙÙØ§Ù</div>';}
+}
+
+async function rollback(sha,msg){
+  if(!confirm('Ø±Ø¬ÙØ¹ ÙÙØ¥ØµØ¯Ø§Ø±: "'+msg+'"Ø
+Ø³ÙØªÙ Ø§Ø³ØªØ¨Ø¯Ø§Ù Ø§ÙÙØ³Ø®Ø© Ø§ÙØ­Ø§ÙÙØ©.'))return;
+  const status=document.getElementById('rollback-status');
+  status.style.display='block';
+  status.style.background='rgba(255,179,71,.1)';status.style.color='var(--am)';
+  status.textContent='â³ Ø¬Ø§Ø±Ù Ø§ÙØ±Ø¬ÙØ¹ ÙÙØ¥ØµØ¯Ø§Ø±...';
+  try{
+    const r=await api('/api/github/rollback','POST',{sha});
+    if(r.success){
+      status.style.background='rgba(0,212,160,.1)';status.style.color='var(--gn)';
+      status.textContent='â '+r.message;
+      loadCommits();
+    }else{
+      status.style.background='rgba(255,107,107,.1)';status.style.color='var(--rd)';
+      status.textContent='â '+r.error;
+    }
+  }catch(e){
+    status.style.background='rgba(255,107,107,.1)';status.style.color='var(--rd)';
+    status.textContent='â '+e.message;
+  }
+}
+
+async function testGitHub(){
+  const token=document.getElementById('github-token').value.trim();
+  const repo=document.getElementById('github-repo').value.trim();
+  if(!token||!repo){alert('Ø£Ø¯Ø®Ù Ø§ÙØªÙÙÙ ÙØ§Ø³Ù Ø§ÙÙØ³ØªÙØ¯Ø¹!');return;}
+  const btn=document.getElementById('github-btn');
+  btn.innerHTML='<div class="sp"></div>';btn.disabled=true;
+  try{
+    const r=await api('/api/test/github','POST',{token,repo});
+    if(r.success){
+      document.getElementById('github-status').innerHTML='<span class="dot dg"></span> â ÙØªØµÙ â '+r.name;
+      document.getElementById('github-badge').style.display='inline-block';
+      document.getElementById('card-github').classList.add('connected');
+      localStorage.setItem('gh_token',token);
+      localStorage.setItem('gh_repo',repo);
+    }else{
+      document.getElementById('github-status').innerHTML='<span class="dot dr"></span> â '+r.error;
+    }
+  }catch(e){document.getElementById('github-status').innerHTML='<span class="dot da"></span> â ï¸ '+e.message;}
+  btn.innerHTML='ð§ª Ø§Ø®ØªØ¨Ø§Ø±';btn.disabled=false;
+}
+
+// ===== Version & Notifications =====
+async function checkVersion(){
+  try{
+    const r=await api('/api/version');
+    document.getElementById('app-version').textContent='v'+r.version;
+    if(r.updateSeen==='0'&&r.updateNotes){
+      // Ø¥Ø¸ÙØ§Ø± Ø²Ø± Ø§ÙØ¥Ø´Ø¹Ø§Ø±
+      const notifBtn=document.getElementById('notif-btn');
+      const notifDot=document.getElementById('notif-dot');
+      notifBtn.style.display='block';
+      notifDot.style.display='block';
+      notifDot.classList.add('notif-pulse');
+      // Ø­ÙØ¸ Ø¨ÙØ§ÙØ§Øª Ø§ÙØªØ­Ø¯ÙØ«
+      window.lastUpdateNotes=r.updateNotes;
+      window.lastUpdateDate=r.lastUpdate;
+      window.lastVersion=r.version;
+    }
+  }catch(e){}
+}
+
+function showNotif(){
+  const modal=document.getElementById('notif-modal');
+  modal.style.display='flex';
+  document.getElementById('notif-version').textContent='ð Ø§ÙØ¥ØµØ¯Ø§Ø± v'+(window.lastVersion||'')+'  â¢  '+(window.lastUpdateDate?new Date(window.lastUpdateDate).toLocaleString('ar'):'');
+  document.getElementById('notif-content').textContent=window.lastUpdateNotes||'';
+}
+
+async function closeNotif(){
+  document.getElementById('notif-modal').style.display='none';
+  document.getElementById('notif-dot').style.display='none';
+  await api('/api/version/seen','POST');
+}
+
+async function loadDash(){const s=await api('/api/stats');document.getElementById('s-src').textContent=s.totalSources;document.getElementById('s-posts').textContent=s.totalPosts;document.getElementById('s-today').textContent=s.publishedToday;document.getElementById('s-err').textContent=s.errors;const posts=await api('/api/posts');const dp=document.getElementById('dash-posts');if(!posts.length){dp.innerHTML='<div style="color:var(--t3);text-align:center;padding:16px;font-size:12px">ÙØ§ ØªÙØ¬Ø¯ ÙÙØ´ÙØ±Ø§Øª â Ø§Ø¶ØºØ· ØªØ´ØºÙÙ Ø§ÙØ¢Ù</div>';}else{dp.innerHTML=posts.slice(0,5).map(p=>`<div class="post-item"><div style="font-size:12px;font-weight:600;margin-bottom:3px">${p.original_title||'â'}</div><div style="font-size:10px;color:var(--t2)">${p.source_name||''} â¢ ${p.created_at?.substring(0,10)||''} <span class="tag ${p.status==='published'?'tag-s':p.status==='ready'?'tag-p':'tag-e'}">${p.status==='published'?'â ÙÙØ´Ø±':p.status==='ready'?'Ø¬Ø§ÙØ²':'Ø®Ø·Ø£'}</span></div></div>`).join('');}const logs=await api('/api/logs');const dl=document.getElementById('dash-logs');const icons={twitter:'ð',facebook:'ð',instagram:'ð¸',telegram:'âï¸',blogger:'ð'};if(!logs.length){dl.innerHTML='<div style="color:var(--t3);text-align:center;padding:16px;font-size:12px">ÙØ§ ØªÙØ¬Ø¯ ÙØ´Ø§Ø·Ø§Øª</div>';}else{dl.innerHTML=logs.slice(0,6).map(l=>`<div class="log-item"><div style="flex:1;min-width:0"><div style="font-size:11px">${icons[l.platform]||'ð'} ${l.platform} <span style="color:var(--t2);font-size:10px">${l.published_at?.substring(0,16)||''}</span></div><div style="font-size:10px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.original_title||l.message||''}</div></div><span class="tag ${l.status==='success'?'tag-s':'tag-e'}">${l.status==='success'?'â':'â'}</span></div>`).join('');}}
+async function loadSources(){const srcs=await api('/api/sources');document.getElementById('src-count').textContent=srcs.length?`(${srcs.length})`:'';const list=document.getElementById('sources-list');if(!srcs.length){list.innerHTML='<div style="color:var(--t3);text-align:center;padding:16px;font-size:12px">ÙØ§ ØªÙØ¬Ø¯ ÙØµØ§Ø¯Ø±</div>';return;}const icons={rss:'ð',youtube:'â¶ï¸',telegram:'âï¸'};list.innerHTML=srcs.map(s=>`<div class="src-item"><div class="src-info"><div style="font-size:12px;font-weight:600">${icons[s.type]||'ð'} ${s.name}</div><div style="font-size:10px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.url}</div>${s.last_check?`<div style="font-size:10px;color:var(--gn)">â ${s.last_check.substring(0,16)}</div>`:''}</div><div class="toggle ${s.active?'on':''}" onclick="toggleSrc(${s.id},this)"></div><button class="btn br btn-sm" onclick="deleteSrc(${s.id})" style="width:32px;padding:5px;margin-top:0">ð</button></div>`).join('');}
+async function addSource(){const name=document.getElementById('src-name').value.trim();const url=document.getElementById('src-url').value.trim();const type=document.getElementById('src-type').value;if(!name||!url){alert('Ø£Ø¯Ø®Ù Ø§ÙØ§Ø³Ù ÙØ§ÙØ±Ø§Ø¨Ø·!');return;}const r=await api('/api/sources','POST',{name,url,type});if(r.success){document.getElementById('src-name').value='';document.getElementById('src-url').value='';loadSources();alert('â ØªÙØª Ø§ÙØ¥Ø¶Ø§ÙØ©!');}else alert('â '+r.error);}
+async function deleteSrc(id){if(!confirm('Ø­Ø°ÙØ'))return;await api('/api/sources/'+id,'DELETE');loadSources();}
 async function toggleSrc(id,el){el.classList.toggle('on');await api('/api/sources/'+id+'/toggle','PATCH');}
-async function analyzeYT(){const url=document.getElementById('yt-url').value.trim();if(!url){alert('أدخل رابط الفيديو!');return;}const btn=document.getElementById('yt-btn');btn.innerHTML='<div class="sp"></div> جارٍ التحليل...';btn.disabled=true;try{const r=await api('/api/youtube/analyze','POST',{url});if(r.success){window._ytData=r;const area=document.getElementById('yt-result');area.style.display='block';const vidId=r.videoId||url.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/)?.[1]||'';const thumb=r.thumbnail||('https://img.youtube.com/vi/'+vidId+'/mqdefault.jpg');area.innerHTML='<div class="yt-preview"><img src="'+thumb+'" class="yt-thumb"><div><div style="font-size:12px;font-weight:600;line-height:1.4">'+(r.title||'—')+'</div><div style="font-size:10px;color:var(--t2);margin-top:3px">📺 '+(r.channelName||r.channel||'')+'</div></div></div>'+(r.summary?'<div style="background:var(--bg3);border-radius:var(--rs);padding:10px;font-size:11px;line-height:1.8;margin-bottom:8px;color:var(--t2)">'+r.summary.substring(0,300)+'...</div>':'')+'<div style="display:flex;gap:6px;flex-wrap:wrap">'+(r.telegram?'<button class="btn btg btn-sm" onclick="sendToTG(''+encodeURIComponent(r.telegram||'')+'')">✈️ تيليغرام</button>':'')+(r.facebook?' <button class="btn btn-sm bfb" style="width:auto;margin-top:0" onclick="navigator.clipboard.writeText(decodeURIComponent(''+encodeURIComponent(r.facebook||'')+'')).then(()=>alert('تم!'))">📘 نسخ فيسبوك</button>':'')+(r.twitter?' <button class="btn btn-sm bo" style="width:auto;margin-top:0" onclick="navigator.clipboard.writeText(decodeURIComponent(''+encodeURIComponent(r.twitter||'')+'')).then(()=>alert('تم!'))">𝕏 نسخ</button>':'')+'<button class="btn bg btn-sm" id="sched-yt-btn" style="width:auto;margin-top:0" onclick="scheduleYTPost()">📅 جدولة ونشر</button></div>';}else{alert('❌ '+r.error);}}catch(e){alert('❌ '+e.message);}btn.innerHTML='▶️ تحليل وإعادة صياغة';btn.disabled=false;}
-async function sendToTG(encoded){const content=decodeURIComponent(encoded);const token=localStorage.getItem('tg_t');const chat=localStorage.getItem('tg_c');if(!token||!chat){alert('أعدّ تيليغرام أولاً من تبويب الربط!');return;}try{const r=await fetch(`https://api.telegram.org/bot${token}/sendMessage`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:chat,text:content})});const d=await r.json();if(d.ok)alert('✅ تم الإرسال على تيليغرام!');else alert('❌ '+d.description);}catch(e){alert('❌ '+e.message);}}
-async function readTGChannel(){const ch=document.getElementById('tg-ch-read').value.trim().replace('@','');if(!ch){alert('أدخل اسم القناة!');return;}const btn=document.getElementById('tg-read-btn');btn.innerHTML='<div class="sp"></div>';btn.disabled=true;try{const r=await api('/api/telegram/channel/fetch','POST',{channel:ch});const area=document.getElementById('tg-read-result');area.style.display='block';if(r.success&&r.posts.length>0){window.tgPosts=r.posts;area.innerHTML=`<div style="font-size:11px;color:var(--gn);margin-bottom:7px">✅ ${r.posts.length} منشور من @${ch}</div>`+r.posts.map((p,i)=>`<div class="tg-msg"><div style="font-size:11px;line-height:1.7;margin-bottom:5px">${p.text.substring(0,200)}${p.text.length>200?'...':''}</div><div style="display:flex;gap:4px"><button class="btn bp btn-sm" onclick="addTGSource('${ch}')">➕ إضافة @${ch} كمصدر</button><button class="btn bo btn-sm" onclick="navigator.clipboard.writeText(window.tgPosts[${i}].text).then(()=>alert('تم!'))">📋 نسخ</button></div></div>`).join('');}else{area.innerHTML=`<div class="al al-w">⚠️ ${r.message||'لم يتم العثور على منشورات'}<br>تأكد أن القناة <strong>عامة</strong> ومفتوحة</div>`;}}catch(e){alert('❌ '+e.message);}btn.innerHTML='📖 قراءة';btn.disabled=false;}
-async function addTGSource(ch){const r=await api('/api/sources','POST',{name:'@'+ch,url:`https://t.me/s/${ch}`,type:'telegram'});if(r.success){alert('✅ تمت إضافة @'+ch+' كمصدر!');loadSources();}else alert('المصدر مضاف مسبقاً');}
-async function testTG(){const token=document.getElementById('tg-token').value.trim();const chat=document.getElementById('tg-chat').value.trim();if(!token){alert('أدخل Bot Token!');return;}const btn=document.getElementById('tg-test-btn');btn.innerHTML='<div class="sp"></div>';btn.disabled=true;try{const r=await api('/api/test/telegram','POST',{token,chat});if(r.success){document.getElementById('tg-status').innerHTML=`<span class="dot dg"></span> ✅ البوت: @${r.username}`;document.getElementById('tg-badge').style.display='inline-block';document.getElementById('card-tg').classList.add('connected');localStorage.setItem('tg_t',token);localStorage.setItem('tg_c',chat);}else{document.getElementById('tg-status').innerHTML=`<span class="dot dr"></span> ❌ ${r.error}`;}}catch(e){document.getElementById('tg-status').innerHTML=`<span class="dot da"></span> ⚠️ تعذر`;}btn.innerHTML='🧪 اختبار وحفظ';btn.disabled=false;}
-async function testFB(){const token=document.getElementById('fb-token').value.trim();const pageId=document.getElementById('fb-page-id').value.trim();if(!token||!pageId){alert('أدخل Token و Page ID!');return;}const btn=document.getElementById('fb-test-btn');btn.innerHTML='<div class="sp"></div>';btn.disabled=true;try{const r=await api('/api/test/facebook','POST',{pageToken:token,pageId});if(r.success){document.getElementById('fb-status').innerHTML=`<span class="dot dg"></span> ✅ ${r.name}`;document.getElementById('fb-badge').style.display='inline-block';document.getElementById('card-fb').classList.add('connected');}else{document.getElementById('fb-status').innerHTML=`<span class="dot dr"></span> ❌ ${r.error}`;}}catch(e){document.getElementById('fb-status').innerHTML=`<span class="dot da"></span> ⚠️ ${e.message}`;}btn.innerHTML='🧪 اختبار';btn.disabled=false;}
-async function saveBuf(){const token=document.getElementById('buf-token').value.trim();if(!token){alert('أدخل Token!');return;}await api('/api/settings/bulk','POST',{buffer_token:token});document.getElementById('buf-status').innerHTML='<span class="dot dg"></span> ✅ تم الحفظ';document.getElementById('buf-badge').style.display='inline-block';document.getElementById('card-buf').classList.add('connected');alert('✅ تم حفظ Buffer Token!');}
+async function analyzeYT(){const url=document.getElementById('yt-url').value.trim();if(!url){alert('Ø£Ø¯Ø®Ù Ø±Ø§Ø¨Ø· Ø§ÙÙÙØ¯ÙÙ!');return;}const btn=document.getElementById('yt-btn');btn.innerHTML='<div class="sp"></div> Ø¬Ø§Ø±Ù Ø§ÙØªØ­ÙÙÙ...';btn.disabled=true;try{const r=await api('/api/youtube/analyze','POST',{url});if(r.success){const area=document.getElementById('yt-result');area.style.display='block';area.innerHTML=`<div class="yt-preview"><img src="${r.thumbnail}" class="yt-thumb"><div><div style="font-size:12px;font-weight:600;line-height:1.4">${r.title}</div><div style="font-size:10px;color:var(--t2);margin-top:3px">ðº ${r.channelName}</div></div></div>${r.summary?`<div style="background:var(--bg3);border-radius:var(--rs);padding:10px;font-size:11px;line-height:1.8;margin-bottom:8px;color:var(--t2)">${r.summary.substring(0,300)}...</div>`:''}<div style="display:flex;gap:6px;flex-wrap:wrap">${r.telegram?`<button class="btn btg btn-sm" onclick="sendToTG('${encodeURIComponent(r.telegram)}')">âï¸ ØªÙÙÙØºØ±Ø§Ù</button>`:''} ${r.facebook?`<button class="btn btn-sm bfb" style="width:auto;margin-top:0" onclick="navigator.clipboard.writeText(decodeURIComponent('${encodeURIComponent(r.facebook)}')).then(()=>alert('ØªÙ ÙØ³Ø® ÙÙØ´ÙØ± ÙÙØ³Ø¨ÙÙ!'))">ð ÙØ³Ø® ÙÙØ³Ø¨ÙÙ</button>`:''} ${r.twitter?`<button class="btn btn-sm bo" style="width:auto;margin-top:0" onclick="navigator.clipboard.writeText(decodeURIComponent('${encodeURIComponent(r.twitter)}')).then(()=>alert('ØªÙ ÙØ³Ø® ØªÙÙØªØ±!'))">ð ÙØ³Ø®</button>`:''}</div>`;}else{alert('â '+r.error);}}catch(e){alert('â '+e.message);}btn.innerHTML='â¶ï¸ ØªØ­ÙÙÙ ÙØ¥Ø¹Ø§Ø¯Ø© ØµÙØ§ØºØ©';btn.disabled=false;}
+async function sendToTG(encoded){const content=decodeURIComponent(encoded);const token=localStorage.getItem('tg_t');const chat=localStorage.getItem('tg_c');if(!token||!chat){alert('Ø£Ø¹Ø¯Ù ØªÙÙÙØºØ±Ø§Ù Ø£ÙÙØ§Ù ÙÙ ØªØ¨ÙÙØ¨ Ø§ÙØ±Ø¨Ø·!');return;}try{const r=await fetch(`https://api.telegram.org/bot${token}/sendMessage`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:chat,text:content})});const d=await r.json();if(d.ok)alert('â ØªÙ Ø§ÙØ¥Ø±Ø³Ø§Ù Ø¹ÙÙ ØªÙÙÙØºØ±Ø§Ù!');else alert('â '+d.description);}catch(e){alert('â '+e.message);}}
+async function readTGChannel(){const ch=document.getElementById('tg-ch-read').value.trim().replace('@','');if(!ch){alert('Ø£Ø¯Ø®Ù Ø§Ø³Ù Ø§ÙÙÙØ§Ø©!');return;}const btn=document.getElementById('tg-read-btn');btn.innerHTML='<div class="sp"></div>';btn.disabled=true;try{const r=await api('/api/telegram/channel/fetch','POST',{channel:ch});const area=document.getElementById('tg-read-result');area.style.display='block';if(r.success&&r.posts.length>0){window.tgPosts=r.posts;area.innerHTML=`<div style="font-size:11px;color:var(--gn);margin-bottom:7px">â ${r.posts.length} ÙÙØ´ÙØ± ÙÙ @${ch}</div>`+r.posts.map((p,i)=>`<div class="tg-msg"><div style="font-size:11px;line-height:1.7;margin-bottom:5px">${p.text.substring(0,200)}${p.text.length>200?'...':''}</div><div style="display:flex;gap:4px"><button class="btn bp btn-sm" onclick="addTGSource('${ch}')">â Ø¥Ø¶Ø§ÙØ© @${ch} ÙÙØµØ¯Ø±</button><button class="btn bo btn-sm" onclick="navigator.clipboard.writeText(window.tgPosts[${i}].text).then(()=>alert('ØªÙ!'))">ð ÙØ³Ø®</button></div></div>`).join('');}else{area.innerHTML=`<div class="al al-w">â ï¸ ${r.message||'ÙÙ ÙØªÙ Ø§ÙØ¹Ø«ÙØ± Ø¹ÙÙ ÙÙØ´ÙØ±Ø§Øª'}<br>ØªØ£ÙØ¯ Ø£Ù Ø§ÙÙÙØ§Ø© <strong>Ø¹Ø§ÙØ©</strong> ÙÙÙØªÙØ­Ø©</div>`;}}catch(e){alert('â '+e.message);}btn.innerHTML='ð ÙØ±Ø§Ø¡Ø©';btn.disabled=false;}
+async function addTGSource(ch){const r=await api('/api/sources','POST',{name:'@'+ch,url:`https://t.me/s/${ch}`,type:'telegram'});if(r.success){alert('â ØªÙØª Ø¥Ø¶Ø§ÙØ© @'+ch+' ÙÙØµØ¯Ø±!');loadSources();}else alert('Ø§ÙÙØµØ¯Ø± ÙØ¶Ø§Ù ÙØ³Ø¨ÙØ§Ù');}
+async function testTG(){const token=document.getElementById('tg-token').value.trim();const chat=document.getElementById('tg-chat').value.trim();if(!token){alert('Ø£Ø¯Ø®Ù Bot Token!');return;}const btn=document.getElementById('tg-test-btn');btn.innerHTML='<div class="sp"></div>';btn.disabled=true;try{const r=await api('/api/test/telegram','POST',{token,chat});if(r.success){document.getElementById('tg-status').innerHTML=`<span class="dot dg"></span> â Ø§ÙØ¨ÙØª: @${r.username}`;document.getElementById('tg-badge').style.display='inline-block';document.getElementById('card-tg').classList.add('connected');localStorage.setItem('tg_t',token);localStorage.setItem('tg_c',chat);}else{document.getElementById('tg-status').innerHTML=`<span class="dot dr"></span> â ${r.error}`;}}catch(e){document.getElementById('tg-status').innerHTML=`<span class="dot da"></span> â ï¸ ØªØ¹Ø°Ø±`;}btn.innerHTML='ð§ª Ø§Ø®ØªØ¨Ø§Ø± ÙØ­ÙØ¸';btn.disabled=false;}
+async function testFB(){const token=document.getElementById('fb-token').value.trim();const pageId=document.getElementById('fb-page-id').value.trim();if(!token||!pageId){alert('Ø£Ø¯Ø®Ù Token Ù Page ID!');return;}const btn=document.getElementById('fb-test-btn');btn.innerHTML='<div class="sp"></div>';btn.disabled=true;try{const r=await api('/api/test/facebook','POST',{pageToken:token,pageId});if(r.success){document.getElementById('fb-status').innerHTML=`<span class="dot dg"></span> â ${r.name}`;document.getElementById('fb-badge').style.display='inline-block';document.getElementById('card-fb').classList.add('connected');}else{document.getElementById('fb-status').innerHTML=`<span class="dot dr"></span> â ${r.error}`;}}catch(e){document.getElementById('fb-status').innerHTML=`<span class="dot da"></span> â ï¸ ${e.message}`;}btn.innerHTML='ð§ª Ø§Ø®ØªØ¨Ø§Ø±';btn.disabled=false;}
+async function saveBuf(){const token=document.getElementById('buf-token').value.trim();if(!token){alert('Ø£Ø¯Ø®Ù Token!');return;}await api('/api/settings/bulk','POST',{buffer_token:token});document.getElementById('buf-status').innerHTML='<span class="dot dg"></span> â ØªÙ Ø§ÙØ­ÙØ¸';document.getElementById('buf-badge').style.display='inline-block';document.getElementById('card-buf').classList.add('connected');alert('â ØªÙ Ø­ÙØ¸ Buffer Token!');}
 function setAI(p){curAI=p;document.getElementById('ai-cl-btn').className='btn btn-sm '+(p==='claude'?'bp':'bo');document.getElementById('ai-oa-btn').className='btn btn-sm '+(p==='openai'?'bp':'bo');document.getElementById('ai-cl-sec').style.display=p==='claude'?'block':'none';document.getElementById('ai-oa-sec').style.display=p==='openai'?'block':'none';}
-async function testAI(){const key=curAI==='claude'?document.getElementById('ai-cl-key').value.trim():document.getElementById('ai-oa-key').value.trim();if(!key){alert('أدخل المفتاح!');return;}const btn=document.getElementById('ai-btn');btn.innerHTML='<div class="sp"></div>';btn.disabled=true;try{const r=await api('/api/test/ai','POST',{key,provider:curAI});if(r.success){document.getElementById('ai-status').innerHTML=`<span class="dot dg"></span> ✅ ${curAI} يعمل!`;document.getElementById('ai-badge').style.display='inline-block';document.getElementById('card-ai').classList.add('connected');}else{document.getElementById('ai-status').innerHTML=`<span class="dot dr"></span> ❌ ${r.error}`;}}catch(e){document.getElementById('ai-status').innerHTML=`<span class="dot da"></span> ⚠️ ${e.message}`;}btn.innerHTML='🧪 اختبار وحفظ';btn.disabled=false;}
-async function loadPosts(){const posts=await api('/api/posts');const list=document.getElementById('posts-list');if(!posts.length){list.innerHTML='<div style="color:var(--t3);text-align:center;padding:24px;font-size:12px">لا توجد منشورات بعد</div>';return;}list.innerHTML=posts.map(p=>`<div class="card" style="margin-bottom:8px"><div style="font-size:12px;font-weight:600;margin-bottom:4px">${p.original_title||'—'}</div><div style="font-size:10px;color:var(--t2);margin-bottom:8px">${p.source_name||''} • ${p.created_at?.substring(0,16)||''}</div><div style="display:flex;align-items:center;justify-content:space-between"><span class="tag ${p.status==='published'?'tag-s':p.status==='ready'?'tag-p':'tag-e'}">${p.status==='published'?'✅ نُشر':p.status==='ready'?'🟣 جاهز':'❌ خطأ'}</span><div style="display:flex;gap:5px">${p.status==='ready'?`<button class="btn bg btn-sm" onclick="pubPost(${p.id},this)">🚀 نشر</button>`:''}<button class="btn br btn-sm" onclick="delPost(${p.id})">🗑</button></div></div></div>`).join('');}
-async function pubPost(id,btn){btn.innerHTML='<div class="sp"></div>';btn.disabled=true;const r=await api('/api/posts/'+id+'/publish','POST');if(r.success){alert('✅ تم!\n'+r.logs.map(l=>l.platform+': '+l.status).join('\n'));loadPosts();}else alert('❌ '+r.error);}
-async function delPost(id){if(!confirm('حذف؟'))return;await api('/api/posts/'+id,'DELETE');loadPosts();}
-async function loadSettings(){const s=await api('/api/settings');if(s.writing_tone)document.getElementById('writing-tone').value=s.writing_tone;if(s.content_lang)document.getElementById('content-lang').value=s.content_lang;if(s.hashtags)document.getElementById('hashtags').value=s.hashtags;if(s.check_time)document.getElementById('check-time').value=s.check_time;if(s.auto_publish)document.getElementById('auto-publish').value=s.auto_publish;const logs=await api('/api/logs');const ll=document.getElementById('logs-list');if(!logs.length){ll.innerHTML='<div style="color:var(--t3);text-align:center;padding:14px;font-size:12px">لا توجد سجلات</div>';return;}const icons={twitter:'𝕏',facebook:'📘',instagram:'📸',telegram:'✈️',blogger:'📝'};ll.innerHTML=logs.slice(0,20).map(l=>`<div class="log-item"><div style="flex:1;min-width:0"><div style="font-size:11px">${icons[l.platform]||'📌'} ${l.platform} <span style="color:var(--t2);font-size:10px">${l.published_at?.substring(0,16)||''}</span></div><div style="font-size:10px;color:var(--t2);overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${l.original_title||l.message||''}</div></div><span class="tag ${l.status==='success'?'tag-s':'tag-e'}">${l.status==='success'?'✅':'❌'}</span></div>`).join('');}
-async function saveSettings(){await api('/api/settings/bulk','POST',{writing_tone:document.getElementById('writing-tone').value,content_lang:document.getElementById('content-lang').value,hashtags:document.getElementById('hashtags').value,check_time:document.getElementById('check-time').value,auto_publish:document.getElementById('auto-publish').value});alert('✅ تم الحفظ!');}
-async function saveYTKey(){const key=document.getElementById('yt-key').value.trim();await api('/api/settings/bulk','POST',{youtube_api_key:key});alert('✅ تم الحفظ!');}
-async function runNow(){const btn=document.getElementById('run-btn');btn.innerHTML='<div class="sp" style="border-top-color:#fff"></div>';btn.disabled=true;await api('/api/run-now','POST');setTimeout(()=>{btn.innerHTML='▶️ تشغيل الآن';btn.disabled=false;},3000);setTimeout(loadDash,4000);}
-
-    async function saveMakeWebhook(){const url=document.getElementById('make-webhook').value.trim();if(!url){alert('أدخل رابط الـ Webhook!');return;}if(!url.startsWith('http')){alert('رابط غير صحيح!');return;}const btn=document.getElementById('make-btn');btn.innerHTML='<div class="sp"></div>';btn.disabled=true;try{await api('/api/settings/bulk','POST',{make_webhook:url});}catch(e){}localStorage.setItem('make_webhook',url);document.getElementById('make-status').innerHTML='<span class="dot dg"></span> ✅ تم الحفظ! المنشورات ستُرسل لـ Make.com';document.getElementById('make-badge').style.display='inline-block';document.getElementById('card-make').classList.add('connected');btn.innerHTML='💾 حفظ Webhook';btn.disabled=false;alert('✅ تم! ستُرسل المنشورات لـ Make.com وينشرها على فيسبوك تلقائياً 🚀');}
-    async function scheduleYTPost(){const d=window._ytData;if(!d||!d.videoId){alert('لا توجد بيانات تحليل!');return;}const btn=document.getElementById('sched-yt-btn');if(btn){btn.innerHTML='<div class="sp"></div>';btn.disabled=true;}try{const r=await api('/api/youtube/save-to-posts','POST',{videoId:d.videoId,title:d.title,url:'https://www.youtube.com/watch?v='+d.videoId,content:d.summary||d.title,source_name:d.channelName||d.channel||'يوتيوب'});if(r.success){alert('\u2705 '+r.message);if(btn){btn.innerHTML='\u2705 تمت الجدولة';btn.disabled=true;}}else{alert('\u26a0\ufe0f '+(r.error||'خطأ'));if(btn){btn.innerHTML='\ud83d\udcc5 جدولة ونشر';btn.disabled=false;}}}catch(e){alert('\u274c '+e.message);if(btn){btn.innerHTML='\ud83d\udcc5 جدولة ونشر';btn.disabled=false;}}}
-    async function loadYTNotifications(){try{const notifs=await api('/api/yt/notifications');const badge=document.getElementById('yt-notif-badge');const list=document.getElementById('yt-notif-list');if(!notifs||!notifs.length){if(badge)badge.style.display='none';if(list)list.style.display='none';return;}if(badge){badge.textContent=notifs.length;badge.style.display='inline-block';}if(list){list.style.display='block';list.innerHTML='<div class="ct">\ud83d\udd14 فيديوهات جديدة</div>'+notifs.map(n=>'<div class="yt-preview" style="margin-bottom:8px;border:1px solid var(--bd);border-radius:var(--rs);padding:8px"><img src="'+(n.thumb||'https://img.youtube.com/vi/'+(n.videoId||'')+'/mqdefault.jpg')+'" class="yt-thumb"><div style="flex:1"><div style="font-size:11px;font-weight:600;margin-bottom:4px">'+(n.title||'\u2014')+'</div><div style="font-size:10px;color:var(--t2);margin-bottom:6px">\ud83d\udcfa '+(n.source_name||'')+'</div><div style="display:flex;gap:5px"><button class="btn bp btn-sm" onclick="scheduleNotifVideo(this,''+encodeURIComponent(JSON.stringify({videoId:n.videoId,title:n.title,url:n.url,content:n.content,source_name:n.source_name}))+'')">\ud83d\udcc5 جدولة</button><a href="'+(n.url||'#')+'" target="_blank"><button class="btn bo btn-sm">\u25b6\ufe0f مشاهدة</button></a></div></div></div>').join('')+'<button class="btn br btn-sm" onclick="clearYTNotifs()" style="margin-top:6px">\ud83d\uddd1 مسح الكل</button>';}}catch(e){}}
-    async function scheduleNotifVideo(btn,encoded){try{const n=JSON.parse(decodeURIComponent(encoded));btn.innerHTML='<div class="sp"></div>';btn.disabled=true;const r=await api('/api/yt/schedule-video','POST',{videoId:n.videoId,title:n.title,url:n.url,content:n.content||n.title,source_name:n.source_name});if(r.success){btn.innerHTML='\u2705 تمت';btn.closest('.yt-preview').style.opacity='0.5';alert('\u2705 '+r.message);loadYTNotifications();}else{btn.innerHTML='\ud83d\udcc5 جدولة';btn.disabled=false;alert('\u26a0\ufe0f '+(r.error||'خطأ'));}}catch(e){alert('\u274c '+e.message);btn.innerHTML='\ud83d\udcc5 جدولة';btn.disabled=false;}}
-    async function clearYTNotifs(){if(!confirm('مسح جميع الإشعارات؟'))return;await api('/api/yt/notifications/clear','POST');loadYTNotifications();}
-
-    loadDash();loadYTNotifications();setInterval(loadYTNotifications,300000);
+async function testAI(){const key=curAI==='claude'?document.getElementById('ai-cl-key').value.trim():document.getElementById('ai-oa-key').value.trim();if(!key){alert('Ø£Ø¯Ø®Ù Ø§ÙÙÙØªØ§Ø­!');return;}const btn=document.getElementById('ai-btn');btn.innerHTML='<div class="sp"></div>';btn.disabled=true;try{const r=await api('/api/test/ai','POST',{key,provider:curAI});if(r.success){document.getElementById('ai-status').innerHTML=`<span class="dot dg"></span> â ${curAI} ÙØ¹ÙÙ!`;document.getElementById('ai-badge').style.display='inline-block';document.getElementById('card-ai').classList.add('connected');}else{document.getElementById('ai-status').innerHTML=`<span class="dot dr"></span> â ${r.error}`;}}catch(e){document.getElementById('ai-status').innerHTML=`<span class="dot da"></span> â ï¸ ${e.message}`;}btn.innerHTML='ð§ª Ø§Ø®ØªØ¨Ø§Ø± ÙØ­ÙØ¸';btn.disabled=false;}
+async function loadPosts(){const posts=await api('/api/posts');const list=document.getElementById('posts-list');if(!posts.length){list.innerHTML='<div style="color:var(--t3);text-align:center;padding:24px;font-size:12px">ÙØ§ ØªÙØ¬Ø¯ ÙÙØ´ÙØ±Ø§Øª Ø¨Ø¹Ø¯</div>';return;}list.innerHTML=posts.map(p=>`<div class="card" style="margin-bottom:8px"><div style="font-size:12px;font-weight:600;margin-bottom:4px">${p.original_title||'â'}</div><div style="font-size:10px;color:var(--t2);margin-bottom:8px">${p.source_name||''} â¢ ${p.created_at?.substring(0,16)||''}</div><div style="display:flex;align-items:center;justify-content:space-between"><span class="tag ${p.status==='published'?'tag-s':p.status==='ready'?'tag-p':'tag-e'}">${p.status==='published'?'â ÙÙØ´Ø±':p.status==='ready'?'ð£ Ø¬Ø§ÙØ²':'â Ø®Ø·Ø£'}</span><div style="display:flex;gap:5px">${p.status==='ready'?`<button class="btn bg btn-sm" onclick="pubPost(${p.id},this)">ð ÙØ´Ø±</button>`:''}<button class="btn br btn-sm" onclick="delPost(${p.id})">ð</button></div></div></div>`).join('');}
+async function pubPost(id,btn){btn.innerHTML='<div class="sp"></div>';btn.disabled=true;const r=await api('/api/posts/'+id+'/publish','POST');if(r.success){alert('â ØªÙ!\n'+r.logs.map(l=>l.platform+': '+l.status).join('\n'));loadPosts();}else alert('â '+r.error);}
+async function delPost(id){if(!confirm('Ø­Ø°ÙØ'))return;await api('/api/posts/'+id,'DELETE');loadPosts();}
+async function loadSettings(){const s=await api('/api/settings');if(s.writing_tone)document.getElementById('writing-tone').value=s.writing_tone;if(s.content_lang)document.getElementById('content-lang').value=s.content_lang;if(s.hashtags)document.getElementById('hashtags').value=s.hashtags;if(s.check_time)document.getElementById('check-time').value=s.check_time;if(s.auto_publish)document.getElementById('auto-publish').value=s.auto_publish;const logs=await api('/api/logs');const ll=document.getElementById('logs-list');if(!logs.length){ll.innerHTML='<div style="color:var(--t3);text-align:center;padding:14px;font-size:12px">ÙØ§ ØªÙØ¬Ø¯ Ø³Ø¬ÙØ§Øª</div>';return;}const icons={twitter:'ð',facebook:'ð',instagram:'ð¸',telegram:'âï¸',blogger:'ð'};ll.innerHTML=logs.slice(0,20).map(l=>`<div class="log-item"><div style="flex:1;min-width:0"><div style="font-size:11px">${icons[l.platform]||'ð'} ${l.platform} <span style="color:var(--t2);font-size:10px">${l.published_at?.substring(0,16)||''}</span></div><div style="font-size:10px;color:var(--t2);overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${l.original_title||l.message||''}</div></div><span class="tag ${l.status==='success'?'tag-s':'tag-e'}">${l.status==='success'?'â':'â'}</span></div>`).join('');}
+async function saveSettings(){await api('/api/settings/bulk','POST',{writing_tone:document.getElementById('writing-tone').value,content_lang:document.getElementById('content-lang').value,hashtags:document.getElementById('hashtags').value,check_time:document.getElementById('check-time').value,auto_publish:document.getElementById('auto-publish').value});alert('â ØªÙ Ø§ÙØ­ÙØ¸!');}
+async function saveYTKey(){const key=document.getElementById('yt-key').value.trim();await api('/api/settings/bulk','POST',{youtube_api_key:key});alert('â ØªÙ Ø§ÙØ­ÙØ¸!');}
+async function runNow(){const btn=document.getElementById('run-btn');btn.innerHTML='<div class="sp" style="border-top-color:#fff"></div>';btn.disabled=true;await api('/api/run-now','POST');setTimeout(()=>{btn.innerHTML='â¶ï¸ ØªØ´ØºÙÙ Ø§ÙØ¢Ù';btn.disabled=false;},3000);setTimeout(loadDash,4000);}
+loadDash();
+checkVersion();
 </script>
 </body>
 </html>
