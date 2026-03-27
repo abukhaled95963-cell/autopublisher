@@ -170,56 +170,6 @@ async function fetchRSS(source) {
 }
 
 // ===== Fetch Telegram Channel (via RSS proxy) =====
-// ===== Fetch YouTube Channel =====
-async function fetchYouTubeChannel(source) {
-  try {
-    const url = source.url;
-    const channelId = url.match(/channel\/([a-zA-Z0-9_-]+)/)?.[1];
-    const handle = url.match(/@([a-zA-Z0-9_-]+)/)?.[1];
-    const ytKey = getSetting('youtube_api_key');
-    let rssUrl = '';
-    if(channelId) {
-      rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
-    } else if(handle) {
-      if(ytKey) {
-        try {
-          const r = await axios.get(`https://www.googleapis.com/youtube/v3/channels?forHandle=${handle}&key=${ytKey}&part=id`,{timeout:8000});
-          const chId = r.data.items?.[0]?.id;
-          if(chId) rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${chId}`;
-        } catch(e) {}
-      }
-      if(!rssUrl) {
-        try {
-          const r2 = await axios.get(`https://www.youtube.com/@${handle}`,{timeout:8000,headers:{'User-Agent':'Mozilla/5.0'}});
-          const m = r2.data.match(/"channelId":"([a-zA-Z0-9_-]+)"/);
-          if(m) rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${m[1]}`;
-        } catch(e) {}
-      }
-    }
-    if(!rssUrl) return [];
-    const feed = await parser.parseURL(rssUrl);
-    const newItems = [];
-    for(const item of (feed.items||[]).slice(0,5)) {
-      const vId = item.link?.match(/v=([a-zA-Z0-9_-]{11})/)?.[1];
-      if(!vId) continue;
-      const vidUrl = `https://www.youtube.com/watch?v=${vId}`;
-      const exists = db.prepare('SELECT id FROM posts WHERE original_url LIKE ?').get(`%${vId}%`);
-      if(!exists) {
-        const title = item.title || 'فيديو جديد';
-        newItems.push({title, url: vidUrl, content: item.contentSnippet||title, videoId: vId, thumb: `https://img.youtube.com/vi/${vId}/mqdefault.jpg`, source_name: source.name, source_id: source.id, ts: Date.now()});
-      }
-    }
-    if(newItems.length > 0) {
-      const existing = JSON.parse(getSetting('yt_notifications','[]'));
-      setSetting('yt_notifications', JSON.stringify([...newItems, ...existing].slice(0,20)));
-    }
-    return [];
-  } catch(e) {
-    console.error('YouTube channel fetch error:', e.message);
-    return [];
-  }
-}
-
 async function fetchTelegramChannel(source) {
   try {
     // استخراج اسم القناة
@@ -403,8 +353,7 @@ async function dailyCycle() {
   for(const source of sources) {
     let items = [];
     if(source.type==='youtube') items = await fetchYouTube(source);
-    else if(source.type==='youtube_channel') items = await fetchYouTubeChannel(source);
-    else if(source.type==='telegram') items = await fetchTelegramChannel(source);
+    else if(source.type==='telegram_channel') items = await fetchTelegramChannel(source);
     else items = await fetchRSS(source);
 
     db.prepare('UPDATE sources SET last_check=datetime("now"), item_count=? WHERE id=?').run(items.length, source.id);
@@ -439,39 +388,6 @@ async function dailyCycle() {
 const checkTime = getSetting('check_time','08:00');
 const [h,m] = checkTime.split(':');
 cron.schedule(`${m||0} ${h||8} * * *`, dailyCycle, {timezone:'Asia/Riyadh'});
-
-// ===== YouTube Notification & Scheduling APIs =====
-app.get('/api/yt/notifications', (req,res) => {
-  try { res.json(JSON.parse(getSetting('yt_notifications','[]'))); } catch(e) { res.json([]); }
-});
-app.post('/api/yt/notifications/clear', (req,res) => { setSetting('yt_notifications','[]'); res.json({success:true}); });
-app.post('/api/yt/schedule-video', async(req,res) => {
-  const {videoId,title,url,content,source_name} = req.body;
-  if(!videoId) return res.status(400).json({error:'videoId مطلوب'});
-  try {
-    const notifs = JSON.parse(getSetting('yt_notifications','[]'));
-    setSetting('yt_notifications', JSON.stringify(notifs.filter(n => n.videoId !== videoId)));
-    const vidUrl = url || `https://www.youtube.com/watch?v=${videoId}`;
-    const rewritten = await rewriteContent(title||'فيديو يوتيوب', content||title, vidUrl, source_name||'يوتيوب');
-    const result = db.prepare('INSERT OR IGNORE INTO posts (source_id,original_title,original_url,original_content,rewritten_twitter,rewritten_facebook,rewritten_instagram,rewritten_telegram,rewritten_blogger,status) VALUES (?,?,?,?,?,?,?,?,?,\'ready\')')
-      .run(null,title,vidUrl,content||title,rewritten.twitter,rewritten.facebook,rewritten.instagram,rewritten.telegram,rewritten.blogger);
-    if(!result.lastInsertRowid) return res.json({success:false, error:'الفيديو موجود مسبقاً'});
-    res.json({success:true, postId:result.lastInsertRowid, message:'تمت الجدولة! ✅'});
-  } catch(e) { res.status(500).json({error:e.message}); }
-});
-app.post('/api/youtube/save-to-posts', async(req,res) => {
-  const {videoId,title,url,content,source_name} = req.body;
-  if(!videoId) return res.status(400).json({error:'videoId مطلوب'});
-  try {
-    const vidUrl = url || `https://www.youtube.com/watch?v=${videoId}`;
-    const exists = db.prepare('SELECT id FROM posts WHERE original_url LIKE ?').get(`%${videoId}%`);
-    if(exists) return res.json({success:false, error:'هذا الفيديو موجود مسبقاً', postId:exists.id});
-    const rewritten = await rewriteContent(title||'فيديو يوتيوب', content||title, vidUrl, source_name||'يوتيوب');
-    const result = db.prepare('INSERT OR IGNORE INTO posts (source_id,original_title,original_url,original_content,rewritten_twitter,rewritten_facebook,rewritten_instagram,rewritten_telegram,rewritten_blogger,status) VALUES (?,?,?,?,?,?,?,?,?,\'ready\')')
-      .run(null,title,vidUrl,content||title,rewritten.twitter,rewritten.facebook,rewritten.instagram,rewritten.telegram,rewritten.blogger);
-    res.json({success:true, postId:result.lastInsertRowid, message:'تمت إضافة الفيديو لجدول المنشورات ✅'});
-  } catch(e) { res.status(500).json({error:e.message}); }
-});
 
 // ===== API Routes =====
 app.get('/api/settings', (req,res) => {
@@ -775,3 +691,177 @@ app.post('/api/test/facebook', async (req, res) => {
     res.status(500).json({ error: e.response?.data?.error?.message || e.message });
   }
 });
+
+// ===== Auto Update via GitHub API =====
+app.post('/api/auto-update', async (req, res) => {
+  const { request, ai_provider } = req.body;
+  if (!request) return res.status(400).json({ error: 'أدخل طلب التعديل' });
+
+  // تحديد AI المستخدم مؤقتاً
+  const originalProvider = getSetting('ai_provider');
+  if (ai_provider) setSetting('ai_provider', ai_provider);
+
+  const githubToken = getSetting('github_token');
+  const githubRepo = getSetting('github_repo'); // format: username/repo
+  if (!githubToken || !githubRepo) {
+    return res.status(400).json({ error: 'أدخل GitHub Token والمستودع في الإعدادات' });
+  }
+
+  try {
+    // 1. جلب محتوى الملف الحالي من GitHub
+    const fileRes = await axios.get(
+      `https://api.github.com/repos/${githubRepo}/contents/public/index.html`,
+      { headers: { Authorization: `Bearer ${githubToken}`, Accept: 'application/vnd.github.v3+json' } }
+    );
+    const currentContent = Buffer.from(fileRes.data.content, 'base64').toString('utf-8');
+    const fileSha = fileRes.data.sha;
+
+    // 2. طلب التعديل من AI
+    const prompt = `أنت مطور ويب محترف. لديك ملف HTML التالي لتطبيق نشر آلي:
+
+${currentContent.substring(0, 8000)}
+
+المطلوب: ${request}
+
+مهم جداً:
+- أعد الملف كاملاً مع التعديل المطلوب فقط
+- لا تغير أي شيء آخر
+- أعد HTML كاملاً فقط بدون أي شرح أو نص إضافي
+- ابدأ مباشرة بـ <!DOCTYPE html>`;
+
+    const newContent = await callAI(prompt, 4000);
+
+    // تنظيف الرد
+    const cleanContent = newContent
+      .replace(/^```html\n?/i, '')
+      .replace(/^```\n?/i, '')
+      .replace(/\n?```$/i, '')
+      .trim();
+
+    // 3. رفع الملف المعدّل على GitHub
+    const encodedContent = Buffer.from(cleanContent).toString('base64');
+    await axios.put(
+      `https://api.github.com/repos/${githubRepo}/contents/public/index.html`,
+      {
+        message: `تحديث تلقائي: ${request.substring(0, 50)}`,
+        content: encodedContent,
+        sha: fileSha
+      },
+      { headers: { Authorization: `Bearer ${githubToken}`, Accept: 'application/vnd.github.v3+json' } }
+    );
+
+    if (ai_provider) setSetting('ai_provider', originalProvider);
+    // زيادة رقم الإصدار
+    const currentVer = getSetting('app_version', '1.0.0');
+    const newVer = incrementVersion(currentVer);
+    setSetting('app_version', newVer);
+    setSetting('last_update', new Date().toISOString());
+    setSetting('update_notes', request);
+    setSetting('update_seen', '0'); // إشعار بالتحديث
+    res.json({ success: true, message: `تم التعديل ورفعه على GitHub — الإصدار الجديد: v${newVer}`, version: newVer });
+  } catch(e) {
+    if (ai_provider) setSetting('ai_provider', originalProvider);
+    res.status(500).json({ error: e.response?.data?.message || e.message });
+  }
+});
+
+// Test GitHub connection
+app.post('/api/test/github', async (req, res) => {
+  const { token, repo } = req.body;
+  try {
+    const r = await axios.get(`https://api.github.com/repos/${repo}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    setSetting('github_token', token);
+    setSetting('github_repo', repo);
+    res.json({ success: true, name: r.data.full_name });
+  } catch(e) {
+    res.status(400).json({ error: e.response?.data?.message || e.message });
+  }
+});
+
+
+// ===== Rollback to Previous Version =====
+app.get('/api/github/commits', async (req, res) => {
+  const githubToken = getSetting('github_token');
+  const githubRepo = getSetting('github_repo');
+  if (!githubToken || !githubRepo) return res.status(400).json({ error: 'GitHub غير مضبوط' });
+
+  try {
+    const r = await axios.get(
+      `https://api.github.com/repos/${githubRepo}/commits?path=public/index.html&per_page=10`,
+      { headers: { Authorization: `Bearer ${githubToken}`, Accept: 'application/vnd.github.v3+json' } }
+    );
+    const commits = r.data.map(c => ({
+      sha: c.sha,
+      message: c.commit.message,
+      date: c.commit.author.date,
+      author: c.commit.author.name
+    }));
+    res.json({ success: true, commits });
+  } catch(e) {
+    res.status(500).json({ error: e.response?.data?.message || e.message });
+  }
+});
+
+app.post('/api/github/rollback', async (req, res) => {
+  const { sha } = req.body;
+  if (!sha) return res.status(400).json({ error: 'أدخل رقم الإصدار' });
+
+  const githubToken = getSetting('github_token');
+  const githubRepo = getSetting('github_repo');
+  if (!githubToken || !githubRepo) return res.status(400).json({ error: 'GitHub غير مضبوط' });
+
+  try {
+    // 1. جلب محتوى الملف من الإصدار القديم
+    const oldFileRes = await axios.get(
+      `https://api.github.com/repos/${githubRepo}/contents/public/index.html?ref=${sha}`,
+      { headers: { Authorization: `Bearer ${githubToken}`, Accept: 'application/vnd.github.v3+json' } }
+    );
+    const oldContent = oldFileRes.data.content; // base64
+
+    // 2. جلب SHA الحالي للملف
+    const currentFileRes = await axios.get(
+      `https://api.github.com/repos/${githubRepo}/contents/public/index.html`,
+      { headers: { Authorization: `Bearer ${githubToken}`, Accept: 'application/vnd.github.v3+json' } }
+    );
+    const currentSha = currentFileRes.data.sha;
+
+    // 3. رفع الإصدار القديم كإصدار جديد
+    await axios.put(
+      `https://api.github.com/repos/${githubRepo}/contents/public/index.html`,
+      {
+        message: `↩️ رجوع للإصدار: ${sha.substring(0, 7)}`,
+        content: oldContent,
+        sha: currentSha
+      },
+      { headers: { Authorization: `Bearer ${githubToken}`, Accept: 'application/vnd.github.v3+json' } }
+    );
+
+    res.json({ success: true, message: `✅ تم الرجوع للإصدار ${sha.substring(0, 7)} — Railway سيحدّث خلال دقيقة` });
+  } catch(e) {
+    res.status(500).json({ error: e.response?.data?.message || e.message });
+  }
+});
+
+// ===== Version Management =====
+app.get('/api/version', (req, res) => {
+  const version = getSetting('app_version', '1.0.0');
+  const lastUpdate = getSetting('last_update', '');
+  const updateNotes = getSetting('update_notes', '');
+  const updateSeen = getSetting('update_seen', '1');
+  res.json({ version, lastUpdate, updateNotes, updateSeen });
+});
+
+app.post('/api/version/seen', (req, res) => {
+  setSetting('update_seen', '1');
+  res.json({ success: true });
+});
+
+function incrementVersion(version) {
+  const parts = version.split('.').map(Number);
+  parts[2] = (parts[2] || 0) + 1;
+  if (parts[2] >= 10) { parts[2] = 0; parts[1]++; }
+  if (parts[1] >= 10) { parts[1] = 0; parts[0]++; }
+  return parts.join('.');
+}
