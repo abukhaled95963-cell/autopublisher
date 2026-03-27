@@ -170,6 +170,56 @@ async function fetchRSS(source) {
 }
 
 // ===== Fetch Telegram Channel (via RSS proxy) =====
+// ===== Fetch YouTube Channel =====
+async function fetchYouTubeChannel(source) {
+  try {
+    const url = source.url;
+    const channelId = url.match(/channel\/([a-zA-Z0-9_-]+)/)?.[1];
+    const handle = url.match(/@([a-zA-Z0-9_-]+)/)?.[1];
+    const ytKey = getSetting('youtube_api_key');
+    let rssUrl = '';
+    if(channelId) {
+      rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
+    } else if(handle) {
+      if(ytKey) {
+        try {
+          const r = await axios.get(`https://www.googleapis.com/youtube/v3/channels?forHandle=${handle}&key=${ytKey}&part=id`,{timeout:8000});
+          const chId = r.data.items?.[0]?.id;
+          if(chId) rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${chId}`;
+        } catch(e) {}
+      }
+      if(!rssUrl) {
+        try {
+          const r2 = await axios.get(`https://www.youtube.com/@${handle}`,{timeout:8000,headers:{'User-Agent':'Mozilla/5.0'}});
+          const m = r2.data.match(/"channelId":"([a-zA-Z0-9_-]+)"/);
+          if(m) rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${m[1]}`;
+        } catch(e) {}
+      }
+    }
+    if(!rssUrl) return [];
+    const feed = await parser.parseURL(rssUrl);
+    const newItems = [];
+    for(const item of (feed.items||[]).slice(0,5)) {
+      const vId = item.link?.match(/v=([a-zA-Z0-9_-]{11})/)?.[1];
+      if(!vId) continue;
+      const vidUrl = `https://www.youtube.com/watch?v=${vId}`;
+      const exists = db.prepare('SELECT id FROM posts WHERE original_url LIKE ?').get(`%${vId}%`);
+      if(!exists) {
+        const title = item.title || 'فيديو جديد';
+        newItems.push({title, url: vidUrl, content: item.contentSnippet||title, videoId: vId, thumb: `https://img.youtube.com/vi/${vId}/mqdefault.jpg`, source_name: source.name, source_id: source.id, ts: Date.now()});
+      }
+    }
+    if(newItems.length > 0) {
+      const existing = JSON.parse(getSetting('yt_notifications','[]'));
+      setSetting('yt_notifications', JSON.stringify([...newItems, ...existing].slice(0,20)));
+    }
+    return [];
+  } catch(e) {
+    console.error('YouTube channel fetch error:', e.message);
+    return [];
+  }
+}
+
 async function fetchTelegramChannel(source) {
   try {
     // استخراج اسم القناة
@@ -353,7 +403,8 @@ async function dailyCycle() {
   for(const source of sources) {
     let items = [];
     if(source.type==='youtube') items = await fetchYouTube(source);
-    else if(source.type==='telegram_channel') items = await fetchTelegramChannel(source);
+    else if(source.type==='youtube_channel') items = await fetchYouTubeChannel(source);
+    else if(source.type==='telegram') items = await fetchTelegramChannel(source);
     else items = await fetchRSS(source);
 
     db.prepare('UPDATE sources SET last_check=datetime("now"), item_count=? WHERE id=?').run(items.length, source.id);
@@ -388,6 +439,39 @@ async function dailyCycle() {
 const checkTime = getSetting('check_time','08:00');
 const [h,m] = checkTime.split(':');
 cron.schedule(`${m||0} ${h||8} * * *`, dailyCycle, {timezone:'Asia/Riyadh'});
+
+// ===== YouTube Notification & Scheduling APIs =====
+app.get('/api/yt/notifications', (req,res) => {
+  try { res.json(JSON.parse(getSetting('yt_notifications','[]'))); } catch(e) { res.json([]); }
+});
+app.post('/api/yt/notifications/clear', (req,res) => { setSetting('yt_notifications','[]'); res.json({success:true}); });
+app.post('/api/yt/schedule-video', async(req,res) => {
+  const {videoId,title,url,content,source_name} = req.body;
+  if(!videoId) return res.status(400).json({error:'videoId مطلوب'});
+  try {
+    const notifs = JSON.parse(getSetting('yt_notifications','[]'));
+    setSetting('yt_notifications', JSON.stringify(notifs.filter(n => n.videoId !== videoId)));
+    const vidUrl = url || `https://www.youtube.com/watch?v=${videoId}`;
+    const rewritten = await rewriteContent(title||'فيديو يوتيوب', content||title, vidUrl, source_name||'يوتيوب');
+    const result = db.prepare('INSERT OR IGNORE INTO posts (source_id,original_title,original_url,original_content,rewritten_twitter,rewritten_facebook,rewritten_instagram,rewritten_telegram,rewritten_blogger,status) VALUES (?,?,?,?,?,?,?,?,?,\'ready\')')
+      .run(null,title,vidUrl,content||title,rewritten.twitter,rewritten.facebook,rewritten.instagram,rewritten.telegram,rewritten.blogger);
+    if(!result.lastInsertRowid) return res.json({success:false, error:'الفيديو موجود مسبقاً'});
+    res.json({success:true, postId:result.lastInsertRowid, message:'تمت الجدولة! ✅'});
+  } catch(e) { res.status(500).json({error:e.message}); }
+});
+app.post('/api/youtube/save-to-posts', async(req,res) => {
+  const {videoId,title,url,content,source_name} = req.body;
+  if(!videoId) return res.status(400).json({error:'videoId مطلوب'});
+  try {
+    const vidUrl = url || `https://www.youtube.com/watch?v=${videoId}`;
+    const exists = db.prepare('SELECT id FROM posts WHERE original_url LIKE ?').get(`%${videoId}%`);
+    if(exists) return res.json({success:false, error:'هذا الفيديو موجود مسبقاً', postId:exists.id});
+    const rewritten = await rewriteContent(title||'فيديو يوتيوب', content||title, vidUrl, source_name||'يوتيوب');
+    const result = db.prepare('INSERT OR IGNORE INTO posts (source_id,original_title,original_url,original_content,rewritten_twitter,rewritten_facebook,rewritten_instagram,rewritten_telegram,rewritten_blogger,status) VALUES (?,?,?,?,?,?,?,?,?,\'ready\')')
+      .run(null,title,vidUrl,content||title,rewritten.twitter,rewritten.facebook,rewritten.instagram,rewritten.telegram,rewritten.blogger);
+    res.json({success:true, postId:result.lastInsertRowid, message:'تمت إضافة الفيديو لجدول المنشورات ✅'});
+  } catch(e) { res.status(500).json({error:e.message}); }
+});
 
 // ===== API Routes =====
 app.get('/api/settings', (req,res) => {
