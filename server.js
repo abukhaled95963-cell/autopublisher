@@ -17,8 +17,7 @@ app.use((req, res, next) => { res.setHeader('Content-Type', 'text/html; charset=
 app.use(express.json());
 
 // Static files
-[path.join(__dirname,'public'), __dirname, path.join(process.cwd(),'public'), process.cwd()]
-  .forEach(p => { try{ if(fs.existsSync(p)) app.use(express.static(p)); }catch(e){} });
+app.use(express.static(path.join(__dirname, 'public'), { setHeaders: (res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); } }));
 
 // ===== DB Setup =====
 db.exec(`
