@@ -7,7 +7,7 @@ const Database = require('better-sqlite3');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-const cheerio = require('cheerio');
+const cheerio = require('cheerio');h
 
 const app = express();
 const parser = new Parser();
@@ -335,7 +335,7 @@ async function dailyCycle() {
 }
 
 // Schedule
-const ct = getSetting('check_time','08:00');
+const checkTime = getSetting('check_time','08:00');
 cron.schedule(`${ct.split(':')[1]||0} ${ct.split(':')[0]||8} * * *`, dailyCycle, {timezone:'Asia/Riyadh'});
 
 // ===== API Routes =====
@@ -955,8 +955,8 @@ async function dailyCycle() {
 }
 
 // Schedule
-const ct = getSetting('check_time','08:00');
-cron.schedule(`${ct.split(':')[1]||0} ${ct.split(':')[0]||8} * * *`, dailyCycle, {timezone:'Asia/Riyadh'});
+const checkTime = getSetting('check_time','08:00');
+cron.schedule(`${checkTime.split(':')[1]||0} ${checkTime.split(':')[0]||8} * * *`, dailyCycle, {timezone:'Asia/Riyadh'});
 
 // ===== API Routes =====
 app.get('/api/stats', (req,res) => {
