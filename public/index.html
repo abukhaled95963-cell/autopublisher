@@ -98,11 +98,11 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
   <div class="card" style="border-color:var(--tg)">
     <div class="ct">&#x2708;&#xFE0F; &#x642;&#x646;&#x648;&#x627;&#x62A; &#x62A;&#x64A;&#x644;&#x64A;&#x63A;&#x631;&#x627;&#x645;</div>
 
-    <div style="display:grid;grid-template-columns:1fr 85px 72px 100px 30px;gap:5px;margin-bottom:5px">
-      <div style="font-size:10px;color:var(--t2)">&#x627;&#x633;&#x645; &#x627;&#x644;&#x642;&#x646;&#x627;&#x629;</div>
-      <div style="font-size:10px;color:var(--t2)">&#x62A;&#x643;&#x631;&#x627;&#x631;</div>
-      <div style="font-size:10px;color:var(--t2)">&#x648;&#x642;&#x62A;</div>
-      <div style="font-size:10px;color:var(--tg)">&#x25B6; &#x627;&#x646;&#x634;&#x631; &#x639;&#x644;&#x649;</div>
+    <div class="al altg" style="margin-bottom:8px">&#x26A1; &#x646;&#x634;&#x631; &#x641;&#x648;&#x631;&#x64A; &#x639;&#x646;&#x62F; &#x648;&#x635;&#x648;&#x644; &#x623;&#x64A; &#x631;&#x633;&#x627;&#x644;&#x629; &#x2014; &#x628;&#x639;&#x62F; &#x625;&#x639;&#x627;&#x62F;&#x629; &#x627;&#x644;&#x635;&#x64A;&#x627;&#x63A;&#x629; &#x648;&#x625;&#x636;&#x627;&#x641;&#x629; &#x631;&#x627;&#x628;&#x637; &#x642;&#x646;&#x627;&#x62A;&#x643;</div>
+    <div style="display:grid;grid-template-columns:1fr 90px 110px 30px;gap:5px;margin-bottom:5px">
+      <div style="font-size:10px;color:var(--t2)">&#x627;&#x633;&#x645; &#x627;&#x644;&#x642;&#x646;&#x627;&#x629; &#x627;&#x644;&#x645;&#x635;&#x62F;&#x631;</div>
+      <div style="font-size:10px;color:var(--t2)">&#x62A;&#x643;&#x631;&#x627;&#x631; &#x627;&#x644;&#x641;&#x62D;&#x635;</div>
+      <div style="font-size:10px;color:var(--tg)">&#x25B6; &#x627;&#x646;&#x634;&#x631; &#x641;&#x648;&#x631;&#x64A;&#x64B;&#x627; &#x639;&#x644;&#x649;</div>
       <div></div>
     </div>
 
@@ -337,14 +337,14 @@ function buildPublishSel(selected) {
 }
 
 function buildIntervalSel(selected) {
-  var opts = [['15','15 min'],['30','30 min'],['60','1 hour'],['120','2 hours'],['360','6 hours'],['720','12 hours'],['1440','Daily']];
+  var opts = [['2','2 min'],['5','5 min'],['10','10 min'],['15','15 min'],['30','30 min'],['60','1 hour']];
   var sel = document.createElement('select');
   sel.className = 'tg-int';
   sel.style.cssText = 'background:var(--bg3);border:1px solid var(--bd);border-radius:6px;padding:7px 4px;color:var(--tx);font-size:11px;width:100%;margin-top:0';
   opts.forEach(function(o) {
     var opt = document.createElement('option');
     opt.value = o[0]; opt.textContent = o[1];
-    if (o[0] === (selected || '60')) opt.selected = true;
+    if (o[0] === (selected || '5')) opt.selected = true;
     sel.appendChild(opt);
   });
   return sel;
@@ -353,15 +353,11 @@ function buildIntervalSel(selected) {
 function addSrcRow(ch, interval, time, publishTo) {
   var row = document.createElement('div');
   row.className = 'src-row';
-  row.style.cssText = 'display:grid;grid-template-columns:1fr 85px 72px 100px 30px;gap:5px;align-items:center;margin-bottom:6px';
+  row.style.cssText = 'display:grid;grid-template-columns:1fr 90px 110px 30px;gap:5px;align-items:center;margin-bottom:6px';
 
   var chIn = document.createElement('input');
   chIn.type = 'text'; chIn.placeholder = 'channel_name'; chIn.className = 'tg-ch';
   chIn.value = ch || ''; chIn.style.marginTop = '0';
-
-  var tmIn = document.createElement('input');
-  tmIn.type = 'time'; tmIn.className = 'tg-tm'; tmIn.value = time || '09:00';
-  tmIn.style.cssText = 'background:var(--bg3);border:1px solid var(--bd);border-radius:6px;padding:7px 4px;color:var(--tx);font-size:11px;width:100%;margin-top:0';
 
   var delBtn = document.createElement('button');
   delBtn.textContent = 'X';
@@ -370,7 +366,6 @@ function addSrcRow(ch, interval, time, publishTo) {
 
   row.appendChild(chIn);
   row.appendChild(buildIntervalSel(interval));
-  row.appendChild(tmIn);
   row.appendChild(buildPublishSel(publishTo));
   row.appendChild(delBtn);
   G('src-rows').appendChild(row);
@@ -384,9 +379,8 @@ async function saveSrcChannels() {
   rows.forEach(function(row) {
     var ch = row.querySelector('.tg-ch').value.trim().replace('@', '');
     var iv = row.querySelector('.tg-int').value;
-    var tm = row.querySelector('.tg-tm').value;
     var pub = row.querySelector('.tg-pub').value;
-    if (ch) channels.push({ name: ch, interval: iv, time: tm, publishTo: pub });
+    if (ch) channels.push({ name: ch, interval: iv, publishTo: pub });
   });
   if (!channels.length) { alert('Add at least one channel'); return; }
 
@@ -403,7 +397,6 @@ async function saveSrcChannels() {
       if (r.success || r.id) {
         var bulk = {};
         bulk['tg_interval_' + c.name] = c.interval;
-        bulk['tg_time_' + c.name] = c.time;
         bulk['tg_publish_to_' + c.name] = c.publishTo;
         await api('/api/settings/bulk', 'POST', bulk);
         saved++;
@@ -426,7 +419,7 @@ async function activateSchedules() {
   try {
     var r = await api('/api/tg/refresh-schedules', 'POST');
     var s = await api('/api/tg/schedules-status');
-    var lbls = { '15': '15m', '30': '30m', '60': '1h', '120': '2h', '360': '6h', '720': '12h', '1440': 'Daily' };
+    var lbls = { '2': '2m', '5': '5m', '10': '10m', '15': '15m', '30': '30m', '60': '1h' };
     if (s.schedules && s.schedules.length) {
       st.innerHTML = '<strong>Active:</strong> ' + s.schedules.map(function(x) { return '@' + x.channel + ' (' + (lbls[x.interval] || x.interval + 'm') + ')'; }).join(' | ');
     } else { st.textContent = (r.active || 0) + ' active'; }
@@ -443,7 +436,7 @@ async function loadSrcRows() {
     if (tgSrcs.length > 0) {
       tgSrcs.forEach(function(s) {
         var ch = s.url.replace('https://t.me/s/', '');
-        addSrcRow(ch, settings['tg_interval_' + ch] || '60', settings['tg_time_' + ch] || '09:00', settings['tg_publish_to_' + ch] || '');
+        addSrcRow(ch, settings['tg_interval_' + ch] || '5', '', settings['tg_publish_to_' + ch] || '');
       });
     } else {
       addSrcRow();
