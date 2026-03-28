@@ -151,18 +151,19 @@ async function rewriteContent(title, content, url, source) {
   const langTxt = lang==='ar'?'باللغة العربية':lang==='en'?'in English':'بالعربية والإنجليزية';
   const toneMap = {informative:'إخباري',analytical:'تحليلي',engaging:'جذاب',neutral:'محايد'};
 
-  const prompt = `أنت كاتب محتوى محترف. أعد صياغة هذا الخبر بأسلوب ${toneMap[tone]||'إخباري'} ${langTxt}.
+  const prompt = `أنت كاتب محتوى محترف. أعد صياغة هذا المحتوى بأسلوب ${toneMap[tone]||'إخباري'} ${langTxt} بطريقة بشرية طبيعية.
 
 العنوان: ${title}
-المصدر: ${source}
 الرابط: ${url}
 المحتوى: ${(content||'').substring(0,1000)}
 
+مهم: لا تذكر اسم المصدر أو القناة الأصلية في النص.
+
 اكتب لكل منصة:
-[TWITTER]نص مختصر أقل من 250 حرف + ${hashtags} + الرابط[/TWITTER]
-[FACEBOOK]فقرة جذابة 100 كلمة + سؤال للتفاعل + الرابط[/FACEBOOK]
-[INSTAGRAM]نص قصير + هاشتاقات + الرابط[/INSTAGRAM]
-[TELEGRAM]تحليل موسع 200 كلمة + نقاط + الرابط[/TELEGRAM]
+[TWITTER]نص مختصر أقل من 250 حرف + ${hashtags}[/TWITTER]
+[FACEBOOK]فقرة جذابة 100 كلمة + سؤال للتفاعل[/FACEBOOK]
+[INSTAGRAM]نص قصير + هاشتاقات[/INSTAGRAM]
+[TELEGRAM]تحليل موسع 200 كلمة + نقاط واضحة[/TELEGRAM]
 [BLOGGER]مقال كامل 400 كلمة بعنوان ومقدمة وخاتمة[/BLOGGER]`;
 
   const result = await callAI(prompt, 2000);
@@ -534,3 +535,101 @@ app.get('/', (req,res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log('Server on port', PORT));
+
+// ===== Per-Channel TG Scheduling =====
+// Store active intervals
+var tgIntervals = {};
+
+async function processTGChannel(channel) {
+  try {
+    console.log('Checking TG channel:', channel);
+    const result = await readTelegramChannel(channel);
+    if(!result.success || !result.posts.length) return;
+
+    const tgToken = getSetting('telegram_token');
+    const tgChat = getSetting('telegram_chat');
+    const lang = getSetting('content_lang','ar');
+
+    for(const post of result.posts.slice(0,3)) {
+      if(!post.text || post.text.length < 20) continue;
+      
+      // Check if already published
+      const url = `tg://${channel}/${Date.now()}`;
+      const titleKey = post.text.substring(0,50);
+      const existing = db.prepare('SELECT id FROM posts WHERE original_content LIKE ?').get('%'+titleKey+'%');
+      if(existing) continue;
+
+      // Rewrite in Arabic
+      const prompt = `أعد صياغة هذا المنشور بالعربية بأسلوب طبيعي وبشري مع الحفاظ على المضمون الكامل. لا تذكر اسم القناة أو المصدر الأصلي:\n\n${post.text}\n\nأعد النص المصاغ فقط بدون أي إضافات أو ذكر للمصدر.`;
+      let rewritten = post.text;
+      try { rewritten = await callAI(prompt, 600); } catch(e) {}
+
+      // Save post
+      const pid = db.prepare(`INSERT OR IGNORE INTO posts 
+        (source_id,original_title,original_url,original_content,rewritten_telegram,status)
+        VALUES(0,?,?,?,?,'ready')`)
+        .run(titleKey, url, post.text, rewritten).lastInsertRowid;
+
+      if(!pid) continue;
+
+      // Publish to Telegram
+      if(tgToken && tgChat) {
+        try {
+          await axios.post(`https://api.telegram.org/bot${tgToken}/sendMessage`,{
+            chat_id:tgChat, text:rewritten, parse_mode:'HTML'
+          });
+          db.prepare("UPDATE posts SET status='published', published_at=datetime('now') WHERE id=?").run(pid);
+          db.prepare("INSERT INTO publish_log(post_id,platform,status) VALUES(?,'telegram','success')").run(pid);
+          console.log('Published from', channel);
+        } catch(e) {
+          db.prepare("INSERT INTO publish_log(post_id,platform,status,message) VALUES(?,'telegram','error',?)").run(pid, e.message);
+        }
+      }
+      
+      await new Promise(r=>setTimeout(r,2000));
+    }
+  } catch(e) { console.error('TG channel error:', channel, e.message); }
+}
+
+function setupTGSchedules() {
+  // Clear existing intervals
+  Object.values(tgIntervals).forEach(id => clearInterval(id));
+  tgIntervals = {};
+
+  // Get all TG sources
+  const tgSources = db.prepare("SELECT * FROM sources WHERE type='telegram' AND active=1").all();
+  
+  tgSources.forEach(src => {
+    const channel = src.url.replace('https://t.me/s/','');
+    const intervalMin = parseInt(getSetting('tg_interval_'+channel, '60'));
+    const intervalMs = intervalMin * 60 * 1000;
+
+    // Run immediately then on interval
+    processTGChannel(channel);
+    tgIntervals[channel] = setInterval(() => processTGChannel(channel), intervalMs);
+    console.log(`TG schedule: @${channel} every ${intervalMin} min`);
+  });
+}
+
+// Setup on startup + refresh when settings change
+app.post('/api/tg/refresh-schedules', (req,res) => {
+  setupTGSchedules();
+  res.json({success:true, active:Object.keys(tgIntervals).length});
+});
+
+app.get('/api/tg/schedules-status', (req,res) => {
+  const tgSources = db.prepare("SELECT * FROM sources WHERE type='telegram' AND active=1").all();
+  const status = tgSources.map(s => {
+    const ch = s.url.replace('https://t.me/s/','');
+    return {
+      channel: ch,
+      interval: getSetting('tg_interval_'+ch,'60'),
+      time: getSetting('tg_time_'+ch,'09:00'),
+      active: !!tgIntervals[ch]
+    };
+  });
+  res.json({success:true, schedules:status});
+});
+
+// Start schedules on boot
+setTimeout(setupTGSchedules, 3000);
