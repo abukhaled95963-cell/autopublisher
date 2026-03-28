@@ -546,47 +546,77 @@ async function processTGChannel(channel) {
     const result = await readTelegramChannel(channel);
     if(!result.success || !result.posts.length) return;
 
+    // Get publish-to channel for this source
+    const publishTo = getSetting('tg_publish_to_'+channel, '');
     const tgToken = getSetting('telegram_token');
-    const tgChat = getSetting('telegram_chat');
-    const lang = getSetting('content_lang','ar');
+    // Use specific channel or default
+    const tgChat = publishTo || getSetting('telegram_chat');
+    if(!tgToken || !tgChat) {
+      console.log('No token/chat configured for', channel);
+      return;
+    }
+
+    // Get my channels list to find channel link
+    let myChannelLink = '';
+    try {
+      const myChans = JSON.parse(getSetting('my_tg_channels','[]'));
+      const matchChan = myChans.find(c => c.chat === tgChat || c.chat === '@'+tgChat.replace('@',''));
+      if(matchChan) {
+        const chatName = matchChan.chat.replace('@','');
+        myChannelLink = `
+
+&#x1F4E2; @${chatName}`;
+      }
+    } catch(e) {}
 
     for(const post of result.posts.slice(0,3)) {
       if(!post.text || post.text.length < 20) continue;
-      
-      // Check if already published
-      const url = `tg://${channel}/${Date.now()}`;
-      const titleKey = post.text.substring(0,50);
+
+      // Check if already processed (by first 60 chars)
+      const titleKey = post.text.substring(0,60);
       const existing = db.prepare('SELECT id FROM posts WHERE original_content LIKE ?').get('%'+titleKey+'%');
-      if(existing) continue;
+      if(existing) { console.log('Already processed:', titleKey.substring(0,30)); continue; }
 
-      // Rewrite in Arabic
-      const prompt = `أعد صياغة هذا المنشور بالعربية بأسلوب طبيعي وبشري مع الحفاظ على المضمون الكامل. لا تذكر اسم القناة أو المصدر الأصلي:\n\n${post.text}\n\nأعد النص المصاغ فقط بدون أي إضافات أو ذكر للمصدر.`;
+      // Rewrite immediately - no source mention
+      const prompt = `أعد صياغة هذا المنشور بالعربية بأسلوب طبيعي وبشري مع الحفاظ على المضمون الكامل بدون أي حذف أو اختصار. مهم: لا تذكر اسم القناة أو المصدر الأصلي في النص:
+
+${post.text}
+
+أعد النص المصاغ فقط بدون أي مقدمة أو تعليق.`;
       let rewritten = post.text;
-      try { rewritten = await callAI(prompt, 600); } catch(e) {}
+      try { rewritten = await callAI(prompt, 800); } catch(e) { console.error('AI error:', e.message); }
 
-      // Save post
+      // Add channel link
+      const finalText = rewritten + myChannelLink;
+
+      // Save to DB
+      const url = 'tg://'+channel+'/'+Date.now();
       const pid = db.prepare(`INSERT OR IGNORE INTO posts 
         (source_id,original_title,original_url,original_content,rewritten_telegram,status)
         VALUES(0,?,?,?,?,'ready')`)
-        .run(titleKey, url, post.text, rewritten).lastInsertRowid;
+        .run(titleKey, url, post.text, finalText).lastInsertRowid;
 
       if(!pid) continue;
 
-      // Publish to Telegram
-      if(tgToken && tgChat) {
-        try {
-          await axios.post(`https://api.telegram.org/bot${tgToken}/sendMessage`,{
-            chat_id:tgChat, text:rewritten, parse_mode:'HTML'
-          });
+      // PUBLISH IMMEDIATELY
+      try {
+        const r = await axios.post(`https://api.telegram.org/bot${tgToken}/sendMessage`,{
+          chat_id: tgChat,
+          text: finalText,
+          parse_mode: 'HTML'
+        });
+        if(r.data.ok) {
           db.prepare("UPDATE posts SET status='published', published_at=datetime('now') WHERE id=?").run(pid);
-          db.prepare("INSERT INTO publish_log(post_id,platform,status) VALUES(?,'telegram','success')").run(pid);
-          console.log('Published from', channel);
-        } catch(e) {
-          db.prepare("INSERT INTO publish_log(post_id,platform,status,message) VALUES(?,'telegram','error',?)").run(pid, e.message);
+          db.prepare("INSERT INTO publish_log(post_id,platform,status,message) VALUES(?,'telegram','success',?)").run(pid, 'Published to '+tgChat);
+          console.log('PUBLISHED immediately from @'+channel+' to '+tgChat);
         }
+      } catch(e) {
+        db.prepare("INSERT INTO publish_log(post_id,platform,status,message) VALUES(?,'telegram','error',?)").run(pid, e.message);
+        console.error('Publish error:', e.message);
       }
-      
-      await new Promise(r=>setTimeout(r,2000));
+
+      // Small delay between posts to avoid rate limit
+      await new Promise(r=>setTimeout(r,1500));
     }
   } catch(e) { console.error('TG channel error:', channel, e.message); }
 }
@@ -601,13 +631,14 @@ function setupTGSchedules() {
   
   tgSources.forEach(src => {
     const channel = src.url.replace('https://t.me/s/','');
-    const intervalMin = parseInt(getSetting('tg_interval_'+channel, '60'));
+    const intervalMin = parseInt(getSetting('tg_interval_'+channel, '15'));
     const intervalMs = intervalMin * 60 * 1000;
 
-    // Run immediately then on interval
+    // Run immediately on setup to catch any missed posts
     processTGChannel(channel);
+    // Then check on interval
     tgIntervals[channel] = setInterval(() => processTGChannel(channel), intervalMs);
-    console.log(`TG schedule: @${channel} every ${intervalMin} min`);
+    console.log(`TG schedule: @${channel} every ${intervalMin} min -> publishing to: ${getSetting('tg_publish_to_'+channel,'default')}`);
   });
 }
 
