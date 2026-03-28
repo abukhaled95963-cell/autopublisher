@@ -622,30 +622,51 @@ ${post.text}
 }
 
 function setupTGSchedules() {
-  // Clear existing intervals
-  Object.values(tgIntervals).forEach(id => clearInterval(id));
+  // Clear existing cron jobs
+  Object.values(tgIntervals).forEach(job => { try { job.stop(); } catch(e) {} });
   tgIntervals = {};
 
   // Get all TG sources
   const tgSources = db.prepare("SELECT * FROM sources WHERE type='telegram' AND active=1").all();
-  
+
   tgSources.forEach(src => {
     const channel = src.url.replace('https://t.me/s/','');
-    const intervalMin = parseInt(getSetting('tg_interval_'+channel, '15'));
-    const intervalMs = intervalMin * 60 * 1000;
+    const intervalMin = parseInt(getSetting('tg_interval_'+channel, '5'));
+    const publishTo = getSetting('tg_publish_to_'+channel, '');
 
-    // Run immediately on setup to catch any missed posts
-    processTGChannel(channel);
-    // Then check on interval
-    tgIntervals[channel] = setInterval(() => processTGChannel(channel), intervalMs);
-    console.log(`TG schedule: @${channel} every ${intervalMin} min -> publishing to: ${getSetting('tg_publish_to_'+channel,'default')}`);
+    // Build cron expression
+    let cronExpr;
+    if(intervalMin <= 1) cronExpr = '* * * * *';
+    else if(intervalMin < 60) cronExpr = `*/${intervalMin} * * * *`;
+    else cronExpr = `0 */${Math.floor(intervalMin/60)} * * *`;
+
+    console.log(`TG: @${channel} cron="${cronExpr}" -> ${publishTo||'default'}`);
+
+    // Run immediately first
+    processTGChannel(channel).catch(console.error);
+
+    // Then schedule with cron
+    try {
+      const job = cron.schedule(cronExpr, () => {
+        processTGChannel(channel).catch(console.error);
+      }, { timezone: 'Asia/Riyadh' });
+      tgIntervals[channel] = job;
+    } catch(e) {
+      console.error('Cron error for', channel, e.message);
+      // Fallback to setInterval
+      tgIntervals[channel] = { stop: () => {} };
+      setInterval(() => processTGChannel(channel).catch(console.error), intervalMin * 60 * 1000);
+    }
   });
+
+  console.log(`TG schedules active: ${Object.keys(tgIntervals).length} channels`);
 }
 
 // Setup on startup + refresh when settings change
 app.post('/api/tg/refresh-schedules', (req,res) => {
   setupTGSchedules();
-  res.json({success:true, active:Object.keys(tgIntervals).length});
+  const channels = Object.keys(tgIntervals);
+  res.json({success:true, active:channels.length, channels:channels});
 });
 
 app.get('/api/tg/schedules-status', (req,res) => {
@@ -654,13 +675,19 @@ app.get('/api/tg/schedules-status', (req,res) => {
     const ch = s.url.replace('https://t.me/s/','');
     return {
       channel: ch,
-      interval: getSetting('tg_interval_'+ch,'60'),
-      time: getSetting('tg_time_'+ch,'09:00'),
+      interval: getSetting('tg_interval_'+ch,'5'),
+      publishTo: getSetting('tg_publish_to_'+ch,''),
       active: !!tgIntervals[ch]
     };
   });
-  res.json({success:true, schedules:status});
+  res.json({success:true, schedules:status, total:status.length, activeCount:status.filter(s=>s.active).length});
 });
 
 // Start schedules on boot
 setTimeout(setupTGSchedules, 3000);
+
+// Re-setup every hour as failsafe (in case Railway restarts)
+setInterval(() => {
+  console.log('Hourly re-setup of TG schedules...');
+  setupTGSchedules();
+}, 60 * 60 * 1000);
