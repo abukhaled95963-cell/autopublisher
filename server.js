@@ -109,17 +109,47 @@ async function readTelegramChannel(channel) {
     }
   } catch(e) {}
 
-  // Method 2: t.me/s scraping
+  // Method 2: t.me/s scraping with media
   try {
     const r = await axios.get('https://t.me/s/'+ch, {
       timeout:10000,
       headers:{'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
     });
     const $ = cheerio.load(r.data);
-    $('.tgme_widget_message_text').each(function(i, el) {
-      if(i < 10) {
-        const text = $(el).text().trim();
-        if(text) results.push({text:text.substring(0,500), date:new Date().toISOString(), source:'tme'});
+    $('.tgme_widget_message').each(function(i, msgEl) {
+      if(i >= 10) return;
+      const text = $(msgEl).find('.tgme_widget_message_text').text().trim();
+      const media = [];
+
+      // Extract photos
+      $(msgEl).find('.tgme_widget_message_photo_wrap').each(function(j, el) {
+        const style = $(el).attr('style')||'';
+        const match = style.match(/url\(['"]?([^'"()]+)['"]?\)/);
+        if(match) media.push({type:'photo', url:match[1]});
+      });
+
+      // Extract video thumbnail
+      $(msgEl).find('.tgme_widget_message_video_wrap video, .tgme_widget_message_video').each(function(j, el) {
+        const src = $(el).attr('src')||$(el).find('source').attr('src')||'';
+        if(src) media.push({type:'video', url:src});
+      });
+
+      // Extract video thumb from style
+      $(msgEl).find('[class*="video"]').each(function(j, el) {
+        const style = $(el).attr('style')||'';
+        const match = style.match(/url\(['"]?([^'"()]+)['"]?\)/);
+        if(match && !media.find(m=>m.url===match[1])) {
+          media.push({type:'video_thumb', url:match[1]});
+        }
+      });
+
+      if(text || media.length > 0) {
+        results.push({
+          text: text.substring(0,500)||'',
+          date: new Date().toISOString(),
+          source: 'tme',
+          media: media
+        });
       }
     });
     if(results.length > 0) return {success:true, posts:results, method:'tme_scrape'};
@@ -600,15 +630,67 @@ ${post.text}
 
       // PUBLISH IMMEDIATELY
       try {
-        const r = await axios.post(`https://api.telegram.org/bot${tgToken}/sendMessage`,{
-          chat_id: tgChat,
-          text: finalText,
-          parse_mode: 'HTML'
-        });
-        if(r.data.ok) {
+        const media = post.media || [];
+        let published = false;
+
+        if(media.length > 0) {
+          // Has media — try to send with media
+          const firstMedia = media[0];
+
+          if(firstMedia.type === 'photo') {
+            // Send photo with caption
+            try {
+              const r = await axios.post(`https://api.telegram.org/bot${tgToken}/sendPhoto`,{
+                chat_id: tgChat,
+                photo: firstMedia.url,
+                caption: finalText.substring(0, 1024),
+                parse_mode: 'HTML'
+              });
+              published = r.data.ok;
+
+              // If multiple photos, send rest as media group
+              if(media.filter(m=>m.type==='photo').length > 1) {
+                const extraPhotos = media.filter(m=>m.type==='photo').slice(1,10);
+                if(extraPhotos.length > 0) {
+                  const mediaGroup = extraPhotos.map(m=>({type:'photo', media:m.url}));
+                  await axios.post(`https://api.telegram.org/bot${tgToken}/sendMediaGroup`,{
+                    chat_id: tgChat, media: mediaGroup
+                  }).catch(()=>{});
+                }
+              }
+            } catch(e2) {
+              console.log('Photo send failed, sending text only:', e2.message);
+            }
+          } else if(firstMedia.type === 'video') {
+            // Send video
+            try {
+              const r = await axios.post(`https://api.telegram.org/bot${tgToken}/sendVideo`,{
+                chat_id: tgChat,
+                video: firstMedia.url,
+                caption: finalText.substring(0, 1024),
+                parse_mode: 'HTML'
+              });
+              published = r.data.ok;
+            } catch(e2) {
+              console.log('Video send failed, sending text only:', e2.message);
+            }
+          }
+        }
+
+        // If no media or media failed, send text
+        if(!published) {
+          const r = await axios.post(`https://api.telegram.org/bot${tgToken}/sendMessage`,{
+            chat_id: tgChat,
+            text: finalText,
+            parse_mode: 'HTML'
+          });
+          published = r.data.ok;
+        }
+
+        if(published) {
           db.prepare("UPDATE posts SET status='published', published_at=datetime('now') WHERE id=?").run(pid);
-          db.prepare("INSERT INTO publish_log(post_id,platform,status,message) VALUES(?,'telegram','success',?)").run(pid, 'Published to '+tgChat);
-          console.log('PUBLISHED immediately from @'+channel+' to '+tgChat);
+          db.prepare("INSERT INTO publish_log(post_id,platform,status,message) VALUES(?,'telegram','success',?)").run(pid, 'Published to '+tgChat+(media.length?' +'+media.length+'media':''));
+          console.log('PUBLISHED from @'+channel+' to '+tgChat+(media.length?' with '+media.length+' media':''));
         }
       } catch(e) {
         db.prepare("INSERT INTO publish_log(post_id,platform,status,message) VALUES(?,'telegram','error',?)").run(pid, e.message);
