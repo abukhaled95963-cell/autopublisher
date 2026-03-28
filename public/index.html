@@ -72,7 +72,7 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
     <div class="stat"><div class="sn" id="se" style="color:var(--rd)">-</div><div class="sl">أخطاء</div></div>
   </div>
   <div class="card"><div class="ct">📰 آخر المنشورات</div><div id="dp"></div></div>
-  <div class="card"><div class="ct">📊 آخر النشاطات</div><div id="dl"></div></div>
+  <div class="card"><div class="ct">📊 آخر الأنشطة</div><div id="dl"></div></div>
 </div>
 
 <div class="pg" id="pg-src">
@@ -95,11 +95,11 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
     <div class="ct">⚡️ قراءة قناة Telegram</div>
     <div style="display:flex;gap:7px">
       <input id="tch" placeholder="channel_name" style="flex:1">
-      <button class="btn btg bsm" onclick="readTG()" id="trbtn">📡</button>
+      <button class="btn btg bsm" onclick="readTG()" id="trbtn">🔍</button>
     </div>
     <div id="trr" style="display:none;margin-top:10px"></div>
   </div>
-  <div class="card"><div class="ct">📡 المصادر <span id="sc" style="font-size:11px;color:var(--t2)">0</span></div><div id="sl"></div></div>
+  <div class="card"><div class="ct">🔗 المصادر <span id="sc" style="font-size:11px;color:var(--t2)">0</span></div><div id="sl"></div></div>
 </div>
 
 <div class="pg" id="pg-pub">
@@ -112,3 +112,45 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
       <button class="btn bg2b" onclick="genPost()">🤖 توليد تلقائي</button>
       <button class="btn bp" onclick="savePost()">💾 حفظ</button>
     </div>
+  </div>
+  <div class="card">
+    <div class="ct">📱 منصات النشر</div>
+    <div id="pf"></div>
+  </div>
+  <div class="card">
+    <div class="ct">📄 المنشورات المحفوظة</div>
+    <div id="ps"></div>
+  </div>
+</div>
+
+<div class="pg" id="pg-cfg">
+  <div class="card">
+    <div class="ct">🔧 إعدادات عامة</div>
+    <label>اللغة</label><select id="lng"><option value="ar">العربية</option><option value="en">English</option></select>
+    <label>تكرار الفحص (بالدقائق)</label><input id="chi" type="number" value="30" min="1">
+    <label>حد المنشورات اليومية</label><input id="dpl" type="number" value="50" min="1">
+    <div style="display:flex;align-items:center;margin:10px 0"><input type="checkbox" id="eni" style="width:auto;margin-left:8px"><label style="margin:0">تفعيل النشر التلقائي</label></div>
+    <button class="btn bp" onclick="saveCfg()">💾 حفظ الإعدادات</button>
+  </div>
+  
+  <div class="card">
+    <div class="ct">🔑 إعدادات المنصات</div>
+    <div id="plc"></div>
+  </div>
+  
+  <div class="card">
+    <div class="ct">📊 إعدادات الأداء</div>
+    <label>أقصى عدد منشورات متزامنة</label><select id="mcp"><option value="5">5</option><option value="10">10</option><option value="20">20</option></select>
+    <label>مهلة الاتصال (ثانية)</label><input id="req-to" type="number" value="30" min="5">
+    <div style="display:flex;align-items:center;margin:10px 0"><input type="checkbox" id="dbg" style="width:auto;margin-left:8px"><label style="margin:0">تفعيل وضع التطوير</label></div>
+    <button class="btn bp" onclick="savePerfCfg()">💾 حفظ</button>
+  </div>
+</div>
+
+</div>
+
+<div class="nav">
+  <div class="ni on" onclick="showPg('dash')"><div class="ni-ic">🏠</div>الرئيسية</div>
+  <div class="ni" onclick="showPg('src')"><div class="ni-ic">🔗</div>المصادر</div>
+  <div class="ni" onclick="showPg('pub')"><div class="ni-ic">📝</div>النشر</div>
+  <div class="
