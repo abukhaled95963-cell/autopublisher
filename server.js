@@ -563,6 +563,10 @@ app.get('/', (req,res) => {
   res.send('<h2>Server running</h2>');
 });
 
+app.get('/api/ping', (req,res) => {
+  res.json({ status:'alive', time:new Date().toISOString(), uptime:process.uptime() });
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log('Server on port', PORT));
 
@@ -606,6 +610,52 @@ async function processTGChannel(channel) {
       const titleKey = post.text.substring(0,60);
       const existing = db.prepare('SELECT id FROM posts WHERE original_content LIKE ?').get('%'+titleKey+'%');
       if(existing) { console.log('Already processed:', titleKey.substring(0,30)); continue; }
+
+      // Get channel rules
+      const rules = JSON.parse(getSetting('tg_rules_'+channel, '{"mode":"rewrite","keywords":"","ignore":""}'));
+
+      // Check ignore keywords
+      if(rules.ignore) {
+        const ignoreWords = rules.ignore.split(',').map(w=>w.trim()).filter(Boolean);
+        if(ignoreWords.some(w => post.text.toLowerCase().includes(w.toLowerCase()))) {
+          console.log('Ignored by rule:', titleKey.substring(0,30));
+          continue;
+        }
+      }
+
+      // Check required keywords
+      if(rules.keywords) {
+        const keywords = rules.keywords.split(',').map(w=>w.trim()).filter(Boolean);
+        if(keywords.length > 0 && !keywords.some(w => post.text.toLowerCase().includes(w.toLowerCase()))) {
+          console.log('No keyword match:', titleKey.substring(0,30));
+          continue;
+        }
+      }
+
+      // MODE: forward — just forward the original message
+      if(rules.mode === 'forward') {
+        try {
+          const fwdR = await axios.post(`https://api.telegram.org/bot${tgToken}/forwardMessage`, {
+            chat_id: tgChat,
+            from_chat_id: '@' + channel,
+            message_id: post.msgId
+          });
+          if(fwdR.data.ok) {
+            const url = 'tg://'+channel+'/'+Date.now();
+            const pid = db.prepare(`INSERT OR IGNORE INTO posts
+              (source_id,original_title,original_url,original_content,rewritten_telegram,status)
+              VALUES(0,?,?,?,?,'published')`)
+              .run(titleKey, url, post.text, '[forwarded]').lastInsertRowid;
+            if(pid) {
+              db.prepare("UPDATE posts SET published_at=datetime('now') WHERE id=?").run(pid);
+              db.prepare("INSERT INTO publish_log(post_id,platform,status,message) VALUES(?,'telegram','success',?)").run(pid, 'Forwarded to '+tgChat);
+            }
+            console.log('FORWARDED from @'+channel+' to '+tgChat);
+          }
+        } catch(e) { console.error('Forward error:', e.message); }
+        await new Promise(r=>setTimeout(r,1500));
+        continue;
+      }
 
       // Rewrite immediately - no source mention
       const prompt = `أعد صياغة هذا المنشور بالعربية بأسلوب طبيعي وبشري مع الحفاظ على المضمون الكامل بدون أي حذف أو اختصار. مهم: لا تذكر اسم القناة أو المصدر الأصلي في النص:
@@ -677,6 +727,17 @@ ${post.text}
           }
         }
 
+        // If has media, try forwarding original message first
+        if(!published && post.hasMedia) {
+          try {
+            await axios.post(`https://api.telegram.org/bot${tgToken}/forwardMessage`, {
+              chat_id: tgChat,
+              from_chat_id: '@' + channel,
+              message_id: post.msgId
+            });
+          } catch(e) {}
+        }
+
         // If no media or media failed, send text
         if(!published) {
           const r = await axios.post(`https://api.telegram.org/bot${tgToken}/sendMessage`,{
@@ -742,6 +803,13 @@ function setupTGSchedules() {
   });
 
   console.log(`TG schedules active: ${Object.keys(tgIntervals).length} channels`);
+}
+
+const RAILWAY_URL = process.env.RAILWAY_URL || '';
+if(RAILWAY_URL) {
+  setInterval(async () => {
+    try { await axios.get(RAILWAY_URL + '/api/ping', {timeout:10000}); } catch(e) {}
+  }, 4 * 60 * 1000);
 }
 
 // Setup on startup + refresh when settings change
