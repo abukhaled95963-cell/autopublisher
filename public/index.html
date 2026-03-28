@@ -7,7 +7,7 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
-:root{--bg:#0a2e0a;--bg2:#113311;--bg3:#1a3d1a;--bd:#254025;--ac:#6c63ff;--gn:#00d4a0;--am:#ffb347;--rd:#ff6b6b;--tg:#2AABEE;--tx:#e8e8f0;--t2:#8888a0;--t3:#444458;--r:14px;--rs:8px}
+:root{--bg:#0f1419;--bg2:#1a1f2e;--bg3:#252b3f;--bd:#3a4152;--ac:#6c63ff;--gn:#00d4a0;--am:#ffb347;--rd:#ff6b6b;--tg:#2AABEE;--tx:#e8e8f0;--t2:#8888a0;--t3:#444458;--r:14px;--rs:8px}
 body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--tx)}
 .hdr{background:var(--bg2);border-bottom:1px solid var(--bd);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
 .ttl{font-size:14px;font-weight:700;background:linear-gradient(135deg,#6c63ff,#00d4a0);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
@@ -72,7 +72,7 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
     <div class="stat"><div class="sn" id="se" style="color:var(--rd)">-</div><div class="sl">أخطاء</div></div>
   </div>
   <div class="card"><div class="ct">📰 آخر المنشورات</div><div id="dp"></div></div>
-  <div class="card"><div class="ct">📋 آخر النشاطات</div><div id="dl"></div></div>
+  <div class="card"><div class="ct">📊 آخر النشاطات</div><div id="dl"></div></div>
 </div>
 
 <div class="pg" id="pg-src">
@@ -92,10 +92,10 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
     <div id="yr" style="display:none;margin-top:10px"></div>
   </div>
   <div class="card">
-    <div class="ct">✈️ قراءة قناة Telegram</div>
+    <div class="ct">⚡️ قراءة قناة Telegram</div>
     <div style="display:flex;gap:7px">
       <input id="tch" placeholder="channel_name" style="flex:1">
-      <button class="btn btg bsm" onclick="readTG()" id="trbtn">📖</button>
+      <button class="btn btg bsm" onclick="readTG()" id="trbtn">📡</button>
     </div>
     <div id="trr" style="display:none;margin-top:10px"></div>
   </div>
@@ -112,46 +112,3 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
       <button class="btn bg2b" onclick="genPost()">🤖 توليد تلقائي</button>
       <button class="btn bp" onclick="savePost()">💾 حفظ</button>
     </div>
-  </div>
-  <div class="card"><div class="ct">📄 المنشورات المحفوظة</div><div id="ps"></div></div>
-</div>
-
-<div class="pg" id="pg-sett">
-  <div class="card">
-    <div class="ct">🔧 إعدادات الذكي</div>
-    <label>مفتاح OpenAI</label><input id="aik" type="password" placeholder="sk-...">
-    <label>نموذج AI</label><select id="aim"><option value="gpt-3.5-turbo">GPT-3.5 Turbo</option><option value="gpt-4">GPT-4</option></select>
-    <label>طريقة الكتابة</label><select id="wrs"><option value="professional">احترافي</option><option value="casual">عادي</option><option value="news">إخباري</option></select>
-  </div>
-  <div class="card">
-    <div class="ct">⏱️ إعدادات التوقيت</div>
-    <label>فترة الفحص (دقائق)</label><input id="ci" type="number" value="30" min="5" max="1440">
-    <label>التشغيل التلقائي</label><select id="ar"><option value="1">مفعل</option><option value="0">معطل</option></select>
-    <button class="btn bp" onclick="saveSett()">💾 حفظ الإعدادات</button>
-  </div>
-  <div class="card">
-    <div class="ct">📱 منصات النشر</div>
-    
-    <div class="cc" id="tgc">
-      <div class="ch">
-        <div class="ci" style="background:var(--tg);color:#fff">✈️</div>
-        <div style="flex:1">
-          <div style="font-weight:700;font-size:12px">تيليغرام</div>
-          <div class="sb">
-            <span class="dot dr"></span>
-            غير متصل
-          </div>
-        </div>
-        <div><span class="tag te">معطل</span></div>
-      </div>
-      <div><label>Bot Token</label><input id="tgbt" type="password" placeholder="1234567890:ABC..."></div>
-      <div><label>Chat ID</label><input id="tgci" placeholder="-1001234567890 أو @channel"></div>
-      <button class="btn btg" onclick="testTG()">🧪 اختبار الاتصال</button>
-    </div>
-    
-    <div class="cc" id="fbc">
-      <div class="ch">
-        <div class="ci" style="background:#1877F2;color:#fff">📘</div>
-        <div style="flex:1">
-          <div style="font-weight:700;font-size:12px">فيسبوك</div>
-          <div class="sb">
