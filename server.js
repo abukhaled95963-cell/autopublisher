@@ -7,7 +7,7 @@ const Database = require('better-sqlite3');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-const cheerio = require('cheerio');h
+const cheerio = require('cheerio');
 
 const app = express();
 const parser = new Parser();
