@@ -99,11 +99,15 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
     <div class="ct">&#x2708;&#xFE0F; &#x642;&#x646;&#x648;&#x627;&#x62A; &#x62A;&#x64A;&#x644;&#x64A;&#x63A;&#x631;&#x627;&#x645;</div>
 
     <div class="al altg" style="margin-bottom:8px">&#x26A1; &#x646;&#x634;&#x631; &#x641;&#x648;&#x631;&#x64A; &#x639;&#x646;&#x62F; &#x648;&#x635;&#x648;&#x644; &#x623;&#x64A; &#x631;&#x633;&#x627;&#x644;&#x629; &#x2014; &#x628;&#x639;&#x62F; &#x625;&#x639;&#x627;&#x62F;&#x629; &#x627;&#x644;&#x635;&#x64A;&#x627;&#x63A;&#x629; &#x648;&#x625;&#x636;&#x627;&#x641;&#x629; &#x631;&#x627;&#x628;&#x637; &#x642;&#x646;&#x627;&#x62A;&#x643;</div>
-    <div style="display:grid;grid-template-columns:1fr 90px 110px 30px;gap:5px;margin-bottom:5px">
-      <div style="font-size:10px;color:var(--t2)">&#x627;&#x633;&#x645; &#x627;&#x644;&#x642;&#x646;&#x627;&#x629; &#x627;&#x644;&#x645;&#x635;&#x62F;&#x631;</div>
-      <div style="font-size:10px;color:var(--t2)">&#x62A;&#x643;&#x631;&#x627;&#x631; &#x627;&#x644;&#x641;&#x62D;&#x635;</div>
-      <div style="font-size:10px;color:var(--tg)">&#x25B6; &#x627;&#x646;&#x634;&#x631; &#x641;&#x648;&#x631;&#x64A;&#x64B;&#x627; &#x639;&#x644;&#x649;</div>
-      <div></div>
+    <div style="display:grid;grid-template-columns:1fr 90px 110px;gap:5px;margin-bottom:5px">
+      <div style="font-size:10px;color:var(--t2)">&#x627;&#x633;&#x645; &#x627;&#x644;&#x642;&#x646;&#x627;&#x629;</div>
+      <div style="font-size:10px;color:var(--t2)">&#x62A;&#x643;&#x631;&#x627;&#x631;</div>
+      <div style="font-size:10px;color:var(--tg)">&#x627;&#x646;&#x634;&#x631; &#x639;&#x644;&#x649;</div>
+    </div>
+    <div style="display:grid;grid-template-columns:110px 1fr 1fr;gap:5px;margin-bottom:5px">
+      <div style="font-size:10px;color:var(--ac)">&#x637;&#x631;&#x64A;&#x642;&#x629; &#x627;&#x644;&#x646;&#x634;&#x631;</div>
+      <div style="font-size:10px;color:var(--gn)">&#x643;&#x644;&#x645;&#x627;&#x62A; &#x644;&#x644;&#x646;&#x634;&#x631;</div>
+      <div style="font-size:10px;color:var(--rd)">&#x643;&#x644;&#x645;&#x627;&#x62A; &#x644;&#x644;&#x62A;&#x62C;&#x627;&#x647;&#x644;</div>
     </div>
 
     <div id="src-rows"></div>
@@ -380,7 +384,10 @@ async function saveSrcChannels() {
     var ch = row.querySelector('.tg-ch').value.trim().replace('@', '');
     var iv = row.querySelector('.tg-int').value;
     var pub = row.querySelector('.tg-pub').value;
-    if (ch) channels.push({ name: ch, interval: iv, publishTo: pub });
+    var mode = row.querySelector('.tg-mode') ? row.querySelector('.tg-mode').value : 'rewrite';
+    var kw = row.querySelector('.tg-kw') ? row.querySelector('.tg-kw').value : '';
+    var ign = row.querySelector('.tg-ign') ? row.querySelector('.tg-ign').value : '';
+    if (ch) channels.push({ name: ch, interval: iv, publishTo: pub, mode: mode, keywords: kw, ignore: ign });
   });
   if (!channels.length) { alert('Add at least one channel'); return; }
 
@@ -399,6 +406,7 @@ async function saveSrcChannels() {
         bulk['tg_interval_' + c.name] = c.interval;
         bulk['tg_publish_to_' + c.name] = c.publishTo;
         await api('/api/settings/bulk', 'POST', bulk);
+        await api('/api/tg/rules', 'POST', { channel: c.name, mode: c.mode, keywords: c.keywords, ignore: c.ignore });
         saved++;
       } else failed++;
     } catch(e) { failed++; }
@@ -440,6 +448,20 @@ async function loadSrcRows() {
       });
     } else {
       addSrcRow();
+    }
+    // Restore rules for each row
+    var allRows = G('src-rows').querySelectorAll('.src-row');
+    for(var ri=0; ri<tgSrcs.length && ri<allRows.length; ri++) {
+      var ch2 = tgSrcs[ri].url.replace('https://t.me/s/', '');
+      try {
+        var rulesR = await api('/api/tg/rules/' + ch2);
+        if(rulesR.rules) {
+          var row2 = allRows[ri];
+          var ms = row2.querySelector('.tg-mode'); if(ms) ms.value = rulesR.rules.mode||'rewrite';
+          var kw = row2.querySelector('.tg-kw'); if(kw) kw.value = rulesR.rules.keywords||'';
+          var ig = row2.querySelector('.tg-ign'); if(ig) ig.value = rulesR.rules.ignore||'';
+        }
+      } catch(e2) {}
     }
   } catch(e) { addSrcRow(); }
 }
