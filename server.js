@@ -567,7 +567,7 @@ app.get('/api/ping', (req,res) => {
   res.json({ status:'alive', time:new Date().toISOString(), uptime:process.uptime() });
 });
 
-app.post('/api/run-now',, (req,res) => { res.json({message:'Started'}); dailyCycle().catch(console.error); });
+app.post('/api/run-now', (req,res) => { res.json({message:'Started'}); dailyCycle().catch(console.error); });
 
 app.get('/', (req,res) => {
   const paths=[path.join(__dirname,'public','index.html'),path.join(__dirname,'index.html')];
