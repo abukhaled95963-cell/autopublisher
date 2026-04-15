@@ -186,15 +186,24 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
   <div class="cc" id="cai">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
       <div style="font-size:20px">&#x1F916;</div>
-      <div style="flex:1"><div style="font-size:13px;font-weight:700">AI Key</div><div style="font-size:10px;color:var(--t2)">Claude / OpenAI</div></div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:700">AI Key</div><div style="font-size:10px;color:var(--t2)">Claude / OpenAI / Groq</div></div>
       <span id="aibadge" class="tag ts" style="display:none">&#x2705;</span>
     </div>
     <div style="display:flex;gap:6px;margin-bottom:8px">
       <button class="btn bp bsm" id="clb" onclick="setAI('claude')" style="flex:1">&#x1F916; Claude</button>
       <button class="btn bo bsm" id="oab" onclick="setAI('openai')" style="flex:1">&#x26A1; OpenAI</button>
+      <button id="grb" onclick="setAI('groq')" style="flex:1;padding:8px 4px;border-radius:8px;border:2px solid var(--bd);background:transparent;color:var(--t2);font-family:Cairo,sans-serif;font-size:11px;font-weight:700;cursor:pointer">&#x26A1; Groq</button>
     </div>
     <div id="cls"><label>Claude Key</label><input id="clk" type="password" placeholder="sk-ant-..."></div>
     <div id="oas" style="display:none"><label>OpenAI Key</label><input id="oak" type="password" placeholder="sk-..."></div>
+    <div id="grs" style="display:none">
+      <div style="background:rgba(255,107,107,.08);border-radius:6px;padding:10px;font-size:11px;color:var(--t2);margin-bottom:8px;line-height:1.8">
+        1- console.groq.com/keys<br>
+        2- Create API Key - &#x645;&#x62C;&#x627;&#x646;&#x64A; &#x648;&#x633;&#x631;&#x64A;&#x639; &#x62C;&#x62F;&#x627;&#x64B;
+      </div>
+      <label>Groq API Key</label>
+      <input id="grk" type="password" placeholder="gsk_...">
+    </div>
     <div id="ais" class="sb"><span class="dot da"></span></div>
     <button class="btn bp" id="aibtn" onclick="testAI()">&#x1F9EA; &#x627;&#x62E;&#x62A;&#x628;&#x627;&#x631;</button>
   </div>
@@ -672,12 +681,24 @@ function setAI(p) {
   curAI = p;
   G('clb').className = 'btn bsm ' + (p === 'claude' ? 'bp' : 'bo');
   G('oab').className = 'btn bsm ' + (p === 'openai' ? 'bp' : 'bo');
+  var grb = G('grb');
+  if (p === 'groq') {
+    grb.style.background = 'rgba(255,107,107,.15)';
+    grb.style.borderColor = 'var(--rd)';
+    grb.style.color = 'var(--rd)';
+  } else {
+    grb.style.background = 'transparent';
+    grb.style.borderColor = 'var(--bd)';
+    grb.style.color = 'var(--t2)';
+  }
   G('cls').style.display = p === 'claude' ? 'block' : 'none';
   G('oas').style.display = p === 'openai' ? 'block' : 'none';
+  G('grs').style.display = p === 'groq' ? 'block' : 'none';
 }
 
 async function testAI() {
-  var k = curAI === 'claude' ? G('clk').value.trim() : G('oak').value.trim();
+  var keyMap = { claude: 'clk', openai: 'oak', groq: 'grk' };
+  var k = G(keyMap[curAI] || 'clk').value.trim();
   if (!k) { alert('Enter key'); return; }
   var btn = G('aibtn'); btn.innerHTML = '<div class="sp"></div>'; btn.disabled = true;
   try {
