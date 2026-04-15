@@ -511,6 +511,21 @@ app.post('/api/test/ai', async(req,res) => {
   } catch(e){ res.status(500).json({error:e.message}); }
 });
 
+app.post('/api/test-ai', async(req,res) => {
+  const {key, provider} = req.body;
+  if(!key || !provider) return res.status(400).json({error:'key and provider required'});
+  const allowed = ['claude','chatgpt','openai','gemini'];
+  if(!allowed.includes(provider)) return res.status(400).json({error:'unknown provider'});
+  try {
+    setSetting('ai_provider', provider);
+    setSetting('ai_api_key', key);
+    const result = await callAI('Say OK', 10);
+    res.json({success:true, provider, message:(result||'').toString().slice(0,200)});
+  } catch(e){
+    res.status(500).json({error: e.response?.data?.error?.message || e.message});
+  }
+});
+
 // GitHub routes
 app.post('/api/test/github', async(req,res) => {
   const {token,repo} = req.body;

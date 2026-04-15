@@ -183,20 +183,24 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
   </div>
 
   <!-- AI -->
-  <div class="cc" id="cai">
+  <div class="cc" id="cai" dir="rtl">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
       <div style="font-size:20px">&#x1F916;</div>
-      <div style="flex:1"><div style="font-size:13px;font-weight:700">AI Key</div><div style="font-size:10px;color:var(--t2)">Claude / OpenAI</div></div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:700">&#x645;&#x632;&#x648;&#x651;&#x62F; &#x627;&#x644;&#x630;&#x643;&#x627;&#x621; &#x627;&#x644;&#x627;&#x635;&#x637;&#x646;&#x627;&#x639;&#x64A;</div><div style="font-size:10px;color:var(--t2)">Claude / ChatGPT / Gemini</div></div>
       <span id="aibadge" class="tag ts" style="display:none">&#x2705;</span>
     </div>
-    <div style="display:flex;gap:6px;margin-bottom:8px">
-      <button class="btn bp bsm" id="clb" onclick="setAI('claude')" style="flex:1">&#x1F916; Claude</button>
-      <button class="btn bo bsm" id="oab" onclick="setAI('openai')" style="flex:1">&#x26A1; OpenAI</button>
-    </div>
-    <div id="cls"><label>Claude Key</label><input id="clk" type="password" placeholder="sk-ant-..."></div>
-    <div id="oas" style="display:none"><label>OpenAI Key</label><input id="oak" type="password" placeholder="sk-..."></div>
-    <div id="ais" class="sb"><span class="dot da"></span></div>
-    <button class="btn bp" id="aibtn" onclick="testAI()">&#x1F9EA; &#x627;&#x62E;&#x62A;&#x628;&#x627;&#x631;</button>
+    <label>&#x627;&#x644;&#x645;&#x632;&#x648;&#x651;&#x62F;</label>
+    <select id="aiProv" onchange="onAIProvChange()">
+      <option value="claude">&#x1F916; Claude</option>
+      <option value="chatgpt">&#x26A1; ChatGPT</option>
+      <option value="gemini">&#x2728; Gemini</option>
+    </select>
+    <div style="height:8px"></div>
+    <label id="aiKeyLabel">&#x645;&#x641;&#x62A;&#x627;&#x62D; Claude</label>
+    <input id="aiKey" type="password" placeholder="sk-ant-...">
+    <div id="aiHelp" style="font-size:10px;color:var(--t2);margin-top:4px;text-align:right">&#x627;&#x62D;&#x635;&#x644; &#x639;&#x644;&#x649; &#x645;&#x641;&#x62A;&#x627;&#x62D;&#x643; &#x645;&#x646; console.anthropic.com</div>
+    <div id="ais" class="sb" style="margin-top:8px"><span class="dot da"></span></div>
+    <button class="btn bp" id="aibtn" onclick="testAI()">&#x1F9EA; &#x627;&#x62E;&#x62A;&#x628;&#x627;&#x631; &#x627;&#x644;&#x627;&#x62A;&#x635;&#x627;&#x644;</button>
   </div>
 </div>
 
@@ -668,6 +672,19 @@ async function saveMake() {
   G('mkbadge').style.display = 'inline-block'; G('cmk').classList.add('ok');
 }
 
+var AI_META = {
+  claude:  { label: 'مفتاح Claude',  ph: 'sk-ant-...', help: 'احصل على مفتاحك من console.anthropic.com' },
+  chatgpt: { label: 'مفتاح ChatGPT', ph: 'sk-...',      help: 'احصل على مفتاحك من platform.openai.com' },
+  gemini:  { label: 'مفتاح Gemini',  ph: 'AIza...',     help: 'احصل على مفتاحك من aistudio.google.com' }
+};
+function onAIProvChange() {
+  var p = G('aiProv').value;
+  curAI = p;
+  var m = AI_META[p] || AI_META.claude;
+  G('aiKeyLabel').textContent = m.label;
+  G('aiKey').placeholder = m.ph;
+  G('aiHelp').textContent = m.help;
+}
 function setAI(p) {
   curAI = p;
   G('clb').className = 'btn bsm ' + (p === 'claude' ? 'bp' : 'bo');
@@ -677,15 +694,21 @@ function setAI(p) {
 }
 
 async function testAI() {
-  var k = curAI === 'claude' ? G('clk').value.trim() : G('oak').value.trim();
-  if (!k) { alert('Enter key'); return; }
+  var provider = G('aiProv') ? G('aiProv').value : curAI;
+  var k = G('aiKey') ? G('aiKey').value.trim() : '';
+  if(!k) { G('ais').innerHTML = '<span class="dot dr"></span> أدخل المفتاح أولاً'; return; }
   var btn = G('aibtn'); btn.innerHTML = '<div class="sp"></div>'; btn.disabled = true;
   try {
-    var r = await api('/api/test/ai', 'POST', { key: k, provider: curAI });
-    if (r.success) { G('ais').innerHTML = '<span class="dot dg"></span> ' + curAI + ' OK'; G('aibadge').style.display = 'inline-block'; G('cai').classList.add('ok'); }
-    else G('ais').innerHTML = '<span class="dot dr"></span> ' + r.error;
-  } catch(e) { G('ais').innerHTML = '<span class="dot da"></span> Failed'; }
-  btn.textContent = 'Test'; btn.disabled = false;
+    var r = await api('/api/test-ai', 'POST', { key: k, provider: provider });
+    if(r && r.success) {
+      G('ais').innerHTML = '<span class="dot dg"></span> ' + provider + ' — تم الاتصال بنجاح';
+      G('aibadge').style.display = 'inline-block';
+      G('cai').classList.add('ok');
+    } else {
+      G('ais').innerHTML = '<span class="dot dr"></span> ' + ((r && r.error) || 'فشل الاتصال');
+    }
+  } catch(e) { G('ais').innerHTML = '<span class="dot dr"></span> فشل الاتصال'; }
+  btn.innerHTML = '&#x1F9EA; اختبار الاتصال'; btn.disabled = false;
 }
 
 // ===== Posts =====
@@ -705,6 +728,8 @@ async function delPost(id) { if (!confirm('Delete?')) return; await api('/api/po
 async function loadSet() {
   try {
     var s = await api('/api/settings');
+    if (s.ai_provider && G('aiProv')) { G('aiProv').value = s.ai_provider; onAIProvChange(); }
+    if (s.ai_api_key && G('aiKey')) G('aiKey').value = s.ai_api_key;
     if (s.writing_tone) G('wt').value = s.writing_tone;
     if (s.content_lang) G('cl3').value = s.content_lang;
     if (s.hashtags) G('hs').value = s.hashtags;
