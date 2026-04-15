@@ -80,37 +80,55 @@ function setSetting(key, val) {
 
 // ===== AI =====
 async function callAI(prompt, maxTokens) {
-  maxTokens = maxTokens || 1200;
-  const provider = getSetting('ai_provider', 'claude');
-  const sharedKey = getSetting('ai_api_key');
-
-  if(provider === 'chatgpt' || provider === 'openai') {
-    const key = sharedKey || getSetting('openai_key');
-    if(!key) throw new Error('OpenAI key not set');
-    const r = await axios.post('https://api.openai.com/v1/chat/completions', {
-      model:'gpt-4o-mini', max_tokens:maxTokens,
-      messages:[{role:'user', content:prompt}]
-    }, {headers:{Authorization:'Bearer '+key}});
-    return r.data.choices[0].message.content;
+  maxTokens = maxTokens || 800;
+  const primaryProvider = getSetting('ai_provider', 'groq');
+  const allProviders = ['groq', 'gemini', 'claude', 'openai'];
+  const providers = [primaryProvider, ...allProviders.filter(p => p !== primaryProvider)];
+  let lastError = null;
+  for(const provider of providers) {
+    try {
+      let key = '';
+      if(provider === 'groq') key = getSetting('groq_key');
+      else if(provider === 'gemini') key = getSetting('gemini_key');
+      else if(provider === 'claude') key = getSetting('claude_key');
+      else if(provider === 'openai') key = getSetting('openai_key');
+      if(!key) { console.log('No key for', provider, '- skipping'); continue; }
+      console.log('Trying AI provider:', provider);
+      if(provider === 'groq') {
+        const r = await axios.post('https://api.groq.com/openai/v1/chat/completions',
+          {model:'llama3-8b-8192', max_tokens:maxTokens, messages:[{role:'user',content:prompt}]},
+          {headers:{Authorization:'Bearer '+key}, timeout:30000}
+        );
+        return r.data.choices[0].message.content;
+      } else if(provider === 'gemini') {
+        const r = await axios.post(
+          'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key='+key,
+          {contents:[{parts:[{text:prompt}]}], generationConfig:{maxOutputTokens:maxTokens}},
+          {timeout:30000}
+        );
+        return r.data.candidates[0].content.parts[0].text;
+      } else if(provider === 'claude') {
+        const r = await axios.post('https://api.anthropic.com/v1/messages',
+          {model:'claude-haiku-4-5-20251001', max_tokens:maxTokens, messages:[{role:'user',content:prompt}]},
+          {headers:{'x-api-key':key,'anthropic-version':'2023-06-01'}, timeout:30000}
+        );
+        return r.data.content[0].text;
+      } else if(provider === 'openai') {
+        const r = await axios.post('https://api.openai.com/v1/chat/completions',
+          {model:'gpt-4o-mini', max_tokens:maxTokens, messages:[{role:'user',content:prompt}]},
+          {headers:{Authorization:'Bearer '+key}, timeout:30000}
+        );
+        return r.data.choices[0].message.content;
+      }
+    } catch(e) {
+      lastError = e;
+      const status = e.response?.status;
+      console.log('Provider', provider, 'failed:', status || e.message, '- trying next...');
+      if(status === 429) await new Promise(r=>setTimeout(r,2000));
+      continue;
+    }
   }
-
-  if(provider === 'groq') {
-    const key = sharedKey || getSetting('groq_key');
-    if(!key) throw new Error('Groq key not set');
-    const r = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
-      model:'llama-3.3-70b-versatile', max_tokens:maxTokens,
-      messages:[{role:'user', content:prompt}]
-    }, {headers:{Authorization:'Bearer '+key}});
-    return r.data.choices[0].message.content;
-  }
-
-  const key = sharedKey || getSetting('claude_key');
-  if(!key) throw new Error('Claude key not set');
-  const r = await axios.post('https://api.anthropic.com/v1/messages', {
-    model:'claude-sonnet-4-20250514', max_tokens:maxTokens,
-    messages:[{role:'user', content:prompt}]
-  }, {headers:{'x-api-key':key,'anthropic-version':'2023-06-01'}});
-  return r.data.content[0].text;
+  throw new Error('All AI providers failed. Last: ' + (lastError?.message || 'unknown'));
 }
 
 // ===== Text filters =====
