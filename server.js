@@ -870,13 +870,13 @@ async function processTGChannel(channel) {
 
     const rules = JSON.parse(getSetting('tg_rules_'+channel, '{"mode":"rewrite","keywords":"","ignore":""}'));
 
-    let myChannelUsername = '';
+    let myChannelLink = '';
     try {
       const myChans = JSON.parse(getSetting('my_tg_channels','[]'));
       const mc = myChans.find(c => c.chat===tgChat || c.chat==='@'+tgChat.replace('@',''));
-      if(mc) myChannelUsername = '@'+mc.chat.replace('@','');
+      if(mc) myChannelLink = '\n\n📢 <a href="https://t.me/'+mc.chat.replace('@','')+'">'+(mc.name||('@'+mc.chat.replace('@','')))+' </a>';
     } catch(e) {}
-    const appendMine = txt => myChannelUsername ? (txt.trim() + '\n\n📢 ' + myChannelUsername) : txt;
+    const appendMine = txt => myChannelLink ? (txt.trim() + myChannelLink) : txt;
 
     let posts = [];
     try {
