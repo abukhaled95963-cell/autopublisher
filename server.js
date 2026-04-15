@@ -769,6 +769,63 @@ app.post('/api/fb/test', async(req,res) => {
   } catch(e) { res.status(500).json({error:e.message}); }
 });
 
+app.post('/api/fb/test-source', async(req,res) => {
+  const {sourceId, url} = req.body;
+  try {
+    const webhook = getSetting('make_webhook');
+    if(!webhook) return res.json({success:false, error:'Make.com webhook not configured'});
+
+    const src = sourceId ? db.prepare('SELECT * FROM sources WHERE id=?').get(sourceId) : null;
+    const type = src ? src.type : (url && url.includes('t.me') ? 'telegram' : 'rss');
+    const srcUrl = src ? src.url : url;
+    if(!srcUrl) return res.json({success:false, error:'source URL missing'});
+
+    let latest = '';
+    if(type === 'telegram') {
+      const channel = srcUrl.replace('https://t.me/s/','').replace('https://t.me/','').replace('@','').trim();
+      const r = await readTelegramChannel(channel);
+      if(!r.success || !r.posts || !r.posts.length) {
+        return res.json({success:false, error:'no posts found in channel'});
+      }
+      latest = (r.posts[0].text || '').trim();
+    } else if(type === 'rss') {
+      const items = await fetchRSS({url: srcUrl});
+      if(!items || !items.length) return res.json({success:false, error:'no RSS items found'});
+      const it = items[0];
+      latest = ((it.title || '') + '\n\n' + (it.content || '')).trim();
+    } else {
+      return res.json({success:false, error:'unsupported source type: '+type});
+    }
+
+    if(!latest || latest.length < 10) return res.json({success:false, error:'source returned empty content'});
+
+    const prompt = 'أعد صياغة هذا المحتوى كمنشور فيسبوك جذاب باللغة العربية بأسلوب بشري طبيعي. لا تذكر اسم المصدر ولا أي روابط. اختم بسؤال للتفاعل. الحد الأقصى 150 كلمة.\n\nالمحتوى:\n' + latest + '\n\nأعد المنشور فقط بدون مقدمات.';
+    let rewritten;
+    try {
+      rewritten = await callAI(prompt, 600);
+    } catch(e) {
+      return res.json({success:false, error:'AI error: '+e.message});
+    }
+    if(!rewritten || !rewritten.trim()) return res.json({success:false, error:'AI returned empty result'});
+    rewritten = filterSourceLinks(rewritten.trim());
+
+    try {
+      await axios.post(webhook, {
+        content: rewritten,
+        platform: 'facebook',
+        source: src ? src.name : 'test',
+        timestamp: new Date().toISOString()
+      });
+    } catch(e) {
+      return res.json({success:false, error:'webhook error: '+e.message});
+    }
+
+    res.json({success:true, preview: rewritten.substring(0,100)});
+  } catch(e) {
+    res.json({success:false, error: e.message});
+  }
+});
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log('Server on port', PORT));
