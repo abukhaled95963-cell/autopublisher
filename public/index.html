@@ -235,31 +235,22 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
 <!-- Facebook Sources -->
 <div class="pg" id="pg-fb">
 
-  <!-- Add new FB source -->
   <div class="card" style="border-color:#1877F2">
-    <div class="ct" style="color:#1877F2">&#x1F4D8; &#x625;&#x636;&#x627;&#x641;&#x629; &#x645;&#x635;&#x62F;&#x631; &#x644;&#x641;&#x64A;&#x633;&#x628;&#x648;&#x643;</div>
-    <div class="al" style="background:rgba(24,119,242,.1);border:1px solid rgba(24,119,242,.3);color:#6aabff">
-      &#x643;&#x644; &#x645;&#x635;&#x62F;&#x631; &#x64A;&#x639;&#x627;&#x62F; &#x635;&#x64A;&#x627;&#x63A;&#x62A;&#x647; &#x628;&#x623;&#x633;&#x644;&#x648;&#x628; &#x641;&#x64A;&#x633;&#x628;&#x648;&#x643; &#x2014; &#x628;&#x62F;&#x648;&#x646; &#x630;&#x643;&#x631; &#x627;&#x644;&#x645;&#x635;&#x62F;&#x631; &#x623;&#x648; &#x631;&#x648;&#x627;&#x628;&#x637;
-    </div>
+    <div class="ct" style="color:#1877F2">&#x1F4D8; &#x625;&#x636;&#x627;&#x641;&#x629; &#x645;&#x635;&#x62F;&#x631; &#x641;&#x64A;&#x633;&#x628;&#x648;&#x643;</div>
     <div class="g2" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <div>
-        <label>&#x627;&#x633;&#x645; &#x627;&#x644;&#x645;&#x635;&#x62F;&#x631;</label>
-        <input id="fb-src-name" placeholder="BBC Arabic">
-      </div>
-      <div>
-        <label>&#x627;&#x644;&#x646;&#x648;&#x639;</label>
+      <div><label>&#x627;&#x633;&#x645; &#x627;&#x644;&#x645;&#x635;&#x62F;&#x631;</label><input id="fb-src-name" placeholder="اسم القناة"></div>
+      <div><label>&#x627;&#x644;&#x646;&#x648;&#x639;</label>
         <select id="fb-src-type">
-          <option value="rss">RSS / &#x645;&#x648;&#x642;&#x639;</option>
-          <option value="youtube">YouTube</option>
           <option value="telegram">&#x62A;&#x64A;&#x644;&#x64A;&#x63A;&#x631;&#x627;&#x645;</option>
+          <option value="rss">RSS</option>
+          <option value="youtube">YouTube</option>
         </select>
       </div>
     </div>
     <label>&#x627;&#x644;&#x631;&#x627;&#x628;&#x637; / &#x627;&#x633;&#x645; &#x627;&#x644;&#x642;&#x646;&#x627;&#x629;</label>
-    <input id="fb-src-url" placeholder="https://... &#x623;&#x648; channel_name">
+    <input id="fb-src-url" placeholder="channel_name او https://...">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
-      <div>
-        <label>&#x62A;&#x643;&#x631;&#x627;&#x631; &#x627;&#x644;&#x641;&#x62D;&#x635;</label>
+      <div><label>&#x62A;&#x643;&#x631;&#x627;&#x631; &#x627;&#x644;&#x641;&#x62D;&#x635;</label>
         <select id="fb-src-interval">
           <option value="15">&#x643;&#x644; 15 &#x62F;&#x642;&#x64A;&#x642;&#x629;</option>
           <option value="30" selected>&#x643;&#x644; 30 &#x62F;&#x642;&#x64A;&#x642;&#x629;</option>
@@ -267,28 +258,25 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
           <option value="120">&#x643;&#x644; &#x633;&#x627;&#x639;&#x62A;&#x64A;&#x646;</option>
         </select>
       </div>
-      <div>
-        <label>&#x643;&#x644;&#x645;&#x627;&#x62A; &#x644;&#x644;&#x62A;&#x62C;&#x627;&#x647;&#x644;</label>
-        <input id="fb-src-ignore" placeholder="&#x625;&#x639;&#x644;&#x627;&#x646;&#x60C; &#x645;&#x645;&#x648;&#x644;">
+      <div><label>&#x643;&#x644;&#x645;&#x627;&#x62A; &#x644;&#x644;&#x62A;&#x62C;&#x627;&#x647;&#x644;</label>
+        <input id="fb-src-ignore" placeholder="&#x625;&#x639;&#x644;&#x627;&#x646;&#x60C; &#x62A;&#x631;&#x648;&#x64A;&#x62C;">
       </div>
     </div>
     <button class="btn bsm" onclick="addFBSource()" style="background:#1877F2;color:#fff;border:none;width:100%;margin-top:8px">&#x2795; &#x625;&#x636;&#x627;&#x641;&#x629; &#x644;&#x641;&#x64A;&#x633;&#x628;&#x648;&#x643;</button>
     <div id="fb-add-st" style="display:none;padding:7px;border-radius:6px;font-size:11px;text-align:center;margin-top:6px"></div>
   </div>
 
-  <!-- FB Sources list -->
   <div class="card">
     <div class="ct">&#x1F4E1; &#x645;&#x635;&#x627;&#x62F;&#x631; &#x641;&#x64A;&#x633;&#x628;&#x648;&#x643;
-      <button onclick="testFBWebhook()" class="bsm ib" style="background:rgba(24,119,242,.15);color:#1877F2;font-size:11px">&#x1F9EA; &#x627;&#x62E;&#x62A;&#x628;&#x627;&#x631;</button>
+      <button onclick="testFBWebhook()" class="bsm ib" style="background:rgba(24,119,242,.15);color:#1877F2;font-size:11px;float:left">&#x1F9EA; &#x627;&#x62E;&#x62A;&#x628;&#x627;&#x631; &#x627;&#x644;&#x631;&#x628;&#x637;</button>
     </div>
-    <div id="fb-sources-list"><div style="color:var(--t3);text-align:center;padding:14px;font-size:12px">&#x644;&#x627; &#x62A;&#x648;&#x62C;&#x62F; &#x645;&#x635;&#x627;&#x62F;&#x631; &#x628;&#x639;&#x62F;</div></div>
+    <div id="fb-sources-list"><div style="color:var(--t3);text-align:center;padding:14px;font-size:12px">&#x644;&#x627; &#x62A;&#x648;&#x62C;&#x62F; &#x645;&#x635;&#x627;&#x62F;&#x631;</div></div>
     <div id="fb-save-st" style="display:none;padding:8px;border-radius:6px;font-size:11px;text-align:center;margin-top:6px"></div>
   </div>
 
-  <!-- FB Posts -->
   <div class="card">
     <div class="ct">&#x1F4CB; &#x622;&#x62E;&#x631; &#x645;&#x646;&#x634;&#x648;&#x631;&#x627;&#x62A; &#x641;&#x64A;&#x633;&#x628;&#x648;&#x643;</div>
-    <div id="fb-posts-list"><div style="color:var(--t3);text-align:center;padding:14px;font-size:12px">&#x644;&#x627; &#x62A;&#x648;&#x62C;&#x62F; &#x645;&#x646;&#x634;&#x648;&#x631;&#x627;&#x62A; &#x628;&#x639;&#x62F;</div></div>
+    <div id="fb-posts-list"><div style="color:var(--t3);text-align:center;padding:14px;font-size:12px">&#x644;&#x627; &#x62A;&#x648;&#x62C;&#x62F; &#x645;&#x646;&#x634;&#x648;&#x631;&#x627;&#x62A;</div></div>
   </div>
 </div>
 
@@ -773,34 +761,26 @@ async function addFBSource() {
   var interval = G('fb-src-interval').value;
   var ignore = G('fb-src-ignore').value.trim();
   if(!name || !url) { alert('Enter name and URL'); return; }
-
-  // Format URL for telegram
-  if(type==='telegram' && !url.startsWith('http')) {
-    url = 'https://t.me/s/' + url.replace('@','');
-  }
-
+  if(type==='telegram' && !url.startsWith('http')) url = 'https://t.me/s/'+url.replace('@','');
   var st = G('fb-add-st');
   st.style.display='block'; st.style.background='rgba(24,119,242,.1)'; st.style.color='#6aabff';
   st.textContent='Adding...';
-
   try {
-    // Add as source
     var r = await api('/api/sources','POST',{name:'FB: '+name, url:url, type:type});
     if(r.success || r.id) {
       var id = r.id || r.success;
-      // Mark as FB source
       var bulk = {};
       bulk['fb_source_'+id] = String(id);
       bulk['fb_interval_'+id] = interval;
       if(ignore) bulk['fb_ignore_'+id] = ignore;
-      await api('/api/settings/bulk','POST', bulk);
-      await api('/api/fb/sources','POST',{sourceIds:[id], intervals:{[id]:interval}});
+      await api('/api/settings/bulk','POST',bulk);
+      await api('/api/fb/sources','POST',{sourceIds:[id],intervals:{[id]:interval}});
       st.style.background='rgba(0,212,160,.1)'; st.style.color='var(--gn)';
-      st.textContent='Added! Source will publish to Facebook every '+interval+' min';
+      st.textContent='Added successfully!';
       G('fb-src-name').value=''; G('fb-src-url').value=''; G('fb-src-ignore').value='';
       loadFBSources();
     } else {
-      st.style.color='var(--am)'; st.textContent='Source may already exist — activating...';
+      st.style.color='var(--am)'; st.textContent='Already exists - activated';
       loadFBSources();
     }
   } catch(e) { st.style.color='var(--rd)'; st.textContent='Error: '+e.message; }
@@ -816,33 +796,46 @@ async function loadFBSources() {
   try {
     var r = await api('/api/fb/sources');
     var cont = G('fb-sources-list');
-    if(!r.all || !r.all.length) {
-      cont.innerHTML = '<div style="color:var(--t3);text-align:center;padding:14px;font-size:12px">No sources yet — add one above</div>';
+    var fbSrcs = r.all ? r.all.filter(function(s){ return s.name && s.name.startsWith('FB:'); }) : [];
+    if(!fbSrcs.length) {
+      cont.innerHTML = '<div style="color:var(--t3);text-align:center;padding:14px;font-size:12px">No Facebook sources yet</div>';
     } else {
-      var fbSrcs = r.all.filter(function(s){ return s.name && s.name.startsWith('FB:'); });
-      if(!fbSrcs.length) {
-        cont.innerHTML = '<div style="color:var(--t3);text-align:center;padding:14px;font-size:12px">No Facebook sources yet — add one above</div>';
-      } else {
-        var ivLabels = {'15':'15d','30':'30d','60':'1h','120':'2h'};
-        cont.innerHTML = fbSrcs.map(function(s) {
-          var iv = r.intervals && r.intervals[s.id] ? r.intervals[s.id] : '30';
-          return '<div class="pi" style="border:1px solid #1877F2"><div style="flex:1;min-width:0">'+
-            '<div style="font-size:12px;font-weight:600">'+s.name.replace('FB: ','')+'</div>'+
-            '<div style="font-size:10px;color:var(--t2)">'+s.type+' • '+(ivLabels[iv]||iv+'m')+'</div></div>'+
-            '<span class="tag ts">&#x2705; Active</span>'+
-            '<button class="ib ib-rd" onclick="delFBSource('+s.id+')" style="margin-right:4px">X</button></div>';
-        }).join('');
-      }
+      var ivLabels = {'15':'15d','30':'30d','60':'1h','120':'2h'};
+      cont.innerHTML = fbSrcs.map(function(s) {
+        var iv = r.intervals && r.intervals[s.id] ? r.intervals[s.id] : '30';
+        return '<div class="pi" style="border:1px solid rgba(24,119,242,.3)">' +
+          '<div style="flex:1;min-width:0">' +
+          '<div style="font-size:12px;font-weight:600">'+s.name.replace('FB: ','')+'</div>' +
+          '<div style="font-size:10px;color:var(--t2)">'+s.type+' • '+(ivLabels[iv]||iv+'m')+'</div></div>' +
+          '<button class="ib ib-am" onclick="testFBSource('+s.id+',\''+s.url+'\')" style="font-size:11px;margin-left:4px">&#x1F9EA;</button>' +
+          '<button class="ib ib-rd" onclick="delFBSource('+s.id+')" style="margin-right:4px">X</button></div>';
+      }).join('');
     }
-    // Load FB posts
     var ps = await api('/api/posts');
     var fbPs = ps.filter(function(p){return p.rewritten_facebook;});
     var fl = G('fb-posts-list');
-    if(!fbPs.length){fl.innerHTML='<div style="color:var(--t3);text-align:center;padding:14px;font-size:12px">No Facebook posts yet</div>';return;}
+    if(!fbPs.length){fl.innerHTML='<div style="color:var(--t3);text-align:center;padding:14px;font-size:12px">No posts yet</div>';return;}
     fl.innerHTML = fbPs.slice(0,5).map(function(p){
-      return '<div class="pi"><div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(p.original_title||'-')+'</div><div style="font-size:10px;color:var(--t2)">'+(p.source_name||'')+' '+(p.created_at?p.created_at.substring(0,16):'')+' <span class="tag '+(p.status==='published'?'ts':'tp')+'">'+p.status+'</span></div></div></div>';
+      return '<div class="pi"><div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(p.original_title||'-')+'</div>' +
+        '<div style="font-size:10px;color:var(--t2)">'+(p.source_name||'')+' '+(p.created_at?p.created_at.substring(0,16):'')+
+        ' <span class="tag '+(p.status==='published'?'ts':'tp')+'">'+p.status+'</span></div></div></div>';
     }).join('');
   } catch(e) {}
+}
+
+async function testFBSource(id, url) {
+  var st = G('fb-save-st');
+  st.style.display='block'; st.style.background='rgba(255,179,71,.1)'; st.style.color='var(--am)';
+  st.textContent='Fetching and rewriting last post...';
+  try {
+    var r = await api('/api/fb/test-source','POST',{sourceId:id, url:url});
+    if(r.success) {
+      st.style.background='rgba(0,212,160,.1)'; st.style.color='var(--gn)';
+      st.textContent='Sent to Facebook! Preview: '+r.preview;
+    } else {
+      st.style.color='var(--rd)'; st.textContent='Error: '+(r.error||'');
+    }
+  } catch(e) { st.style.color='var(--rd)'; st.textContent='Error: '+e.message; }
 }
 
 async function testFBWebhook() {
