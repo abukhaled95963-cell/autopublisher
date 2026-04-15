@@ -944,22 +944,16 @@ async function processTGChannel(channel) {
 
       try {
         if(post.hasMedia) {
-          try {
-            console.log('Attempting copyMessage from @'+channel+' msgId:'+post.msgId+' to chat:'+tgChat);
-            await axios.post('https://api.telegram.org/bot'+tgToken+'/copyMessage', {
-              chat_id: tgChat,
-              from_chat_id: '@'+channel,
-              message_id: post.msgId,
-              caption: finalText.substring(0, 1024),
-              parse_mode: 'HTML'
-            });
+          console.log('Trying extractAndSendMedia for @'+channel+' msgId:'+post.msgId);
+          const mediaSent = await extractAndSendMedia(tgToken, tgChat, channel, post.msgId, finalText);
+          if(mediaSent) {
+            console.log('Media sent via download @'+channel+' msg:'+post.msgId);
             db.prepare("UPDATE posts SET status='published', published_at=datetime('now') WHERE id=?").run(pid);
-            db.prepare("INSERT INTO publish_log(post_id,platform,status,message) VALUES(?,?,?,?)").run(pid,'telegram','success','@'+channel+' +media via copy');
-            console.log('COPIED msg with media @'+channel+' msg:'+post.msgId);
+            db.prepare("INSERT INTO publish_log(post_id,platform,status,message) VALUES(?,?,?,?)").run(pid,'telegram','success','@'+channel+' +media downloaded');
             await new Promise(r=>setTimeout(r,800));
             continue;
-          } catch(e) {
-            console.log('copyMessage failed, sending text only:', e.message);
+          } else {
+            console.log('Media extraction failed, sending text only for msgId:'+post.msgId);
           }
         }
 
