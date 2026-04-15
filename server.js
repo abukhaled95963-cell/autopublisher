@@ -887,6 +887,8 @@ async function processTGChannel(channel) {
       const existing = db.prepare('SELECT id FROM posts WHERE original_url=?').get(key);
       if(existing) continue;
 
+      console.log('Post msgId:'+post.msgId+' hasMedia:'+post.hasMedia+' textLen:'+(post.text||'').length);
+
       const ignoreWords = (rules.ignore||'').split(',').map(w=>w.trim()).filter(Boolean);
       const keywords = (rules.keywords||'').split(',').map(w=>w.trim()).filter(Boolean);
 
@@ -943,6 +945,7 @@ async function processTGChannel(channel) {
       try {
         if(post.hasMedia) {
           try {
+            console.log('Attempting copyMessage from @'+channel+' msgId:'+post.msgId+' to chat:'+tgChat);
             await axios.post('https://api.telegram.org/bot'+tgToken+'/copyMessage', {
               chat_id: tgChat,
               from_chat_id: '@'+channel,
