@@ -843,6 +843,24 @@ function cleanArabicOnly(text) {
     .trim();
 }
 
+function cleanRewrittenText(text) {
+  const patterns = [
+    /^صحيح[،,]?\s*/i,
+    /^إليك\s+[^:\n]+[:\n]\s*/i,
+    /^يعد\s+صياغة\s+[^:\n]+[:\n]\s*/i,
+    /^بعد\s+إعادة\s+[^:\n]+[:\n]\s*/i,
+    /^إعادة\s+صياغة\s+[^:\n]+[:\n]\s*/i,
+    /^النص\s+المعاد\s+[^:\n]+[:\n]\s*/i,
+    /^الخبر\s+[^:\n]+[:\n]\s*/i,
+    /^تمت\s+إعادة\s+[^:\n]+[:\n]\s*/i,
+    /^فيما\s+يلي\s+[^:\n]+[:\n]\s*/i,
+    /^هذا\s+هو\s+[^:\n]+[:\n]\s*/i,
+  ];
+  let t = text.trim();
+  for(const p of patterns) t = t.replace(p, '');
+  return t.trim();
+}
+
 async function processTGChannel(channel) {
   try {
     const publishTo = getSetting('tg_publish_to_'+channel, '');
@@ -922,7 +940,7 @@ async function processTGChannel(channel) {
             } else {
               const refusalPhrases = ['لا أستطيع','لا يمكنني','عذراً','آسف','I cannot','I am unable','أنصحك','مصادر موثوقة','لا أملك','غير قادر'];
               if(!rewritten || refusalPhrases.some(p => rewritten.includes(p))) throw new Error('ai_refusal');
-              rewritten = cleanArabicOnly(rewritten);
+              rewritten = cleanArabicOnly(cleanRewrittenText(rewritten));
               finalText = appendMine(filterSourceLinks(rewritten));
             }
           }
