@@ -96,7 +96,7 @@ async function callAI(prompt, maxTokens) {
     const key = sharedKey || getSetting('gemini_key');
     if(!key) throw new Error('Gemini key not set');
     const r = await axios.post(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key='+encodeURIComponent(key),
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='+encodeURIComponent(key),
       { contents:[{parts:[{text:prompt}]}], generationConfig:{maxOutputTokens:maxTokens} }
     );
     return r.data.candidates?.[0]?.content?.parts?.[0]?.text || '';
