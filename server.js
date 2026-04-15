@@ -598,5 +598,10 @@ if(RAILWAY_URL){
   console.log('Keep-alive enabled');
 }
 
+app.get('/api/debug/groq', (req,res) => {
+  const key = getSetting('groq_key','NOT_SET');
+  res.json({groq_key_length: key.length, starts_with: key.substring(0,10), provider: getSetting('ai_provider','')});
+});
+
 const PORT = process.env.PORT||3000;
 app.listen(PORT,()=>console.log('Server on port',PORT,'| DB:',DB_FILE));
