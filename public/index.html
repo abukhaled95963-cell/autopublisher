@@ -193,6 +193,7 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
       <button class="btn bp bsm" id="clb" onclick="setAI('claude')" style="flex:1">&#x1F916; Claude</button>
       <button class="btn bo bsm" id="oab" onclick="setAI('openai')" style="flex:1">&#x26A1; OpenAI</button>
       <button id="grb" onclick="setAI('groq')" style="flex:1;padding:8px 4px;border-radius:8px;border:2px solid var(--bd);background:transparent;color:var(--t2);font-family:Cairo,sans-serif;font-size:11px;font-weight:700;cursor:pointer">&#x26A1; Groq</button>
+      <button id="gmb" onclick="setAI('gemini')" style="flex:1;padding:8px 4px;border-radius:8px;border:2px solid var(--bd);background:transparent;color:var(--t2);font-family:Cairo,sans-serif;font-size:11px;font-weight:700;cursor:pointer">&#x1F48E; Gemini</button>
     </div>
     <div id="cls"><label>Claude Key</label><input id="clk" type="password" placeholder="sk-ant-..."></div>
     <div id="oas" style="display:none"><label>OpenAI Key</label><input id="oak" type="password" placeholder="sk-..."></div>
@@ -203,6 +204,14 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
       </div>
       <label>Groq API Key</label>
       <input id="grk" type="password" placeholder="gsk_...">
+    </div>
+    <div id="gms" style="display:none">
+      <div style="background:rgba(255,179,71,.08);border-radius:6px;padding:10px;font-size:11px;color:var(--t2);margin-bottom:8px;line-height:1.8">
+        1- aistudio.google.com/app/apikey<br>
+        2- Create API Key - &#x645;&#x62C;&#x627;&#x646;&#x64A; &#x62A;&#x645;&#x627;&#x645;&#x627;&#x64B;
+      </div>
+      <label>Gemini API Key</label>
+      <input id="gmk" type="password" placeholder="AIzaSy...">
     </div>
     <div id="ais" class="sb"><span class="dot da"></span></div>
     <button class="btn bp" id="aibtn" onclick="testAI()">&#x1F9EA; &#x627;&#x62E;&#x62A;&#x628;&#x627;&#x631;</button>
@@ -667,25 +676,33 @@ async function saveMake() {
 
 function setAI(p) {
   curAI = p;
-  G('clb').className = 'btn bsm ' + (p === 'claude' ? 'bp' : 'bo');
-  G('oab').className = 'btn bsm ' + (p === 'openai' ? 'bp' : 'bo');
-  var grb = G('grb');
-  if (p === 'groq') {
-    grb.style.background = 'rgba(255,107,107,.15)';
-    grb.style.borderColor = 'var(--rd)';
-    grb.style.color = 'var(--rd)';
-  } else {
-    grb.style.background = 'transparent';
-    grb.style.borderColor = 'var(--bd)';
-    grb.style.color = 'var(--t2)';
-  }
-  G('cls').style.display = p === 'claude' ? 'block' : 'none';
-  G('oas').style.display = p === 'openai' ? 'block' : 'none';
-  G('grs').style.display = p === 'groq' ? 'block' : 'none';
+  var providers = ['claude','openai','groq','gemini'];
+  var btns = {claude:'clb', openai:'oab', groq:'grb', gemini:'gmb'};
+  var secs = {claude:'cls', openai:'oas', groq:'grs', gemini:'gms'};
+  var colors = {claude:'rgba(108,99,255,.15)', openai:'rgba(0,212,160,.1)', groq:'rgba(255,107,107,.15)', gemini:'rgba(255,179,71,.15)'};
+  var borderColors = {claude:'var(--ac)', openai:'var(--gn)', groq:'var(--rd)', gemini:'var(--am)'};
+  var textColors = {claude:'var(--ac)', openai:'var(--gn)', groq:'var(--rd)', gemini:'var(--am)'};
+  providers.forEach(function(pr) {
+    var b = G(btns[pr]); var s = G(secs[pr]);
+    if(b) {
+      if(pr === p) {
+        b.style.background = colors[pr];
+        b.style.borderColor = borderColors[pr];
+        b.style.color = textColors[pr];
+        if(b.className) b.className = 'btn bsm bp';
+      } else {
+        b.style.background = 'transparent';
+        b.style.borderColor = 'var(--bd)';
+        b.style.color = 'var(--t2)';
+        if(b.className) b.className = 'btn bsm bo';
+      }
+    }
+    if(s) s.style.display = (pr === p) ? 'block' : 'none';
+  });
 }
 
 async function testAI() {
-  var keyMap = { claude: 'clk', openai: 'oak', groq: 'grk' };
+  var keyMap = { claude: 'clk', openai: 'oak', groq: 'grk', gemini: 'gmk' };
   var k = G(keyMap[curAI] || 'clk').value.trim();
   if (!k) { alert('Enter key'); return; }
   var btn = G('aibtn'); btn.innerHTML = '<div class="sp"></div>'; btn.disabled = true;

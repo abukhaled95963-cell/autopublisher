@@ -524,7 +524,10 @@ app.post('/api/test/facebook', async(req,res) => {
 app.post('/api/test/ai', async(req,res) => {
   const {key,provider} = req.body;
   try {
-    setSetting(provider==='openai'?'openai_key':'claude_key', key);
+    if(provider==='openai') setSetting('openai_key',key);
+    else if(provider==='groq') setSetting('groq_key',key);
+    else if(provider==='gemini') setSetting('gemini_key',key);
+    else setSetting('claude_key',key);
     setSetting('ai_provider', provider);
     const result = await callAI('Say OK', 5);
     res.json({success:true, message:result});
