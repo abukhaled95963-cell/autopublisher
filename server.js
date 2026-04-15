@@ -127,9 +127,9 @@ function filterSourceLinks(text) {
 }
 function isArabicText(text) {
   if(!text) return false;
-  const arabic = (text.match(/[\u0600-\u06FF]/g) || []).length;
-  const letters = (text.match(/[A-Za-z\u0600-\u06FF]/g) || []).length;
-  return letters > 0 && (arabic / letters) > 0.4;
+  const arabic = (text.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g) || []).length;
+  const total = text.replace(/[\s\d\W]/g, '').length;
+  return total > 0 && (arabic / total) > 0.3;
 }
 
 // ===== Telegram Channel Reader (multiple methods) =====
@@ -1040,7 +1040,7 @@ async function processTGChannel(channel) {
             const text = post.text;
             const prompt = isArabicText(text)
               ? 'أعد صياغة هذا الخبر بالعربية الفصحى الاحترافية.\n\nقواعد صارمة:\n1. اكتب بالعربية فقط - ممنوع أي حرف من لغة أخرى\n2. إذا وجدت كلمات غير عربية في المصدر، ترجمها أو احذفها\n3. لا تذكر اسم القناة أو المصدر أو أي روابط\n4. إذا كان النص إعلاناً أو رأياً شخصياً بدون خبر حقيقي: أجب فقط بكلمة SKIP\n5. الحد الأقصى 250 كلمة\n\nالخبر:\n' + text + '\n\nأعد الخبر بالعربية فقط بدون أي حرف أجنبي.'
-              : 'You are an Arabic news editor. Rewrite the following as a clean professional Arabic news article.\n\nSTRICT RULES:\n1. Write ONLY in Arabic - no Chinese, Russian, Vietnamese, or any non-Arabic characters allowed\n2. If you see non-Arabic words in the source, translate them or remove them\n3. Do NOT mention the source channel or any URLs\n4. If the post is sarcasm, advertisement, or personal opinion with no real news value: reply with exactly: SKIP\n5. Maximum 250 words\n\nPost:\n' + text + '\n\nReturn the Arabic article only, with zero non-Arabic characters. Or reply SKIP.';
+              : 'You are a professional Arabic translator and news editor.\n\nYour task: Translate and rewrite the following text into fluent, professional Arabic.\n\nSTRICT RULES:\n1. ALWAYS write the output in Arabic ONLY - translate everything\n2. NEVER leave any English, Chinese, Russian, or other non-Arabic words in the output\n3. Do NOT mention the source, channel name, or any URLs\n4. If the text is ONLY an advertisement, spam, or meaningless: reply with exactly the word SKIP\n5. Keep the meaning intact, maximum 250 words\n\nText to translate:\n' + text + '\n\nWrite the Arabic translation now:';
             let rewritten = await callAI(prompt, 800);
             if(rewritten && rewritten.trim() === 'SKIP') {
               skipped = true;
