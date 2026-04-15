@@ -874,7 +874,7 @@ async function processTGChannel(channel) {
     try {
       const myChans = JSON.parse(getSetting('my_tg_channels','[]'));
       const mc = myChans.find(c => c.chat===tgChat || c.chat==='@'+tgChat.replace('@',''));
-      if(mc) myChannelLink = '\n\n📢 <a href="https://t.me/'+mc.chat.replace('@','')+'">'+(mc.name||('@'+mc.chat.replace('@','')))+' </a>';
+      if(mc) myChannelLink = '\n\n📢 <a href="https://t.me/'+mc.chat.replace('@','')+'">'+(mc.name||mc.chat)+'</a>';
     } catch(e) {}
     const appendMine = txt => myChannelLink ? (txt.trim() + myChannelLink) : txt;
 
