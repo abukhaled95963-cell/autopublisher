@@ -122,11 +122,11 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
   </div>
 
   <!-- YouTube -->
-  <div class="card" dir="rtl">
+  <div class="card">
     <div class="ct">&#x25B6;&#xFE0F; &#x62A;&#x62D;&#x644;&#x64A;&#x644; YouTube</div>
-    <input id="yu" type="url" placeholder="https://youtube.com/watch?v=..." dir="ltr">
+    <input id="yu" type="url" placeholder="https://youtube.com/watch?v=...">
     <button class="btn br" id="ybtn" onclick="analyzeYT()" style="background:#ff0000">&#x25B6;&#xFE0F; &#x62A;&#x62D;&#x644;&#x64A;&#x644;</button>
-    <div id="yr" style="display:none;margin-top:10px"></div>
+    <div id="yr" style="display:none;margin-top:8px"></div>
   </div>
 
   <!-- Sources list -->
@@ -183,24 +183,20 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
   </div>
 
   <!-- AI -->
-  <div class="cc" id="cai" dir="rtl">
+  <div class="cc" id="cai">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
       <div style="font-size:20px">&#x1F916;</div>
-      <div style="flex:1"><div style="font-size:13px;font-weight:700">&#x645;&#x632;&#x648;&#x651;&#x62F; &#x627;&#x644;&#x630;&#x643;&#x627;&#x621; &#x627;&#x644;&#x627;&#x635;&#x637;&#x646;&#x627;&#x639;&#x64A;</div><div style="font-size:10px;color:var(--t2)">Claude / ChatGPT / Groq</div></div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:700">AI Key</div><div style="font-size:10px;color:var(--t2)">Claude / OpenAI</div></div>
       <span id="aibadge" class="tag ts" style="display:none">&#x2705;</span>
     </div>
-    <label>&#x627;&#x644;&#x645;&#x632;&#x648;&#x651;&#x62F;</label>
-    <select id="aiProv" onchange="onAIProvChange()">
-      <option value="claude">&#x1F916; Claude</option>
-      <option value="chatgpt">&#x26A1; ChatGPT</option>
-      <option value="groq">&#x26A1; Groq</option>
-    </select>
-    <div style="height:8px"></div>
-    <label id="aiKeyLabel">&#x645;&#x641;&#x62A;&#x627;&#x62D; Claude</label>
-    <input id="aiKey" type="password" placeholder="sk-ant-...">
-    <div id="aiHelp" style="font-size:10px;color:var(--t2);margin-top:4px;text-align:right">&#x627;&#x62D;&#x635;&#x644; &#x639;&#x644;&#x649; &#x645;&#x641;&#x62A;&#x627;&#x62D;&#x643; &#x645;&#x646; console.anthropic.com</div>
-    <div id="ais" class="sb" style="margin-top:8px"><span class="dot da"></span></div>
-    <button class="btn bp" id="aibtn" onclick="testAI()">&#x1F9EA; &#x627;&#x62E;&#x62A;&#x628;&#x627;&#x631; &#x627;&#x644;&#x627;&#x62A;&#x635;&#x627;&#x644;</button>
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <button class="btn bp bsm" id="clb" onclick="setAI('claude')" style="flex:1">&#x1F916; Claude</button>
+      <button class="btn bo bsm" id="oab" onclick="setAI('openai')" style="flex:1">&#x26A1; OpenAI</button>
+    </div>
+    <div id="cls"><label>Claude Key</label><input id="clk" type="password" placeholder="sk-ant-..."></div>
+    <div id="oas" style="display:none"><label>OpenAI Key</label><input id="oak" type="password" placeholder="sk-..."></div>
+    <div id="ais" class="sb"><span class="dot da"></span></div>
+    <button class="btn bp" id="aibtn" onclick="testAI()">&#x1F9EA; &#x627;&#x62E;&#x62A;&#x628;&#x627;&#x631;</button>
   </div>
 </div>
 
@@ -219,12 +215,6 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
     <label>&#x644;&#x63A;&#x629; &#x625;&#x639;&#x627;&#x62F;&#x629; &#x627;&#x644;&#x635;&#x64A;&#x627;&#x63A;&#x629;</label>
     <select id="cl3"><option value="ar">&#x639;&#x631;&#x628;&#x64A;</option><option value="en">English</option><option value="both">&#x639;&#x631;&#x628;&#x64A; + English</option></select>
     <label>&#x627;&#x644;&#x647;&#x627;&#x634;&#x62A;&#x627;&#x642;&#x627;&#x62A;</label><input id="hs" placeholder="#AI #tech">
-    <label>YouTube API Key (&#x627;&#x62E;&#x62A;&#x64A;&#x627;&#x631;&#x64A; - &#x644;&#x62A;&#x62D;&#x633;&#x64A;&#x646; &#x627;&#x644;&#x62A;&#x62D;&#x644;&#x64A;&#x644;)</label>
-    <input id="ytk" type="password" placeholder="AIza...">
-    <div style="font-size:10px;color:var(--t2);margin-top:4px;text-align:right">&#x627;&#x62D;&#x635;&#x644; &#x639;&#x644;&#x64A;&#x647; &#x645;&#x646; console.cloud.google.com</div>
-    <label>Supadata API Key (&#x644;&#x644;&#x62A;&#x631;&#x62C;&#x645;&#x629; &#x627;&#x644;&#x645;&#x62A;&#x642;&#x62F;&#x645;&#x629;)</label>
-    <input id="supk" type="password" placeholder="sk-...">
-    <div style="font-size:10px;color:var(--t2);margin-top:4px;text-align:right">&#x627;&#x62D;&#x635;&#x644; &#x639;&#x644;&#x649; &#x645;&#x641;&#x62A;&#x627;&#x62D;&#x643; &#x627;&#x644;&#x645;&#x62C;&#x627;&#x646;&#x64A; &#x645;&#x646; supadata.ai</div>
     <label>&#x648;&#x642;&#x62A; &#x627;&#x644;&#x62C;&#x644;&#x628;</label><input id="ct2" type="time" value="08:00">
     <label>&#x627;&#x644;&#x646;&#x634;&#x631;</label>
     <select id="ap"><option value="1">&#x62A;&#x644;&#x642;&#x627;&#x626;&#x64A;</option><option value="0">&#x64A;&#x62F;&#x648;&#x64A;</option></select>
@@ -573,64 +563,17 @@ async function testPost() {
   btn.textContent = 'Send'; btn.disabled = false;
 }
 
-function escHtml(s) { return (s||'').replace(/[&<>"']/g, function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]);}); }
-
 async function analyzeYT() {
-  var u = G('yu').value.trim();
-  if (!u) { alert('أدخل رابط الفيديو'); return; }
-  var btn = G('ybtn'); var origBtn = btn.innerHTML;
-  btn.innerHTML = '<div class="sp"></div>'; btn.disabled = true;
-  var a = G('yr');
-  a.style.display = 'block';
-  a.innerHTML = '<div style="background:var(--bg3);border-radius:6px;padding:14px;text-align:center;color:var(--t2);font-size:12px"><div class="sp" style="margin:0 auto 8px"></div>جاري التحليل...</div>';
+  var u = G('yu').value.trim(); if (!u) { alert('Enter URL'); return; }
+  var btn = G('ybtn'); btn.innerHTML = '<div class="sp"></div>'; btn.disabled = true;
   try {
     var r = await api('/api/youtube/analyze', 'POST', { url: u });
-    if (r && r.success) {
-      a.innerHTML =
-        '<div style="background:var(--bg3);border-radius:8px;padding:10px">' +
-          '<img src="' + escHtml(r.thumbnail) + '" alt="" style="width:100%;border-radius:6px;margin-bottom:8px">' +
-          '<div style="font-size:13px;font-weight:700;line-height:1.5;margin-bottom:4px">' + escHtml(r.title) + '</div>' +
-          '<div style="font-size:11px;color:var(--t2);margin-bottom:8px">&#x1F4FA; ' + escHtml(r.channel) + '</div>' +
-          (r.hasTranscript
-            ? '<div style="display:inline-block;background:rgba(63,191,95,.15);color:#3fbf5f;border:1px solid rgba(63,191,95,.35);border-radius:6px;padding:4px 8px;font-size:10px;font-weight:700;margin-bottom:10px">&#x2705; تم تحليل محتوى الفيديو</div>'
-            : '<div style="display:inline-block;background:rgba(255,180,0,.12);color:#ffb400;border:1px solid rgba(255,180,0,.35);border-radius:6px;padding:4px 8px;font-size:10px;font-weight:700;margin-bottom:10px">&#x26A0;&#xFE0F; تم التحليل من الوصف فقط</div>') +
-          '<label style="font-size:11px;color:var(--t2)">الملخص (قابل للتعديل)</label>' +
-          '<textarea id="ysum" rows="8" style="width:100%;font-family:Cairo,sans-serif;font-size:12px;line-height:1.7;direction:rtl">' + escHtml(r.summary) + '</textarea>' +
-          '<div id="ypubstatus" style="font-size:11px;margin:8px 0;min-height:14px"></div>' +
-          '<div style="display:flex;gap:6px">' +
-            '<button class="btn bp bsm" onclick="publishYT(\'telegram\',this)" style="flex:1;background:#0088cc">&#x2708;&#xFE0F; نشر على تيليغرام</button>' +
-            '<button class="btn bp bsm" onclick="publishYT(\'facebook\',this)" style="flex:1;background:#1877f2">&#x1F4D8; نشر على فيسبوك</button>' +
-          '</div>' +
-        '</div>';
-    } else {
-      a.innerHTML = '<div style="background:var(--bg3);border-radius:6px;padding:10px;color:#f66;font-size:12px">خطأ: ' + escHtml((r && r.error) || 'فشل التحليل') + '</div>';
-    }
-  } catch(e) {
-    a.innerHTML = '<div style="background:var(--bg3);border-radius:6px;padding:10px;color:#f66;font-size:12px">فشل الاتصال بالخادم</div>';
-  }
-  btn.innerHTML = origBtn; btn.disabled = false;
-}
-
-async function publishYT(target, btn) {
-  var ta = G('ysum'); if (!ta) return;
-  var summary = ta.value.trim();
-  if (!summary) { alert('الملخص فارغ'); return; }
-  var st = G('ypubstatus');
-  var orig = btn.innerHTML;
-  btn.innerHTML = '<div class="sp"></div>'; btn.disabled = true;
-  st.innerHTML = '<span style="color:var(--t2)">جاري النشر...</span>';
-  try {
-    var r = await api('/api/youtube/publish', 'POST', { summary: summary, target: target });
-    if (r && r.success) {
-      st.innerHTML = '<span style="color:#3fbf5f">&#x2705; تم النشر بنجاح على ' + (target === 'telegram' ? 'تيليغرام' : 'فيسبوك') + '</span>';
-    } else {
-      var err = (r && r.results && r.results[target] && r.results[target].error) || (r && r.error) || 'فشل النشر';
-      st.innerHTML = '<span style="color:#f66">&#x274C; ' + escHtml(err) + '</span>';
-    }
-  } catch(e) {
-    st.innerHTML = '<span style="color:#f66">&#x274C; فشل الاتصال</span>';
-  }
-  btn.innerHTML = orig; btn.disabled = false;
+    if (r.success) {
+      var a = G('yr'); a.style.display = 'block';
+      a.innerHTML = '<div style="background:var(--bg3);border-radius:6px;padding:10px"><div style="font-size:12px;font-weight:600">' + r.title + '</div>' + (r.summary ? '<div style="font-size:11px;color:var(--t2);margin-top:6px;line-height:1.7">' + r.summary.substring(0, 200) + '...</div>' : '') + '</div>';
+    } else alert('Error: ' + r.error);
+  } catch(e) { alert('Error'); }
+  btn.textContent = 'Analyze'; btn.disabled = false;
 }
 
 // ===== Connect =====
@@ -725,19 +668,6 @@ async function saveMake() {
   G('mkbadge').style.display = 'inline-block'; G('cmk').classList.add('ok');
 }
 
-var AI_META = {
-  claude:  { label: 'مفتاح Claude',  ph: 'sk-ant-...', help: 'احصل على مفتاحك من console.anthropic.com' },
-  chatgpt: { label: 'مفتاح ChatGPT', ph: 'sk-...',      help: 'احصل على مفتاحك من platform.openai.com' },
-  groq:    { label: 'مفتاح Groq',    ph: 'gsk_...',     help: 'احصل على مفتاحك من console.groq.com' }
-};
-function onAIProvChange() {
-  var p = G('aiProv').value;
-  curAI = p;
-  var m = AI_META[p] || AI_META.claude;
-  G('aiKeyLabel').textContent = m.label;
-  G('aiKey').placeholder = m.ph;
-  G('aiHelp').textContent = m.help;
-}
 function setAI(p) {
   curAI = p;
   G('clb').className = 'btn bsm ' + (p === 'claude' ? 'bp' : 'bo');
@@ -747,21 +677,15 @@ function setAI(p) {
 }
 
 async function testAI() {
-  var provider = G('aiProv') ? G('aiProv').value : curAI;
-  var k = G('aiKey') ? G('aiKey').value.trim() : '';
-  if(!k) { G('ais').innerHTML = '<span class="dot dr"></span> أدخل المفتاح أولاً'; return; }
+  var k = curAI === 'claude' ? G('clk').value.trim() : G('oak').value.trim();
+  if (!k) { alert('Enter key'); return; }
   var btn = G('aibtn'); btn.innerHTML = '<div class="sp"></div>'; btn.disabled = true;
   try {
-    var r = await api('/api/test-ai', 'POST', { key: k, provider: provider });
-    if(r && r.success) {
-      G('ais').innerHTML = '<span class="dot dg"></span> ' + provider + ' — تم الاتصال بنجاح';
-      G('aibadge').style.display = 'inline-block';
-      G('cai').classList.add('ok');
-    } else {
-      G('ais').innerHTML = '<span class="dot dr"></span> ' + ((r && r.error) || 'فشل الاتصال');
-    }
-  } catch(e) { G('ais').innerHTML = '<span class="dot dr"></span> فشل الاتصال'; }
-  btn.innerHTML = '&#x1F9EA; اختبار الاتصال'; btn.disabled = false;
+    var r = await api('/api/test/ai', 'POST', { key: k, provider: curAI });
+    if (r.success) { G('ais').innerHTML = '<span class="dot dg"></span> ' + curAI + ' OK'; G('aibadge').style.display = 'inline-block'; G('cai').classList.add('ok'); }
+    else G('ais').innerHTML = '<span class="dot dr"></span> ' + r.error;
+  } catch(e) { G('ais').innerHTML = '<span class="dot da"></span> Failed'; }
+  btn.textContent = 'Test'; btn.disabled = false;
 }
 
 // ===== Posts =====
@@ -781,10 +705,6 @@ async function delPost(id) { if (!confirm('Delete?')) return; await api('/api/po
 async function loadSet() {
   try {
     var s = await api('/api/settings');
-    if (s.ai_provider && G('aiProv')) { G('aiProv').value = s.ai_provider; onAIProvChange(); }
-    if (s.ai_api_key && G('aiKey')) G('aiKey').value = s.ai_api_key;
-    if (s.youtube_api_key && G('ytk')) G('ytk').value = s.youtube_api_key;
-    if (s.supadata_api_key && G('supk')) G('supk').value = s.supadata_api_key;
     if (s.writing_tone) G('wt').value = s.writing_tone;
     if (s.content_lang) G('cl3').value = s.content_lang;
     if (s.hashtags) G('hs').value = s.hashtags;
@@ -800,7 +720,7 @@ async function loadSet() {
 }
 
 async function saveSt() {
-  await api('/api/settings/bulk', 'POST', { writing_tone: G('wt').value, content_lang: G('cl3').value, hashtags: G('hs').value, check_time: G('ct2').value, auto_publish: G('ap').value, ai_provider: G('aiProv') ? G('aiProv').value : 'claude', ai_api_key: G('aiKey') ? G('aiKey').value : '', youtube_api_key: G('ytk') ? G('ytk').value : '', supadata_api_key: G('supk') ? G('supk').value : '' });
+  await api('/api/settings/bulk', 'POST', { writing_tone: G('wt').value, content_lang: G('cl3').value, hashtags: G('hs').value, check_time: G('ct2').value, auto_publish: G('ap').value });
   alert('Saved!');
 }
 
