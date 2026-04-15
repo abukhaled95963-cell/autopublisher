@@ -122,11 +122,11 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
   </div>
 
   <!-- YouTube -->
-  <div class="card">
+  <div class="card" dir="rtl">
     <div class="ct">&#x25B6;&#xFE0F; &#x62A;&#x62D;&#x644;&#x64A;&#x644; YouTube</div>
-    <input id="yu" type="url" placeholder="https://youtube.com/watch?v=...">
+    <input id="yu" type="url" placeholder="https://youtube.com/watch?v=..." dir="ltr">
     <button class="btn br" id="ybtn" onclick="analyzeYT()" style="background:#ff0000">&#x25B6;&#xFE0F; &#x62A;&#x62D;&#x644;&#x64A;&#x644;</button>
-    <div id="yr" style="display:none;margin-top:8px"></div>
+    <div id="yr" style="display:none;margin-top:10px"></div>
   </div>
 
   <!-- Sources list -->
@@ -567,17 +567,61 @@ async function testPost() {
   btn.textContent = 'Send'; btn.disabled = false;
 }
 
+function escHtml(s) { return (s||'').replace(/[&<>"']/g, function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]);}); }
+
 async function analyzeYT() {
-  var u = G('yu').value.trim(); if (!u) { alert('Enter URL'); return; }
-  var btn = G('ybtn'); btn.innerHTML = '<div class="sp"></div>'; btn.disabled = true;
+  var u = G('yu').value.trim();
+  if (!u) { alert('أدخل رابط الفيديو'); return; }
+  var btn = G('ybtn'); var origBtn = btn.innerHTML;
+  btn.innerHTML = '<div class="sp"></div>'; btn.disabled = true;
+  var a = G('yr');
+  a.style.display = 'block';
+  a.innerHTML = '<div style="background:var(--bg3);border-radius:6px;padding:14px;text-align:center;color:var(--t2);font-size:12px"><div class="sp" style="margin:0 auto 8px"></div>جاري التحليل...</div>';
   try {
     var r = await api('/api/youtube/analyze', 'POST', { url: u });
-    if (r.success) {
-      var a = G('yr'); a.style.display = 'block';
-      a.innerHTML = '<div style="background:var(--bg3);border-radius:6px;padding:10px"><div style="font-size:12px;font-weight:600">' + r.title + '</div>' + (r.summary ? '<div style="font-size:11px;color:var(--t2);margin-top:6px;line-height:1.7">' + r.summary.substring(0, 200) + '...</div>' : '') + '</div>';
-    } else alert('Error: ' + r.error);
-  } catch(e) { alert('Error'); }
-  btn.textContent = 'Analyze'; btn.disabled = false;
+    if (r && r.success) {
+      a.innerHTML =
+        '<div style="background:var(--bg3);border-radius:8px;padding:10px">' +
+          '<img src="' + escHtml(r.thumbnail) + '" alt="" style="width:100%;border-radius:6px;margin-bottom:8px">' +
+          '<div style="font-size:13px;font-weight:700;line-height:1.5;margin-bottom:4px">' + escHtml(r.title) + '</div>' +
+          '<div style="font-size:11px;color:var(--t2);margin-bottom:10px">&#x1F4FA; ' + escHtml(r.channel) + '</div>' +
+          '<label style="font-size:11px;color:var(--t2)">الملخص (قابل للتعديل)</label>' +
+          '<textarea id="ysum" rows="8" style="width:100%;font-family:Cairo,sans-serif;font-size:12px;line-height:1.7;direction:rtl">' + escHtml(r.summary) + '</textarea>' +
+          '<div id="ypubstatus" style="font-size:11px;margin:8px 0;min-height:14px"></div>' +
+          '<div style="display:flex;gap:6px">' +
+            '<button class="btn bp bsm" onclick="publishYT(\'telegram\',this)" style="flex:1;background:#0088cc">&#x2708;&#xFE0F; نشر على تيليغرام</button>' +
+            '<button class="btn bp bsm" onclick="publishYT(\'facebook\',this)" style="flex:1;background:#1877f2">&#x1F4D8; نشر على فيسبوك</button>' +
+          '</div>' +
+        '</div>';
+    } else {
+      a.innerHTML = '<div style="background:var(--bg3);border-radius:6px;padding:10px;color:#f66;font-size:12px">خطأ: ' + escHtml((r && r.error) || 'فشل التحليل') + '</div>';
+    }
+  } catch(e) {
+    a.innerHTML = '<div style="background:var(--bg3);border-radius:6px;padding:10px;color:#f66;font-size:12px">فشل الاتصال بالخادم</div>';
+  }
+  btn.innerHTML = origBtn; btn.disabled = false;
+}
+
+async function publishYT(target, btn) {
+  var ta = G('ysum'); if (!ta) return;
+  var summary = ta.value.trim();
+  if (!summary) { alert('الملخص فارغ'); return; }
+  var st = G('ypubstatus');
+  var orig = btn.innerHTML;
+  btn.innerHTML = '<div class="sp"></div>'; btn.disabled = true;
+  st.innerHTML = '<span style="color:var(--t2)">جاري النشر...</span>';
+  try {
+    var r = await api('/api/youtube/publish', 'POST', { summary: summary, target: target });
+    if (r && r.success) {
+      st.innerHTML = '<span style="color:#3fbf5f">&#x2705; تم النشر بنجاح على ' + (target === 'telegram' ? 'تيليغرام' : 'فيسبوك') + '</span>';
+    } else {
+      var err = (r && r.results && r.results[target] && r.results[target].error) || (r && r.error) || 'فشل النشر';
+      st.innerHTML = '<span style="color:#f66">&#x274C; ' + escHtml(err) + '</span>';
+    }
+  } catch(e) {
+    st.innerHTML = '<span style="color:#f66">&#x274C; فشل الاتصال</span>';
+  }
+  btn.innerHTML = orig; btn.disabled = false;
 }
 
 // ===== Connect =====

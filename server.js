@@ -455,31 +455,93 @@ app.post('/api/telegram/channel/test-post', async(req,res) => {
   }
 });
 
-// YouTube analyze
+// YouTube analyze: oEmbed + AI summary as Arabic news post
 app.post('/api/youtube/analyze', async(req,res) => {
   const {url} = req.body;
   if(!url) return res.status(400).json({error:'URL required'});
-  const videoId = url.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/)?.[1];
+  const videoId = (url.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([a-zA-Z0-9_-]{11})/) || [])[1];
   if(!videoId) return res.status(400).json({error:'Invalid YouTube URL'});
-  let title='YouTube Video', ch='YouTube';
+
+  const videoUrl = 'https://www.youtube.com/watch?v='+videoId;
+  let title = 'YouTube Video', channel = 'YouTube', thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
   try {
-    const oe = await axios.get('https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v='+videoId+'&format=json');
-    title=oe.data.title; ch=oe.data.author_name;
-  } catch(e){}
-  const lang = getSetting('content_lang','ar');
-  const langTxt = lang==='ar'?'باللغة العربية':'in English';
-  const prompt = `حلّل هذا الفيديو وأنتج محتوى ${langTxt}:
-العنوان: "${title}" | القناة: ${ch} | الرابط: https://youtu.be/${videoId}
-[SUMMARY]ملخص 200 كلمة[/SUMMARY]
-[TWITTER]تغريدة مختصرة + رابط[/TWITTER]
-[FACEBOOK]منشور فيسبوك + رابط[/FACEBOOK]
-[INSTAGRAM]نص إنستغرام + هاشتاقات[/INSTAGRAM]
-[TELEGRAM]تحليل موسع + رابط[/TELEGRAM]`;
+    const oe = await axios.get('https://www.youtube.com/oembed?url='+encodeURIComponent(videoUrl)+'&format=json', {timeout:10000});
+    if(oe.data) {
+      title = oe.data.title || title;
+      channel = oe.data.author_name || channel;
+      if(oe.data.thumbnail_url) thumbnail = oe.data.thumbnail_url;
+    }
+  } catch(e) {}
+
+  const prompt = `أنت محرر أخبار تقنية محترف. اكتب خبراً احترافياً باللغة العربية عن هذا الفيديو بأسلوب بشري طبيعي (حوالي 150 كلمة)، بدون ذكر اسم القناة المصدر ولا كلمات مثل "يوتيوب". ركّز على القيمة الإخبارية للمحتوى.
+
+عنوان الفيديو: ${title}
+اسم القناة: ${channel}
+الرابط: https://youtu.be/${videoId}
+
+أعد الخبر فقط، بدون مقدمات ولا عناوين ولا وسوم.`;
+
   try {
-    const result = await callAI(prompt, 2000);
-    const extract = tag => { const m=result.match(new RegExp(`\\[${tag}\\]([\\s\\S]*?)\\[\\/${tag}\\]`,'i')); return m?m[1].trim():''; };
-    res.json({success:true,videoId,title,channelName:ch,thumbnail:`https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,url:`https://youtu.be/${videoId}`,summary:extract('SUMMARY'),twitter:extract('TWITTER'),facebook:extract('FACEBOOK'),instagram:extract('INSTAGRAM'),telegram:extract('TELEGRAM')});
-  } catch(e) { res.status(500).json({error:e.message}); }
+    const summary = await callAI(prompt, 900);
+    res.json({success:true, videoId, title, channel, thumbnail, summary:(summary||'').trim(), url:videoUrl});
+  } catch(e) {
+    res.status(500).json({error: e.response?.data?.error?.message || e.message});
+  }
+});
+
+// YouTube publish: send prepared summary to TG and/or FB
+app.post('/api/youtube/publish', async(req,res) => {
+  const {summary, target} = req.body;
+  if(!summary || !summary.trim()) return res.status(400).json({error:'summary required'});
+  if(!['telegram','facebook','both'].includes(target)) return res.status(400).json({error:'invalid target'});
+  const results = {};
+
+  if(target === 'telegram' || target === 'both') {
+    const tgToken = getSetting('telegram_token');
+    const tgChat = getSetting('telegram_chat');
+    if(!tgToken || !tgChat) {
+      results.telegram = {success:false, error:'Telegram not configured'};
+    } else {
+      try {
+        const r = await axios.post(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+          chat_id: tgChat, text: summary, parse_mode:'HTML'
+        });
+        results.telegram = {success: !!r.data.ok};
+      } catch(e) {
+        results.telegram = {success:false, error: e.response?.data?.description || e.message};
+      }
+    }
+  }
+
+  if(target === 'facebook' || target === 'both') {
+    const fbToken = getSetting('facebook_page_token');
+    const fbPageId = getSetting('facebook_page_id');
+    const webhook = getSetting('make_webhook');
+    if(fbToken && fbPageId) {
+      try {
+        await axios.post(`https://graph.facebook.com/v19.0/${fbPageId}/feed`, {
+          message: summary, access_token: fbToken
+        });
+        results.facebook = {success:true, via:'direct'};
+      } catch(e) {
+        results.facebook = {success:false, error: e.response?.data?.error?.message || e.message};
+      }
+    } else if(webhook) {
+      try {
+        await axios.post(webhook, {
+          content: summary, platforms:['facebook'], timestamp:new Date().toISOString()
+        });
+        results.facebook = {success:true, via:'webhook'};
+      } catch(e) {
+        results.facebook = {success:false, error: e.message};
+      }
+    } else {
+      results.facebook = {success:false, error:'Facebook not configured'};
+    }
+  }
+
+  const anyOk = Object.values(results).some(r => r && r.success);
+  res.json({success: anyOk, results});
 });
 
 // Test connections
