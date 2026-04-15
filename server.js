@@ -74,6 +74,14 @@ async function callAI(prompt, maxTokens) {
       {headers:{Authorization:'Bearer '+key}}
     );
     return r.data.choices[0].message.content;
+  } else if(provider === 'groq') {
+    const key = getSetting('groq_key');
+    if(!key) throw new Error('Groq key not set');
+    const r = await axios.post('https://api.groq.com/openai/v1/chat/completions',
+      {model:'llama3-8b-8192', max_tokens:maxTokens, messages:[{role:'user',content:prompt}]},
+      {headers:{Authorization:'Bearer '+key}}
+    );
+    return r.data.choices[0].message.content;
   } else {
     const key = getSetting('claude_key');
     if(!key) throw new Error('Claude key not set');
@@ -544,6 +552,7 @@ app.post('/api/test/ai',async(req,res)=>{
   try{
     if(provider==='openai') setSetting('openai_key',key);
     else if(provider==='gemini') setSetting('gemini_key',key);
+    else if(provider==='groq') setSetting('groq_key',key);
     else setSetting('claude_key',key);
     setSetting('ai_provider',provider);
     const result=await callAI('Say OK',10);
