@@ -455,7 +455,63 @@ app.post('/api/telegram/channel/test-post', async(req,res) => {
   }
 });
 
-// YouTube analyze: oEmbed + AI summary as Arabic news post
+// ===== YouTube helpers =====
+function ytDecodeEntities(s) {
+  return (s||'')
+    .replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')
+    .replace(/&quot;/g,'"').replace(/&#39;/g,"'")
+    .replace(/&#([0-9]+);/g, (_,n)=>String.fromCharCode(parseInt(n,10)))
+    .replace(/<[^>]+>/g,'');
+}
+
+async function fetchYouTubeTranscript(videoId) {
+  try {
+    const r = await axios.get('https://www.youtube.com/watch?v='+videoId, {
+      timeout: 12000,
+      headers: {
+        'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept-Language':'en-US,en;q=0.9'
+      }
+    });
+    const html = r.data || '';
+    const m = html.match(/"captionTracks":(\[[^\]]+\])/);
+    if(!m) return null;
+    let tracks;
+    try { tracks = JSON.parse(m[1].replace(/\\u0026/g,'&')); } catch(e) { return null; }
+    if(!Array.isArray(tracks) || !tracks.length) return null;
+    const pick = tracks.find(t => (t.languageCode||'').startsWith('ar'))
+              || tracks.find(t => (t.languageCode||'').startsWith('en'))
+              || tracks[0];
+    if(!pick || !pick.baseUrl) return null;
+    const baseUrl = pick.baseUrl.replace(/\\u0026/g,'&');
+    const xr = await axios.get(baseUrl, { timeout: 12000 });
+    const xml = xr.data || '';
+    const parts = [];
+    const rx = /<text[^>]*>([\s\S]*?)<\/text>/g;
+    let tm;
+    while((tm = rx.exec(xml)) !== null) parts.push(ytDecodeEntities(tm[1]));
+    const text = parts.join(' ').replace(/\s+/g,' ').trim();
+    return text.length > 50 ? text : null;
+  } catch(e) { return null; }
+}
+
+async function fetchYouTubeDataAPI(videoId, apiKey) {
+  try {
+    const r = await axios.get('https://www.googleapis.com/youtube/v3/videos', {
+      params: { id: videoId, part: 'snippet', key: apiKey },
+      timeout: 10000
+    });
+    const it = r.data && r.data.items && r.data.items[0];
+    if(!it) return null;
+    return {
+      description: (it.snippet && it.snippet.description) || '',
+      title: (it.snippet && it.snippet.title) || '',
+      channel: (it.snippet && it.snippet.channelTitle) || ''
+    };
+  } catch(e) { return null; }
+}
+
+// YouTube analyze: transcript → description → AI Arabic news
 app.post('/api/youtube/analyze', async(req,res) => {
   const {url} = req.body;
   if(!url) return res.status(400).json({error:'URL required'});
@@ -473,17 +529,52 @@ app.post('/api/youtube/analyze', async(req,res) => {
     }
   } catch(e) {}
 
-  const prompt = `أنت محرر أخبار تقنية محترف. اكتب خبراً احترافياً باللغة العربية عن هذا الفيديو بأسلوب بشري طبيعي (حوالي 150 كلمة)، بدون ذكر اسم القناة المصدر ولا كلمات مثل "يوتيوب". ركّز على القيمة الإخبارية للمحتوى.
+  // Optional: YouTube Data API for full description + authoritative title/channel
+  let description = '';
+  const ytKey = getSetting('youtube_api_key');
+  if(ytKey) {
+    const data = await fetchYouTubeDataAPI(videoId, ytKey);
+    if(data) {
+      if(data.title) title = data.title;
+      if(data.channel) channel = data.channel;
+      description = data.description || '';
+    }
+  }
+
+  // 1) Try transcript
+  const transcript = await fetchYouTubeTranscript(videoId);
+
+  let prompt, source;
+  if(transcript) {
+    source = 'transcript';
+    const trimmed = transcript.length > 8000 ? transcript.slice(0, 8000) : transcript;
+    prompt = `أنت محرر أخبار محترف. بناءً على النص التالي المستخرج من فيديو يوتيوب، اكتب خبراً صحفياً احترافياً باللغة العربية في 3-4 فقرات. لا تذكر المصدر.
+
+النص: ${trimmed}
+
+أعد الخبر فقط بدون مقدمات ولا عناوين ولا وسوم.`;
+  } else {
+    source = 'description';
+    const descPart = description
+      ? `وصف الفيديو:\n${description.substring(0, 3000)}`
+      : '(لا يوجد وصف متاح — اعتمد على العنوان فقط)';
+    prompt = `أنت محرر أخبار تقنية محترف. اكتب خبراً احترافياً باللغة العربية عن هذا الفيديو بأسلوب بشري طبيعي (حوالي 150 كلمة)، بدون ذكر اسم القناة المصدر ولا كلمات مثل "يوتيوب". ركّز على القيمة الإخبارية للمحتوى.
 
 عنوان الفيديو: ${title}
-اسم القناة: ${channel}
-الرابط: https://youtu.be/${videoId}
+${descPart}
 
 أعد الخبر فقط، بدون مقدمات ولا عناوين ولا وسوم.`;
+  }
 
   try {
-    const summary = await callAI(prompt, 900);
-    res.json({success:true, videoId, title, channel, thumbnail, summary:(summary||'').trim(), url:videoUrl});
+    const summary = await callAI(prompt, source === 'transcript' ? 1400 : 900);
+    res.json({
+      success:true, videoId, title, channel, thumbnail,
+      summary:(summary||'').trim(),
+      url: videoUrl,
+      source,
+      hasTranscript: source === 'transcript'
+    });
   } catch(e) {
     res.status(500).json({error: e.response?.data?.error?.message || e.message});
   }
