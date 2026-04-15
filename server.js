@@ -805,30 +805,80 @@ async function downloadAndSendMedia(tgToken, tgChat, mediaUrl, caption, mediaTyp
 async function extractAndSendMedia(tgToken, tgChat, channel, msgId, caption) {
   try {
     const r = await axios.get('https://t.me/'+channel+'/'+msgId+'?embed=1&single=1', {
-      timeout:10000, headers:{'User-Agent':'Mozilla/5.0'}
+      timeout:10000, headers:{'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
     });
     const $ = cheerio.load(r.data);
-    const photoEl = $('.tgme_widget_message_photo_wrap');
-    if(photoEl.length > 0) {
-      const style = photoEl.first().attr('style')||'';
+
+    // Collect all photos
+    const photos = [];
+    $('.tgme_widget_message_photo_wrap').each(function(i, el) {
+      const style = $(el).attr('style') || '';
       const match = style.match(/url\(['"]?(https?:\/\/[^'"()]+)['"]?\)/);
-      if(match) {
-        const ok = await downloadAndSendMedia(tgToken, tgChat, match[1], caption, 'photo');
-        if(ok) return true;
-      }
+      if(match) photos.push(match[1]);
+    });
+
+    // Check for video
+    let videoUrl = '';
+    $('video').each(function(i, el) {
+      const src = $(el).attr('src') || $(el).find('source').attr('src') || '';
+      if(src.startsWith('http') && !videoUrl) videoUrl = src;
+    });
+    // Also check video source tag
+    $('video source').each(function(i, el) {
+      const src = $(el).attr('src') || '';
+      if(src.startsWith('http') && !videoUrl) videoUrl = src;
+    });
+
+    // Send video if found
+    if(videoUrl) {
+      const ok = await downloadAndSendMedia(tgToken, tgChat, videoUrl, caption, 'video');
+      if(ok) return true;
     }
-    const videoEl = $('video source');
-    if(videoEl.length > 0) {
-      const src = videoEl.first().attr('src')||'';
-      if(src.startsWith('http')) {
-        const ok = await downloadAndSendMedia(tgToken, tgChat, src, caption, 'video');
-        if(ok) return true;
-      }
+
+    // Send all photos as media group if multiple
+    if(photos.length > 1) {
+      try {
+        // Download all photos to tmp
+        const mediaGroup = [];
+        const tmpFiles = [];
+        for(let i=0; i<Math.min(photos.length, 10); i++) {
+          const tmpFile = require('os').tmpdir()+'/photo_'+Date.now()+'_'+i+'.jpg';
+          try {
+            const res = await axios.get(photos[i], {responseType:'arraybuffer', timeout:20000, headers:{'User-Agent':'Mozilla/5.0'}});
+            require('fs').writeFileSync(tmpFile, Buffer.from(res.data));
+            tmpFiles.push(tmpFile);
+            mediaGroup.push({type:'photo', media:'attach://photo'+i});
+          } catch(e) {}
+        }
+        if(mediaGroup.length > 0) {
+          const FormData = require('form-data');
+          const form = new FormData();
+          form.append('chat_id', tgChat);
+          if(mediaGroup.length > 0) mediaGroup[0].caption = (caption||'').substring(0,1024);
+          if(mediaGroup.length > 0) mediaGroup[0].parse_mode = 'HTML';
+          form.append('media', JSON.stringify(mediaGroup));
+          tmpFiles.forEach((f,i) => {
+            if(require('fs').existsSync(f)) form.append('photo'+i, require('fs').createReadStream(f));
+          });
+          const mgR = await axios.post('https://api.telegram.org/bot'+tgToken+'/sendMediaGroup', form, {headers:form.getHeaders(), timeout:60000});
+          tmpFiles.forEach(f => { try{ require('fs').unlinkSync(f); }catch(e){} });
+          if(mgR.data.ok) return true;
+        }
+      } catch(e) { console.error('MediaGroup error:', e.message); }
     }
-    const ogImg = $('meta[property="og:image"]').attr('content')||'';
+
+    // Single photo
+    if(photos.length === 1) {
+      const ok = await downloadAndSendMedia(tgToken, tgChat, photos[0], caption, 'photo');
+      if(ok) return true;
+    }
+
+    // Fallback: og:image
+    const ogImg = $('meta[property="og:image"]').attr('content') || '';
     if(ogImg.startsWith('http')) {
       return await downloadAndSendMedia(tgToken, tgChat, ogImg, caption, 'photo');
     }
+
     return false;
   } catch(e) {
     console.error('extractAndSendMedia error:', e.message);
