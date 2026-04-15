@@ -8,6 +8,8 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const cheerio = require('cheerio');
+const os = require('os');
+const FormData = require('form-data');
 
 const app = express();
 const parser = new Parser();
@@ -775,6 +777,65 @@ app.listen(PORT, () => console.log('Server on port', PORT));
 // Store active intervals
 var tgIntervals = {};
 
+async function downloadAndSendMedia(tgToken, tgChat, mediaUrl, caption, mediaType) {
+  const tmpFile = os.tmpdir() + '/media_' + Date.now() + (mediaType === 'video' ? '.mp4' : '.jpg');
+  try {
+    const response = await axios.get(mediaUrl, {
+      responseType: 'arraybuffer', timeout: 30000,
+      headers: {'User-Agent': 'Mozilla/5.0'}
+    });
+    require('fs').writeFileSync(tmpFile, Buffer.from(response.data));
+    const form = new FormData();
+    form.append('chat_id', tgChat);
+    form.append('caption', (caption||'').substring(0,1024));
+    form.append('parse_mode', 'HTML');
+    const endpoint = mediaType==='video' ? 'sendVideo' : 'sendPhoto';
+    const fieldName = mediaType==='video' ? 'video' : 'photo';
+    form.append(fieldName, require('fs').createReadStream(tmpFile));
+    const r = await axios.post(`https://api.telegram.org/bot${tgToken}/${endpoint}`, form, {headers:form.getHeaders(), timeout:60000});
+    return r.data.ok;
+  } catch(e) {
+    console.error('Media send error:', e.message);
+    return false;
+  } finally {
+    try { if(require('fs').existsSync(tmpFile)) require('fs').unlinkSync(tmpFile); } catch(e) {}
+  }
+}
+
+async function extractAndSendMedia(tgToken, tgChat, channel, msgId, caption) {
+  try {
+    const r = await axios.get('https://t.me/'+channel+'/'+msgId+'?embed=1&single=1', {
+      timeout:10000, headers:{'User-Agent':'Mozilla/5.0'}
+    });
+    const $ = cheerio.load(r.data);
+    const photoEl = $('.tgme_widget_message_photo_wrap');
+    if(photoEl.length > 0) {
+      const style = photoEl.first().attr('style')||'';
+      const match = style.match(/url\(['"]?(https?:\/\/[^'"()]+)['"]?\)/);
+      if(match) {
+        const ok = await downloadAndSendMedia(tgToken, tgChat, match[1], caption, 'photo');
+        if(ok) return true;
+      }
+    }
+    const videoEl = $('video source');
+    if(videoEl.length > 0) {
+      const src = videoEl.first().attr('src')||'';
+      if(src.startsWith('http')) {
+        const ok = await downloadAndSendMedia(tgToken, tgChat, src, caption, 'video');
+        if(ok) return true;
+      }
+    }
+    const ogImg = $('meta[property="og:image"]').attr('content')||'';
+    if(ogImg.startsWith('http')) {
+      return await downloadAndSendMedia(tgToken, tgChat, ogImg, caption, 'photo');
+    }
+    return false;
+  } catch(e) {
+    console.error('extractAndSendMedia error:', e.message);
+    return false;
+  }
+}
+
 async function processTGChannel(channel) {
   try {
     const publishTo = getSetting('tg_publish_to_'+channel, '');
@@ -873,14 +934,16 @@ async function processTGChannel(channel) {
       if(!pid) continue;
 
       try {
-        // Always forward media when present — never skip media
         if(post.hasMedia) {
-          try {
-            await axios.post(`https://api.telegram.org/bot${tgToken}/forwardMessage`,{
-              chat_id: tgChat, from_chat_id: '@'+channel, message_id: post.msgId
-            });
+          const mediaSent = await extractAndSendMedia(tgToken, tgChat, channel, post.msgId, finalText);
+          if(mediaSent) {
+            console.log('Media sent via download for @'+channel+' msg:'+post.msgId);
             await new Promise(r=>setTimeout(r,500));
-          } catch(e) { console.log('Media forward failed:', e.message); }
+          } else {
+            try {
+              await axios.post('https://api.telegram.org/bot'+tgToken+'/forwardMessage', {chat_id:tgChat, from_chat_id:'@'+channel, message_id:post.msgId});
+            } catch(e) {}
+          }
         }
 
         // Send rewritten text as separate message
