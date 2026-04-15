@@ -92,14 +92,14 @@ async function callAI(prompt, maxTokens) {
     return r.data.choices[0].message.content;
   }
 
-  if(provider === 'gemini') {
-    const key = sharedKey || getSetting('gemini_key');
-    if(!key) throw new Error('Gemini key not set');
-    const r = await axios.post(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='+encodeURIComponent(key),
-      { contents:[{parts:[{text:prompt}]}], generationConfig:{maxOutputTokens:maxTokens} }
-    );
-    return r.data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  if(provider === 'groq') {
+    const key = sharedKey || getSetting('groq_key');
+    if(!key) throw new Error('Groq key not set');
+    const r = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
+      model:'llama-3.3-70b-versatile', max_tokens:maxTokens,
+      messages:[{role:'user', content:prompt}]
+    }, {headers:{Authorization:'Bearer '+key}});
+    return r.data.choices[0].message.content;
   }
 
   const key = sharedKey || getSetting('claude_key');
@@ -514,7 +514,7 @@ app.post('/api/test/ai', async(req,res) => {
 app.post('/api/test-ai', async(req,res) => {
   const {key, provider} = req.body;
   if(!key || !provider) return res.status(400).json({error:'key and provider required'});
-  const allowed = ['claude','chatgpt','openai','gemini'];
+  const allowed = ['claude','chatgpt','openai','groq'];
   if(!allowed.includes(provider)) return res.status(400).json({error:'unknown provider'});
   try {
     setSetting('ai_provider', provider);

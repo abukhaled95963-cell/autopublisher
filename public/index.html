@@ -186,14 +186,14 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
   <div class="cc" id="cai" dir="rtl">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
       <div style="font-size:20px">&#x1F916;</div>
-      <div style="flex:1"><div style="font-size:13px;font-weight:700">&#x645;&#x632;&#x648;&#x651;&#x62F; &#x627;&#x644;&#x630;&#x643;&#x627;&#x621; &#x627;&#x644;&#x627;&#x635;&#x637;&#x646;&#x627;&#x639;&#x64A;</div><div style="font-size:10px;color:var(--t2)">Claude / ChatGPT / Gemini</div></div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:700">&#x645;&#x632;&#x648;&#x651;&#x62F; &#x627;&#x644;&#x630;&#x643;&#x627;&#x621; &#x627;&#x644;&#x627;&#x635;&#x637;&#x646;&#x627;&#x639;&#x64A;</div><div style="font-size:10px;color:var(--t2)">Claude / ChatGPT / Groq</div></div>
       <span id="aibadge" class="tag ts" style="display:none">&#x2705;</span>
     </div>
     <label>&#x627;&#x644;&#x645;&#x632;&#x648;&#x651;&#x62F;</label>
     <select id="aiProv" onchange="onAIProvChange()">
       <option value="claude">&#x1F916; Claude</option>
       <option value="chatgpt">&#x26A1; ChatGPT</option>
-      <option value="gemini">&#x2728; Gemini</option>
+      <option value="groq">&#x26A1; Groq</option>
     </select>
     <div style="height:8px"></div>
     <label id="aiKeyLabel">&#x645;&#x641;&#x62A;&#x627;&#x62D; Claude</label>
@@ -675,7 +675,7 @@ async function saveMake() {
 var AI_META = {
   claude:  { label: 'مفتاح Claude',  ph: 'sk-ant-...', help: 'احصل على مفتاحك من console.anthropic.com' },
   chatgpt: { label: 'مفتاح ChatGPT', ph: 'sk-...',      help: 'احصل على مفتاحك من platform.openai.com' },
-  gemini:  { label: 'مفتاح Gemini',  ph: 'AIza...',     help: 'احصل على مفتاحك من aistudio.google.com' }
+  groq:    { label: 'مفتاح Groq',    ph: 'gsk_...',     help: 'احصل على مفتاحك من console.groq.com' }
 };
 function onAIProvChange() {
   var p = G('aiProv').value;
