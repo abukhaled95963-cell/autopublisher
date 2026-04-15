@@ -8,7 +8,6 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const cheerio = require('cheerio');
-const { YoutubeTranscript } = require('youtube-transcript');
 
 const app = express();
 const parser = new Parser();
@@ -466,33 +465,59 @@ function ytDecodeEntities(s) {
 }
 
 
-async function fetchYouTubeTranscript(videoId) {
-  const join = items => (items || [])
-    .map(it => ytDecodeEntities((it && it.text) || ''))
-    .join(' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  // Arabic → English preference (in order)
-  for(const lang of ['ar','en']) {
-    try {
-      const items = await YoutubeTranscript.fetchTranscript(videoId, { lang });
-      const text = join(items);
-      console.log('[yt-transcript] lang='+lang+' items='+(items?items.length:0)+' chars='+text.length);
-      if(text && text.length > 50) return text;
-    } catch(e) {
-      console.log('[yt-transcript] lang='+lang+' failed:', e.message);
+function parseTranscriptResponse(data) {
+  if(!data) return '';
+  if(Array.isArray(data)) {
+    return data.map(i => (i && (i.text || i.content)) || '').join(' ').replace(/\s+/g,' ').trim();
+  }
+  if(typeof data === 'object') {
+    if(typeof data.content === 'string') return data.content.trim();
+    if(Array.isArray(data.content)) {
+      return data.content.map(i => (i && (i.text || i.content)) || '').join(' ').replace(/\s+/g,' ').trim();
     }
+    if(Array.isArray(data.transcript)) {
+      return data.transcript.map(i => (i && (i.text || i.content)) || '').join(' ').replace(/\s+/g,' ').trim();
+    }
+    if(typeof data.text === 'string') return data.text.trim();
+  }
+  if(typeof data === 'string') return data.trim();
+  return '';
+}
+
+async function fetchYouTubeTranscript(videoId) {
+  const supaKey = getSetting('supadata_api_key');
+
+  // 1) Supadata (Arabic → English) if key configured
+  if(supaKey) {
+    for(const lang of ['ar','en']) {
+      try {
+        const r = await axios.get('https://api.supadata.ai/v1/youtube/transcript', {
+          params: { videoId, lang },
+          headers: { 'x-api-key': supaKey },
+          timeout: 15000
+        });
+        const text = parseTranscriptResponse(r.data);
+        console.log('[yt-transcript] supadata lang='+lang+' chars='+text.length);
+        if(text && text.length > 50) return text;
+      } catch(e) {
+        console.log('[yt-transcript] supadata lang='+lang+' failed:', e.response?.status||'', e.message);
+      }
+    }
+  } else {
+    console.log('[yt-transcript] supadata_api_key not set, skipping supadata');
   }
 
-  // No language preference (first available)
+  // 2) Public proxy fallback (no key)
   try {
-    const items = await YoutubeTranscript.fetchTranscript(videoId);
-    const text = join(items);
-    console.log('[yt-transcript] default items='+(items?items.length:0)+' chars='+text.length);
+    const r = await axios.get('https://yt-transcript-api.vercel.app/api/transcript', {
+      params: { videoId },
+      timeout: 15000
+    });
+    const text = parseTranscriptResponse(r.data);
+    console.log('[yt-transcript] public-proxy chars='+text.length);
     if(text && text.length > 50) return text;
   } catch(e) {
-    console.log('[yt-transcript] default failed:', e.message);
+    console.log('[yt-transcript] public-proxy failed:', e.response?.status||'', e.message);
   }
 
   console.log('[yt-transcript] no transcript for', videoId);
