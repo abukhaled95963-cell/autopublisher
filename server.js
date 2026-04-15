@@ -1041,7 +1041,22 @@ async function processTGChannel(channel) {
             const prompt = isArabicText(text)
               ? 'أعد صياغة هذا الخبر بالعربية الفصحى الاحترافية.\n\nقواعد صارمة:\n1. اكتب بالعربية فقط - ممنوع أي حرف من لغة أخرى\n2. إذا وجدت كلمات غير عربية في المصدر، ترجمها أو احذفها\n3. لا تذكر اسم القناة أو المصدر أو أي روابط\n4. إذا كان النص إعلاناً أو رأياً شخصياً بدون خبر حقيقي: أجب فقط بكلمة SKIP\n5. الحد الأقصى 250 كلمة\n\nالخبر:\n' + text + '\n\nأعد الخبر بالعربية فقط بدون أي حرف أجنبي.'
               : 'You are a professional Arabic translator and news editor.\n\nYour task: Translate and rewrite the following text into fluent, professional Arabic.\n\nSTRICT RULES:\n1. ALWAYS write the output in Arabic ONLY - translate everything\n2. NEVER leave any English, Chinese, Russian, or other non-Arabic words in the output\n3. Do NOT mention the source, channel name, or any URLs\n4. If the text is ONLY an advertisement, spam, or meaningless: reply with exactly the word SKIP\n5. Keep the meaning intact, maximum 250 words\n\nText to translate:\n' + text + '\n\nWrite the Arabic translation now:';
-            let rewritten = await callAI(prompt, 800);
+            await new Promise(r=>setTimeout(r,2000));
+            let rewritten = '';
+            try {
+              rewritten = await callAI(prompt, 800);
+            } catch(e) {
+              if(e.message && e.message.includes('429')) {
+                console.log('Rate limit 429, waiting 15s then retry...');
+                await new Promise(r=>setTimeout(r,15000));
+                try { rewritten = await callAI(prompt, 800); } catch(e2) {
+                  console.log('Retry also failed:', e2.message);
+                  rewritten = '';
+                }
+              } else {
+                throw e;
+              }
+            }
             if(rewritten && rewritten.trim() === 'SKIP') {
               skipped = true;
             } else {
