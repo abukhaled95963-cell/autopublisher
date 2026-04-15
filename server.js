@@ -889,45 +889,44 @@ async function processTGChannel(channel) {
       }
       if(keywords.length && post.text && !keywords.some(w=>post.text.toLowerCase().includes(w.toLowerCase()))) continue;
 
-      // Non-Arabic quality gate: ask AI if genuine tech/news
-      if(post.text && post.text.length > 20 && !isArabicText(post.text)) {
-        try {
-          const verdict = await callAI(
-            `Evaluate if this text is a GENUINE tech or news item — NOT sarcasm, NOT a personal opinion, NOT a promotion/ad. Reply with ONLY one word: "good" or "bad".\n\n${post.text.substring(0,600)}`,
-            20
-          );
-          if(!/good/i.test(verdict||'')) {
-            db.prepare('INSERT OR IGNORE INTO posts (source_id,original_title,original_url,original_content,status) VALUES(0,?,?,?,?)').run('LOWQ:'+post.msgId, key, post.text, 'ignored');
-            console.log('Skipped low-quality non-Arabic msg', post.msgId);
-            continue;
-          }
-        } catch(e) { /* on eval failure, continue to rewrite */ }
-      }
-
       const titleKey = post.text ? post.text.substring(0,60) : 'media_'+post.msgId;
       const mode = rules.mode || 'rewrite';
       let finalText = '';
       let usedFallback = false;
+      let skipped = false;
 
       if(mode === 'as-is') {
         finalText = appendMine(filterSourceLinks(post.text||''));
       } else {
-        // Rewrite with AI, fallback to filtered original on any failure
+        // Rewrite with AI (strict Arabic-only); fallback to filtered original on failure
         try {
           if(!post.text || post.text.length < 10) {
             finalText = '';
           } else {
-            const prompt = `أعد صياغة هذا المحتوى كخبر تقني احترافي باللغة العربية بأسلوب بشري طبيعي، مع الحفاظ على كامل المضمون. لا تذكر اسم القناة أو المصدر أو أي روابط خارجية أو معرفات @ .\n\n${post.text}\n\nأعد النص المصاغ فقط بدون مقدمات.`;
+            const text = post.text;
+            const prompt = isArabicText(text)
+              ? 'أعد صياغة هذا الخبر بالعربية الفصحى الاحترافية.\n\nقواعد صارمة:\n1. اكتب بالعربية فقط - ممنوع أي حرف من لغة أخرى\n2. إذا وجدت كلمات غير عربية في المصدر، ترجمها أو احذفها\n3. لا تذكر اسم القناة أو المصدر أو أي روابط\n4. إذا كان النص إعلاناً أو رأياً شخصياً بدون خبر حقيقي: أجب فقط بكلمة SKIP\n5. الحد الأقصى 250 كلمة\n\nالخبر:\n' + text + '\n\nأعد الخبر بالعربية فقط بدون أي حرف أجنبي.'
+              : 'You are an Arabic news editor. Rewrite the following as a clean professional Arabic news article.\n\nSTRICT RULES:\n1. Write ONLY in Arabic - no Chinese, Russian, Vietnamese, or any non-Arabic characters allowed\n2. If you see non-Arabic words in the source, translate them or remove them\n3. Do NOT mention the source channel or any URLs\n4. If the post is sarcasm, advertisement, or personal opinion with no real news value: reply with exactly: SKIP\n5. Maximum 250 words\n\nPost:\n' + text + '\n\nReturn the Arabic article only, with zero non-Arabic characters. Or reply SKIP.';
             const rewritten = await callAI(prompt, 800);
-            const refusalPhrases = ['لا أستطيع','لا يمكنني','عذراً','آسف','I cannot','I am unable','أنصحك','مصادر موثوقة','لا أملك','غير قادر'];
-            if(!rewritten || refusalPhrases.some(p => rewritten.includes(p))) throw new Error('ai_refusal');
-            finalText = appendMine(filterSourceLinks(rewritten));
+            if(rewritten && rewritten.trim() === 'SKIP') {
+              skipped = true;
+            } else {
+              const refusalPhrases = ['لا أستطيع','لا يمكنني','عذراً','آسف','I cannot','I am unable','أنصحك','مصادر موثوقة','لا أملك','غير قادر'];
+              if(!rewritten || refusalPhrases.some(p => rewritten.includes(p))) throw new Error('ai_refusal');
+              finalText = appendMine(filterSourceLinks(rewritten));
+            }
           }
         } catch(e) {
           console.log('AI failed for msg', post.msgId, '- using filtered original:', e.message);
           usedFallback = true;
           finalText = appendMine(filterSourceLinks(post.text || ''));
         }
+      }
+
+      if(skipped) {
+        db.prepare('INSERT OR IGNORE INTO posts (source_id,original_title,original_url,original_content,status) VALUES(0,?,?,?,?)').run('SKIP:'+post.msgId, key, post.text||'', 'ignored');
+        console.log('AI returned SKIP for msg', post.msgId);
+        continue;
       }
 
       const pid = db.prepare('INSERT OR IGNORE INTO posts (source_id,original_title,original_url,original_content,rewritten_telegram,status) VALUES(0,?,?,?,?,?)').run(titleKey, key, post.text||'', finalText, 'ready').lastInsertRowid;
