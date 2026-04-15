@@ -464,35 +464,83 @@ function ytDecodeEntities(s) {
     .replace(/<[^>]+>/g,'');
 }
 
+function ytPickTrack(tracks) {
+  if(!Array.isArray(tracks) || !tracks.length) return null;
+  return tracks.find(t => (t.languageCode||'').toLowerCase().startsWith('ar'))
+      || tracks.find(t => (t.languageCode||'').toLowerCase().startsWith('en'))
+      || tracks[0];
+}
+
+async function ytParseTranscriptXML(baseUrl) {
+  const cleanUrl = baseUrl.replace(/\\u0026/g,'&').replace(/\\\//g,'/');
+  const xr = await axios.get(cleanUrl, {
+    timeout: 12000,
+    headers: { 'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+  });
+  const xml = xr.data || '';
+  const parts = [];
+  const rx = /<text[^>]*>([\s\S]*?)<\/text>/g;
+  let tm;
+  while((tm = rx.exec(xml)) !== null) parts.push(ytDecodeEntities(tm[1]));
+  return parts.join(' ').replace(/\s+/g,' ').trim();
+}
+
 async function fetchYouTubeTranscript(videoId) {
+  const headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    'Accept-Language': 'ar,en;q=0.9'
+  };
+
+  // Method 1: scrape watch page for captionTracks
   try {
-    const r = await axios.get('https://www.youtube.com/watch?v='+videoId, {
-      timeout: 12000,
-      headers: {
-        'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept-Language':'en-US,en;q=0.9'
-      }
-    });
+    const r = await axios.get('https://www.youtube.com/watch?v='+videoId, { timeout: 12000, headers });
     const html = r.data || '';
-    const m = html.match(/"captionTracks":(\[[^\]]+\])/);
-    if(!m) return null;
-    let tracks;
-    try { tracks = JSON.parse(m[1].replace(/\\u0026/g,'&')); } catch(e) { return null; }
-    if(!Array.isArray(tracks) || !tracks.length) return null;
-    const pick = tracks.find(t => (t.languageCode||'').startsWith('ar'))
-              || tracks.find(t => (t.languageCode||'').startsWith('en'))
-              || tracks[0];
-    if(!pick || !pick.baseUrl) return null;
-    const baseUrl = pick.baseUrl.replace(/\\u0026/g,'&');
-    const xr = await axios.get(baseUrl, { timeout: 12000 });
-    const xml = xr.data || '';
-    const parts = [];
-    const rx = /<text[^>]*>([\s\S]*?)<\/text>/g;
-    let tm;
-    while((tm = rx.exec(xml)) !== null) parts.push(ytDecodeEntities(tm[1]));
-    const text = parts.join(' ').replace(/\s+/g,' ').trim();
-    return text.length > 50 ? text : null;
-  } catch(e) { return null; }
+    const m = html.match(/"captionTracks":\s*(\[.*?\])/s);
+    if(m) {
+      let tracks = null;
+      try { tracks = JSON.parse(m[1].replace(/\\u0026/g,'&').replace(/\\\//g,'/')); } catch(e) {
+        console.log('[yt-transcript] JSON parse failed for watch-page captionTracks:', e.message);
+      }
+      const pick = ytPickTrack(tracks);
+      console.log('[yt-transcript] watch-page tracks:', tracks ? tracks.length : 0, 'picked:', pick && pick.languageCode);
+      if(pick && pick.baseUrl) {
+        const text = await ytParseTranscriptXML(pick.baseUrl);
+        if(text && text.length > 50) {
+          console.log('[yt-transcript] success via watch page, chars:', text.length);
+          return text;
+        }
+        console.log('[yt-transcript] watch-page baseUrl returned empty/short transcript');
+      }
+    } else {
+      console.log('[yt-transcript] no captionTracks in watch page for', videoId);
+    }
+  } catch(e) {
+    console.log('[yt-transcript] watch-page fetch failed:', e.message);
+  }
+
+  // Method 2: youtubei/v1/player
+  try {
+    const r = await axios.post(
+      'https://www.youtube.com/youtubei/v1/player?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8',
+      { videoId, context: { client: { clientName: 'WEB', clientVersion: '2.20240101' } } },
+      { timeout: 12000, headers: Object.assign({}, headers, { 'Content-Type':'application/json' }) }
+    );
+    const tracks = r.data && r.data.captions && r.data.captions.playerCaptionsTracklistRenderer && r.data.captions.playerCaptionsTracklistRenderer.captionTracks;
+    const pick = ytPickTrack(tracks);
+    console.log('[yt-transcript] youtubei tracks:', tracks ? tracks.length : 0, 'picked:', pick && pick.languageCode);
+    if(pick && pick.baseUrl) {
+      const text = await ytParseTranscriptXML(pick.baseUrl);
+      if(text && text.length > 50) {
+        console.log('[yt-transcript] success via youtubei, chars:', text.length);
+        return text;
+      }
+    }
+  } catch(e) {
+    console.log('[yt-transcript] youtubei request failed:', e.response?.status || '', e.message);
+  }
+
+  console.log('[yt-transcript] no transcript found for', videoId);
+  return null;
 }
 
 async function fetchYouTubeDataAPI(videoId, apiKey) {
