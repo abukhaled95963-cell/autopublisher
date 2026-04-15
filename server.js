@@ -80,23 +80,54 @@ function setSetting(key, val) {
 async function callAI(prompt, maxTokens) {
   maxTokens = maxTokens || 1200;
   const provider = getSetting('ai_provider', 'claude');
-  if(provider === 'openai') {
-    const key = getSetting('openai_key');
+  const sharedKey = getSetting('ai_api_key');
+
+  if(provider === 'chatgpt' || provider === 'openai') {
+    const key = sharedKey || getSetting('openai_key');
     if(!key) throw new Error('OpenAI key not set');
     const r = await axios.post('https://api.openai.com/v1/chat/completions', {
       model:'gpt-4o-mini', max_tokens:maxTokens,
       messages:[{role:'user', content:prompt}]
     }, {headers:{Authorization:'Bearer '+key}});
     return r.data.choices[0].message.content;
-  } else {
-    const key = getSetting('claude_key');
-    if(!key) throw new Error('Claude key not set');
-    const r = await axios.post('https://api.anthropic.com/v1/messages', {
-      model:'claude-sonnet-4-20250514', max_tokens:maxTokens,
-      messages:[{role:'user', content:prompt}]
-    }, {headers:{'x-api-key':key,'anthropic-version':'2023-06-01'}});
-    return r.data.content[0].text;
   }
+
+  if(provider === 'gemini') {
+    const key = sharedKey || getSetting('gemini_key');
+    if(!key) throw new Error('Gemini key not set');
+    const r = await axios.post(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key='+encodeURIComponent(key),
+      { contents:[{parts:[{text:prompt}]}], generationConfig:{maxOutputTokens:maxTokens} }
+    );
+    return r.data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  }
+
+  const key = sharedKey || getSetting('claude_key');
+  if(!key) throw new Error('Claude key not set');
+  const r = await axios.post('https://api.anthropic.com/v1/messages', {
+    model:'claude-sonnet-4-20250514', max_tokens:maxTokens,
+    messages:[{role:'user', content:prompt}]
+  }, {headers:{'x-api-key':key,'anthropic-version':'2023-06-01'}});
+  return r.data.content[0].text;
+}
+
+// ===== Text filters =====
+function filterSourceLinks(text) {
+  if(!text) return '';
+  return text
+    .replace(/https?:\/\/t\.me\/[^\s)]+/gi, '')
+    .replace(/\bt\.me\/[^\s)]+/gi, '')
+    .replace(/@[A-Za-z0-9_]{3,}/g, '')
+    .replace(/(?:المصدر|source)\s*[:：].*$/gim, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+function isArabicText(text) {
+  if(!text) return false;
+  const arabic = (text.match(/[\u0600-\u06FF]/g) || []).length;
+  const letters = (text.match(/[A-Za-z\u0600-\u06FF]/g) || []).length;
+  return letters > 0 && (arabic / letters) > 0.4;
 }
 
 // ===== Telegram Channel Reader (multiple methods) =====
@@ -736,18 +767,16 @@ async function processTGChannel(channel) {
     const tgChat = publishTo || getSetting('telegram_chat');
     if(!tgToken || !tgChat) return;
 
-    // Get rules for this channel
     const rules = JSON.parse(getSetting('tg_rules_'+channel, '{"mode":"rewrite","keywords":"","ignore":""}'));
 
-    // My channel link
-    let myChannelLink = '';
+    let myChannelUsername = '';
     try {
       const myChans = JSON.parse(getSetting('my_tg_channels','[]'));
       const mc = myChans.find(c => c.chat===tgChat || c.chat==='@'+tgChat.replace('@',''));
-      if(mc) myChannelLink = '\n\n📢 @'+mc.chat.replace('@','');
+      if(mc) myChannelUsername = '@'+mc.chat.replace('@','');
     } catch(e) {}
+    const appendMine = txt => myChannelUsername ? (txt.trim() + '\n\n📢 ' + myChannelUsername) : txt;
 
-    // Scrape channel to get message IDs + text + media
     let posts = [];
     try {
       const r = await axios.get('https://t.me/s/'+channel, {
@@ -762,7 +791,7 @@ async function processTGChannel(channel) {
         const text = $(el).find('.tgme_widget_message_text').text().trim();
         const hasPhoto = $(el).find('.tgme_widget_message_photo_wrap, .tgme_widget_message_sticker_wrap').length > 0;
         const hasVideo = $(el).find('.tgme_widget_message_video_wrap, .tgme_widget_message_video').length > 0;
-        posts.push({ msgId, text, hasMedia: hasPhoto||hasVideo, hasPhoto, hasVideo });
+        posts.push({ msgId, text, hasMedia: hasPhoto||hasVideo });
       });
       // Newest first
       posts = posts.filter(p=>p.msgId).sort((a,b)=>b.msgId-a.msgId);
@@ -770,334 +799,99 @@ async function processTGChannel(channel) {
 
     if(!posts.length) return;
 
-    // Process newest posts (up to 3)
     for(const post of posts.slice(0,3)) {
-      // Check if already processed by msgId
       const key = channel+'/'+post.msgId;
       const existing = db.prepare('SELECT id FROM posts WHERE original_url=?').get(key);
-      if(existing) { console.log('Skip duplicate msgId:', post.msgId); continue; }
+      if(existing) continue;
 
-      // Apply rules
       const ignoreWords = (rules.ignore||'').split(',').map(w=>w.trim()).filter(Boolean);
       const keywords = (rules.keywords||'').split(',').map(w=>w.trim()).filter(Boolean);
 
-      // Skip if ignore keyword found
       if(ignoreWords.length && post.text && ignoreWords.some(w=>post.text.toLowerCase().includes(w.toLowerCase()))) {
-        // Save as ignored
-        db.prepare('INSERT OR IGNORE INTO posts (source_id,original_title,original_url,original_content,status) VALUES(0,?,?,?,?)').run('IGNORED:'+post.msgId, key, post.text, 'ignored');
+        db.prepare('INSERT OR IGNORE INTO posts (source_id,original_title,original_url,original_content,status) VALUES(0,?,?,?,?)').run('IGNORED:'+post.msgId, key, post.text||'', 'ignored');
         continue;
       }
-
-      // Skip if keywords filter set and no keyword found
       if(keywords.length && post.text && !keywords.some(w=>post.text.toLowerCase().includes(w.toLowerCase()))) continue;
 
-      const mode = rules.mode || 'rewrite';
-      let finalText = '';
-      const titleKey = post.text ? post.text.substring(0,60) : 'media_'+post.msgId;
-
-      if(mode === 'forward') {
-        // Forward message directly (preserves ALL media automatically)
+      // Non-Arabic quality gate: ask AI if genuine tech/news
+      if(post.text && post.text.length > 20 && !isArabicText(post.text)) {
         try {
-          const fwdR = await axios.post(`https://api.telegram.org/bot${tgToken}/forwardMessage`,{
-            chat_id: tgChat,
-            from_chat_id: '@'+channel,
-            message_id: post.msgId
-          });
-          if(fwdR.data.ok) {
-            db.prepare('INSERT OR IGNORE INTO posts (source_id,original_title,original_url,original_content,rewritten_telegram,status,published_at) VALUES(0,?,?,?,?,?,datetime("now"))').run(titleKey, key, post.text||'', 'FORWARDED', 'published');
-            db.prepare("INSERT INTO publish_log(post_id,platform,status,message) VALUES(?,?,?,?)").run(db.prepare('SELECT id FROM posts WHERE original_url=?').get(key)?.id||0,'telegram','success','forwarded');
-            console.log('FORWARDED msg', post.msgId, 'from @'+channel);
-            await new Promise(r=>setTimeout(r,500));
+          const verdict = await callAI(
+            `Evaluate if this text is a GENUINE tech or news item — NOT sarcasm, NOT a personal opinion, NOT a promotion/ad. Reply with ONLY one word: "good" or "bad".\n\n${post.text.substring(0,600)}`,
+            20
+          );
+          if(!/good/i.test(verdict||'')) {
+            db.prepare('INSERT OR IGNORE INTO posts (source_id,original_title,original_url,original_content,status) VALUES(0,?,?,?,?)').run('LOWQ:'+post.msgId, key, post.text, 'ignored');
+            console.log('Skipped low-quality non-Arabic msg', post.msgId);
             continue;
           }
-        } catch(e) { console.error('Forward error:', e.message); }
+        } catch(e) { /* on eval failure, continue to rewrite */ }
+      }
 
-      } else if(mode === 'as-is') {
-        // Post as-is with channel link
-        finalText = (post.text||'') + myChannelLink;
+      const titleKey = post.text ? post.text.substring(0,60) : 'media_'+post.msgId;
+      const mode = rules.mode || 'rewrite';
+      let finalText = '';
+      let usedFallback = false;
 
+      if(mode === 'as-is') {
+        finalText = appendMine(filterSourceLinks(post.text||''));
       } else {
-        // Rewrite (default)
-        if(!post.text || post.text.length < 10) {
-          // No text, forward media as-is
+        // Rewrite with AI, fallback to filtered original on any failure
+        try {
+          if(!post.text || post.text.length < 10) {
+            finalText = '';
+          } else {
+            const prompt = `أعد صياغة هذا المحتوى كخبر تقني احترافي باللغة العربية بأسلوب بشري طبيعي، مع الحفاظ على كامل المضمون. لا تذكر اسم القناة أو المصدر أو أي روابط خارجية أو معرفات @ .\n\n${post.text}\n\nأعد النص المصاغ فقط بدون مقدمات.`;
+            const rewritten = await callAI(prompt, 800);
+            const refusalPhrases = ['لا أستطيع','لا يمكنني','عذراً','آسف','I cannot','I am unable','أنصحك','مصادر موثوقة','لا أملك','غير قادر'];
+            if(!rewritten || refusalPhrases.some(p => rewritten.includes(p))) throw new Error('ai_refusal');
+            finalText = appendMine(filterSourceLinks(rewritten));
+          }
+        } catch(e) {
+          console.log('AI failed for msg', post.msgId, '- using filtered original:', e.message);
+          usedFallback = true;
+          finalText = appendMine(filterSourceLinks(post.text || ''));
+        }
+      }
+
+      const pid = db.prepare('INSERT OR IGNORE INTO posts (source_id,original_title,original_url,original_content,rewritten_telegram,status) VALUES(0,?,?,?,?,?)').run(titleKey, key, post.text||'', finalText, 'ready').lastInsertRowid;
+      if(!pid) continue;
+
+      try {
+        // Always forward media when present — never skip media
+        if(post.hasMedia) {
           try {
             await axios.post(`https://api.telegram.org/bot${tgToken}/forwardMessage`,{
               chat_id: tgChat, from_chat_id: '@'+channel, message_id: post.msgId
             });
-          } catch(e) {}
-          db.prepare('INSERT OR IGNORE INTO posts (source_id,original_title,original_url,original_content,status,published_at) VALUES(0,?,?,?,?,datetime("now"))').run(titleKey, key, post.text||'', 'published');
-          continue;
+            await new Promise(r=>setTimeout(r,500));
+          } catch(e) { console.log('Media forward failed:', e.message); }
         }
-        const prompt = `أعد صياغة هذا المنشور بالعربية بأسلوب طبيعي وبشري مع الحفاظ على المضمون الكامل. لا تذكر اسم القناة أو المصدر:\n\n${post.text}\n\nأعد النص المصاغ فقط.`;
-        let rewritten = post.text;
-        try { rewritten = await callAI(prompt, 800); } catch(e) {}
-        finalText = rewritten + myChannelLink;
-      }
 
-      // Save to DB
-      const pid = db.prepare('INSERT OR IGNORE INTO posts (source_id,original_title,original_url,original_content,rewritten_telegram,status) VALUES(0,?,?,?,?,?)').run(titleKey, key, post.text||'', finalText, 'ready').lastInsertRowid;
-      if(!pid) continue;
-
-      // Filter AI refusal responses
-      const refusalPhrases = [
-        'لا أستطيع', 'لا يمكنني', 'عذراً', 'آسف', 'I cannot', 'I am unable',
-        'أنصحك', 'يجب التحقق', 'مصادر موثوقة', 'لا أملك', 'غير قادر'
-      ];
-      const isRefusal = refusalPhrases.some(p => finalText.includes(p));
-      if(isRefusal) {
-        // Use original text instead of AI refusal
-        console.log('AI refused, using original text for:', titleKey.substring(0,30));
-        finalText = post.text + myChannelLink;
-      }
-
-      if(finalText && finalText.trim().length > 10) {
-        try {
-          // Forward media first if available
-          if(post.hasMedia) {
-            try {
-              await axios.post(`https://api.telegram.org/bot${tgToken}/forwardMessage`,{
-                chat_id: tgChat, from_chat_id: '@'+channel, message_id: post.msgId
-              });
-              await new Promise(r=>setTimeout(r,500));
-            } catch(e) { console.log('Media forward failed:', e.message); }
-          }
-          // Send text
+        // Send rewritten text as separate message
+        if(finalText && finalText.trim().length > 5) {
           const r = await axios.post(`https://api.telegram.org/bot${tgToken}/sendMessage`,{
             chat_id: tgChat, text: finalText, parse_mode: 'HTML'
           });
           if(r.data.ok) {
             db.prepare("UPDATE posts SET status='published', published_at=datetime('now') WHERE id=?").run(pid);
-            db.prepare("INSERT INTO publish_log(post_id,platform,status,message) VALUES(?,?,?,?)").run(pid,'telegram','success','published to '+tgChat);
-            console.log('PUBLISHED from @'+channel+' to '+tgChat);
+            db.prepare("INSERT INTO publish_log(post_id,platform,status,message) VALUES(?,?,?,?)").run(pid,'telegram','success', usedFallback?'published (fallback)':'published');
+            console.log('PUBLISHED from @'+channel+' msg '+post.msgId+(usedFallback?' [fallback]':''));
           }
-        } catch(e) {
-          db.prepare("INSERT INTO publish_log(post_id,platform,status,message) VALUES(?,?,?,?)").run(pid,'telegram','error',e.message);
+        } else if(post.hasMedia) {
+          // Media-only post: mark published after forward
+          db.prepare("UPDATE posts SET status='published', published_at=datetime('now') WHERE id=?").run(pid);
+          db.prepare("INSERT INTO publish_log(post_id,platform,status,message) VALUES(?,?,?,?)").run(pid,'telegram','success','media forwarded');
         }
+      } catch(e) {
+        // Never publish error messages to the channel
+        db.prepare("INSERT INTO publish_log(post_id,platform,status,message) VALUES(?,?,?,?)").run(pid,'telegram','error',e.message);
       }
-      await new Promise(r=>setTimeout(r,500));
+      await new Promise(r=>setTimeout(r,800));
     }
   } catch(e) { console.error('processTGChannel error:', channel, e.message); }
 }
 
-
-async function readTelegramChannel(channel) {
-  const ch = channel.replace('@','').trim();
-  const results = [];
-  
-  // Method 1: rss2json + rsshub
-  try {
-    const rssUrl = 'https://rsshub.app/telegram/channel/' + ch;
-    const r = await axios.get('https://api.rss2json.com/v1/api.json?rss_url='+encodeURIComponent(rssUrl)+'&count=10', {timeout:8000});
-    if(r.data.status==='ok' && r.data.items && r.data.items.length > 0) {
-      r.data.items.forEach(item => {
-        const text = (item.content||item.title||'').replace(/<[^>]*>/g,'').trim();
-        if(text) results.push({text, date:item.pubDate, source:'rsshub'});
-      });
-      if(results.length > 0) return {success:true, posts:results, method:'rsshub'};
-    }
-  } catch(e) {}
-
-  // Method 2: t.me/s scraping with media
-  try {
-    const r = await axios.get('https://t.me/s/'+ch, {
-      timeout:10000,
-      headers:{'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-    });
-    const $ = cheerio.load(r.data);
-    $('.tgme_widget_message').each(function(i, msgEl) {
-      if(i >= 10) return;
-      const text = $(msgEl).find('.tgme_widget_message_text').text().trim();
-      const media = [];
-
-      // Extract photos
-      $(msgEl).find('.tgme_widget_message_photo_wrap').each(function(j, el) {
-        const style = $(el).attr('style')||'';
-        const match = style.match(/url\(['"]?([^'"()]+)['"]?\)/);
-        if(match) media.push({type:'photo', url:match[1]});
-      });
-
-      // Extract video thumbnail
-      $(msgEl).find('.tgme_widget_message_video_wrap video, .tgme_widget_message_video').each(function(j, el) {
-        const src = $(el).attr('src')||$(el).find('source').attr('src')||'';
-        if(src) media.push({type:'video', url:src});
-      });
-
-      // Extract video thumb from style
-      $(msgEl).find('[class*="video"]').each(function(j, el) {
-        const style = $(el).attr('style')||'';
-        const match = style.match(/url\(['"]?([^'"()]+)['"]?\)/);
-        if(match && !media.find(m=>m.url===match[1])) {
-          media.push({type:'video_thumb', url:match[1]});
-        }
-      });
-
-      if(text || media.length > 0) {
-        results.push({
-          text: text.substring(0,500)||'',
-          date: new Date().toISOString(),
-          source: 'tme',
-          media: media
-        });
-      }
-    });
-    if(results.length > 0) return {success:true, posts:results, method:'tme_scrape'};
-  } catch(e) {}
-
-  // Method 3: Alternative RSS feed
-  try {
-    const r = await axios.get('https://api.rss2json.com/v1/api.json?rss_url='+encodeURIComponent('https://t.me/s/'+ch), {timeout:8000});
-    if(r.data.status==='ok' && r.data.items && r.data.items.length > 0) {
-      r.data.items.forEach(item => {
-        const text = (item.content||item.title||'').replace(/<[^>]*>/g,'').trim();
-        if(text) results.push({text, date:item.pubDate, source:'tme_rss'});
-      });
-      if(results.length > 0) return {success:true, posts:results, method:'tme_rss'};
-    }
-  } catch(e) {}
-
-  return {
-    success:false, posts:[], 
-    message:'تعذر قراءة القناة @'+ch+'. تأكد أن القناة عامة (Public) وغير محظورة في منطقتك.'
-  };
-}
-
-
-// ===== Per-Channel TG Scheduling =====
-// Store active intervals
-var tgIntervals = {};
-
-async function processTGChannel(channel) {
-  try {
-    console.log('Checking TG channel:', channel);
-    const result = await readTelegramChannel(channel);
-    if(!result.success || !result.posts.length) return;
-
-    // Get publish-to channel for this source
-    const publishTo = getSetting('tg_publish_to_'+channel, '');
-    const tgToken = getSetting('telegram_token');
-    // Use specific channel or default
-    const tgChat = publishTo || getSetting('telegram_chat');
-    if(!tgToken || !tgChat) {
-      console.log('No token/chat configured for', channel);
-      return;
-    }
-
-    // Get my channels list to find channel link
-    let myChannelLink = '';
-    try {
-      const myChans = JSON.parse(getSetting('my_tg_channels','[]'));
-      const matchChan = myChans.find(c => c.chat === tgChat || c.chat === '@'+tgChat.replace('@',''));
-      if(matchChan) {
-        const chatName = matchChan.chat.replace('@','');
-        myChannelLink = `
-
-&#x1F4E2; @${chatName}`;
-      }
-    } catch(e) {}
-
-    for(const post of result.posts.slice(0,3)) {
-      if(!post.text || post.text.length < 20) continue;
-
-      // Check if already processed (by first 60 chars)
-      const titleKey = post.text.substring(0,60);
-      const existing = db.prepare('SELECT id FROM posts WHERE original_content LIKE ?').get('%'+titleKey+'%');
-      if(existing) { console.log('Already processed:', titleKey.substring(0,30)); continue; }
-
-      // Rewrite immediately - no source mention
-      const prompt = `أعد صياغة هذا المنشور بالعربية بأسلوب طبيعي وبشري مع الحفاظ على المضمون الكامل بدون أي حذف أو اختصار. مهم: لا تذكر اسم القناة أو المصدر الأصلي في النص:
-
-${post.text}
-
-أعد النص المصاغ فقط بدون أي مقدمة أو تعليق.`;
-      let rewritten = post.text;
-      try { rewritten = await callAI(prompt, 800); } catch(e) { console.error('AI error:', e.message); }
-
-      // Add channel link
-      const finalText = rewritten + myChannelLink;
-
-      // Save to DB
-      const url = 'tg://'+channel+'/'+Date.now();
-      const pid = db.prepare(`INSERT OR IGNORE INTO posts 
-        (source_id,original_title,original_url,original_content,rewritten_telegram,status)
-        VALUES(0,?,?,?,?,'ready')`)
-        .run(titleKey, url, post.text, finalText).lastInsertRowid;
-
-      if(!pid) continue;
-
-      // PUBLISH IMMEDIATELY
-      try {
-        const media = post.media || [];
-        let published = false;
-
-        if(media.length > 0) {
-          // Has media — try to send with media
-          const firstMedia = media[0];
-
-          if(firstMedia.type === 'photo') {
-            // Send photo with caption
-            try {
-              const r = await axios.post(`https://api.telegram.org/bot${tgToken}/sendPhoto`,{
-                chat_id: tgChat,
-                photo: firstMedia.url,
-                caption: finalText.substring(0, 1024),
-                parse_mode: 'HTML'
-              });
-              published = r.data.ok;
-
-              // If multiple photos, send rest as media group
-              if(media.filter(m=>m.type==='photo').length > 1) {
-                const extraPhotos = media.filter(m=>m.type==='photo').slice(1,10);
-                if(extraPhotos.length > 0) {
-                  const mediaGroup = extraPhotos.map(m=>({type:'photo', media:m.url}));
-                  await axios.post(`https://api.telegram.org/bot${tgToken}/sendMediaGroup`,{
-                    chat_id: tgChat, media: mediaGroup
-                  }).catch(()=>{});
-                }
-              }
-            } catch(e2) {
-              console.log('Photo send failed, sending text only:', e2.message);
-            }
-          } else if(firstMedia.type === 'video') {
-            // Send video
-            try {
-              const r = await axios.post(`https://api.telegram.org/bot${tgToken}/sendVideo`,{
-                chat_id: tgChat,
-                video: firstMedia.url,
-                caption: finalText.substring(0, 1024),
-                parse_mode: 'HTML'
-              });
-              published = r.data.ok;
-            } catch(e2) {
-              console.log('Video send failed, sending text only:', e2.message);
-            }
-          }
-        }
-
-        // If no media or media failed, send text
-        if(!published) {
-          const r = await axios.post(`https://api.telegram.org/bot${tgToken}/sendMessage`,{
-            chat_id: tgChat,
-            text: finalText,
-            parse_mode: 'HTML'
-          });
-          published = r.data.ok;
-        }
-
-        if(published) {
-          db.prepare("UPDATE posts SET status='published', published_at=datetime('now') WHERE id=?").run(pid);
-          db.prepare("INSERT INTO publish_log(post_id,platform,status,message) VALUES(?,'telegram','success',?)").run(pid, 'Published to '+tgChat+(media.length?' +'+media.length+'media':''));
-          console.log('PUBLISHED from @'+channel+' to '+tgChat+(media.length?' with '+media.length+' media':''));
-        }
-      } catch(e) {
-        db.prepare("INSERT INTO publish_log(post_id,platform,status,message) VALUES(?,'telegram','error',?)").run(pid, e.message);
-        console.error('Publish error:', e.message);
-      }
-
-      // Small delay between posts to avoid rate limit
-      await new Promise(r=>setTimeout(r,1500));
-    }
-  } catch(e) { console.error('TG channel error:', channel, e.message); }
-}
 
 function setupTGSchedules() {
   // Clear existing cron jobs
