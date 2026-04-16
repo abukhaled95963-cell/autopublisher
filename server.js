@@ -101,12 +101,18 @@ async function callAI(prompt, maxTokens) {
         );
         return r.data.choices[0].message.content;
       } else if(provider === 'gemini') {
-        const r = await axios.post(
-          'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
-          {contents:[{parts:[{text:prompt}]}], generationConfig:{maxOutputTokens:maxTokens}},
-          {headers:{'x-goog-api-key': key, 'Content-Type':'application/json'}, timeout:30000}
-        );
-        return r.data.candidates[0].content.parts[0].text;
+        try {
+          const r = await axios.post(
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+            {contents:[{parts:[{text:prompt}]}], generationConfig:{maxOutputTokens:maxTokens}},
+            {headers:{'x-goog-api-key': key, 'Content-Type':'application/json'}, timeout:30000}
+          );
+          return r.data.candidates[0].content.parts[0].text;
+        } catch(e) {
+          console.error('Gemini error status:', e.response?.status);
+          console.error('Gemini error data:', JSON.stringify(e.response?.data));
+          throw e;
+        }
       } else if(provider === 'claude') {
         const r = await axios.post('https://api.anthropic.com/v1/messages',
           {model:'claude-haiku-4-5-20251001', max_tokens:maxTokens, messages:[{role:'user',content:prompt}]},
@@ -847,6 +853,20 @@ app.post('/api/fb/test-source', async(req,res) => {
   }
 });
 
+
+app.post('/api/test/gemini-debug', async(req,res) => {
+  const {key} = req.body;
+  try {
+    const r = await axios.post(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+      {contents:[{parts:[{text:'Say OK'}]}]},
+      {headers:{'x-goog-api-key': key, 'Content-Type':'application/json'}, timeout:30000}
+    );
+    res.json({success:true, response: r.data.candidates[0].content.parts[0].text});
+  } catch(e) {
+    res.json({success:false, status: e.response?.status, error: e.response?.data || e.message});
+  }
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log('Server on port', PORT));
