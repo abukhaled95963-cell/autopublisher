@@ -101,29 +101,22 @@ async function callAI(prompt, maxTokens) {
         );
         return r.data.choices[0].message.content;
       } else if(provider === 'gemini') {
-        let geminiResult = null;
-        // Try API key method first (AIzaSy... keys)
-        try {
-          const r = await axios.post(
+        const isOAuth = key.startsWith('AQ') || key.startsWith('ya29');
+        let r;
+        if(isOAuth) {
+          r = await axios.post(
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
+            {contents:[{parts:[{text:prompt}]}], generationConfig:{maxOutputTokens:maxTokens}},
+            {headers:{'Authorization':'Bearer '+key, 'x-goog-user-project': getSetting('gemini_project_id','')}, timeout:30000}
+          );
+        } else {
+          r = await axios.post(
             'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key='+key,
             {contents:[{parts:[{text:prompt}]}], generationConfig:{maxOutputTokens:maxTokens}},
-            {timeout:30000}
+            {headers:{'x-goog-api-key': key}, timeout:30000}
           );
-          geminiResult = r.data.candidates[0].content.parts[0].text;
-        } catch(e1) {
-          // Try bearer token method (AQ... keys)
-          try {
-            const r2 = await axios.post(
-              'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
-              {contents:[{parts:[{text:prompt}]}], generationConfig:{maxOutputTokens:maxTokens}},
-              {headers:{Authorization:'Bearer '+key}, timeout:30000}
-            );
-            geminiResult = r2.data.candidates[0].content.parts[0].text;
-          } catch(e2) {
-            throw e2;
-          }
         }
-        return geminiResult;
+        return r.data.candidates[0].content.parts[0].text;
       } else if(provider === 'claude') {
         const r = await axios.post('https://api.anthropic.com/v1/messages',
           {model:'claude-haiku-4-5-20251001', max_tokens:maxTokens, messages:[{role:'user',content:prompt}]},
