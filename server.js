@@ -829,14 +829,17 @@ async function editAdminMsg(chatId, msgId, text, keyboard) {
 
 function getMainKeyboard() {
   return [
-    [{text:'📊 الإحصائيات', callback_data:'stats'}, {text:'📡 المصادر', callback_data:'sources'}],
-    [{text:'▶️ تشغيل الآن', callback_data:'run'}, {text:'⏰ الجداول', callback_data:'schedules'}],
-    [{text:'🧪 اختبار النشر من كل المصادر', callback_data:'test_publish_all'}],
-    [{text:'🤖 إعدادات AI', callback_data:'ai_settings'}, {text:'📢 قنواتي', callback_data:'my_channels'}],
-    [{text:'📘 فيسبوك', callback_data:'fb_menu'}, {text:'📋 آخر المنشورات', callback_data:'posts'}],
-    [{text:'⚙️ الإعدادات', callback_data:'general_settings'}, {text:'🔗 إعدادات الربط', callback_data:'connection_settings'}],
-    [{text:'🔄 إعادة تشغيل الجداول', callback_data:'restart_schedules'}]
+    [{text:'📊 الإحصائيات', callback_data:'stats'},{text:'📋 آخر المنشورات', callback_data:'posts'}],
+    [{text:'📡 مصادر تيليغرام', callback_data:'sources'},{text:'📘 مصادر فيسبوك', callback_data:'fb_menu'}],
+    [{text:'▶️ تشغيل الآن', callback_data:'run'},{text:'⏰ الجداول', callback_data:'schedules'}],
+    [{text:'🤖 إعدادات AI', callback_data:'ai_settings'},{text:'✍️ أسلوب الكتابة', callback_data:'writing_style'}],
+    [{text:'📢 قنواتي للنشر', callback_data:'my_channels'},{text:'🔗 إعدادات الربط', callback_data:'connection_settings'}],
+    [{text:'⚙️ الإعدادات العامة', callback_data:'general_settings'},{text:'🧪 اختبار النشر', callback_data:'test_publish_all'}]
   ];
+}
+
+function backHome(backData) {
+  return [[{text:'🔙 رجوع', callback_data:backData},{text:'🏠 الرئيسية', callback_data:'main'}]];
 }
 
 async function handleAdminCommand(chatId, text, msgId, callbackId) {
@@ -856,14 +859,9 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
     const p = db.prepare("SELECT COUNT(*) c FROM publish_log WHERE date(published_at)=date('now') AND status='success'").get();
     const e = db.prepare("SELECT COUNT(*) c FROM publish_log WHERE date(published_at)=date('now') AND status='error'").get();
     const provider = getSetting('ai_provider','groq');
-    await sendAdminMsg(chatId,
-      `🤖 <b>النشر الآلي Pro</b>\n\n📡 المصادر: ${s.c} | ✅ اليوم: ${p.c} | ❌ أخطاء: ${e.c}\n🧠 AI: ${provider}`,
-      [[{text:'📡 المصادر',cb:'sources'},{text:'📢 قنواتي',cb:'my_channels'}],
-       [{text:'▶️ تشغيل',cb:'run'},{text:'⏰ الجداول',cb:'schedules'}],
-       [{text:'🤖 إعدادات AI',cb:'ai_settings'},{text:'✍️ أسلوب الكتابة',cb:'writing_style'}],
-       [{text:'📘 فيسبوك',cb:'fb_menu'},{text:'📋 المنشورات',cb:'posts'}],
-       [{text:'⚙️ الإعدادات العامة',cb:'general_settings'},{text:'📊 الإحصائيات',cb:'stats'}]
-      ].map(row => row.map(b => ({text:b.text, callback_data:b.cb}))));
+    const now = new Date().toLocaleString('ar-SA', {timeZone:'Asia/Riyadh', hour:'2-digit', minute:'2-digit'});
+    const msg = '🤖 <b>النشر الآلي Pro</b>\n\n📡 المصادر: '+s.c+' | ✅ اليوم: '+p.c+' | ❌ أخطاء: '+e.c+'\n🧠 AI: <b>'+provider+'</b>\n🕐 '+now+'\n\nاختر من القائمة:';
+    await sendAdminMsg(chatId, msg, getMainKeyboard());
 
   // ===== STATS =====
   } else if(text === 'stats') {
@@ -875,7 +873,7 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
     const fb = db.prepare("SELECT COUNT(*) c FROM sources WHERE name LIKE 'FB:%' AND active=1").get();
     await sendAdminMsg(chatId,
       `📊 <b>الإحصائيات الكاملة</b>\n\n📡 مصادر TG: ${tg.c}\n📘 مصادر FB: ${fb.c}\n📝 إجمالي منشورات: ${p.c}\n✅ نُشر اليوم: ${pub.c}\n❌ أخطاء اليوم: ${err.c}`,
-      [[{text:'🔙 رجوع', callback_data:'main'}]]);
+      backHome('main'));
 
   // ===== SOURCES MENU =====
   } else if(text === 'sources') {
@@ -886,7 +884,7 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
 
   } else if(text === 'list_sources') {
     const srcs = db.prepare('SELECT * FROM sources WHERE active=1 ORDER BY type').all();
-    if(!srcs.length) { await sendAdminMsg(chatId, '📡 لا توجد مصادر', [[{text:'🔙 رجوع', callback_data:'sources'}]]); return; }
+    if(!srcs.length) { await sendAdminMsg(chatId, '📡 لا توجد مصادر', backHome('sources')); return; }
     const keyboard = srcs.map(s => [{text: (s.type==='telegram'?'✈️ ':s.type==='youtube'?'▶️ ':'🌐 ')+s.name.substring(0,25), callback_data:'src_'+s.id}]);
     keyboard.push([{text:'🔙 رجوع', callback_data:'sources'}]);
     await sendAdminMsg(chatId, '📡 <b>المصادر النشطة - اختر للتعديل:</b>', keyboard);
@@ -959,7 +957,7 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
     if(src) {
       db.prepare('DELETE FROM sources WHERE id=?').run(id);
       setupTGSchedules();
-      await sendAdminMsg(chatId, '🗑️ تم حذف المصدر: '+src.name, [[{text:'🔙 المصادر', callback_data:'list_sources'}]]);
+      await sendAdminMsg(chatId, '🗑️ تم حذف المصدر: '+src.name, backHome('list_sources'));
     }
 
   } else if(text.startsWith('test_src_')) {
@@ -972,7 +970,7 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
         `✅ نجح الاتصال بـ @${ch}\nعدد المنشورات: ${r.posts.length}\n\n📨 آخر رسالة:\n${post.text.substring(0,300)}`,
         [[{text:'🔙 المصدر', callback_data:'src_'+ch}]]);
     } else {
-      await sendAdminMsg(chatId, '❌ تعذر قراءة @'+ch+'\n'+(r.message||''), [[{text:'🔙 المصادر', callback_data:'list_sources'}]]);
+      await sendAdminMsg(chatId, '❌ تعذر قراءة @'+ch+'\n'+(r.message||''), backHome('list_sources'));
     }
 
   } else if(text.startsWith('publish_last_')) {
@@ -1034,10 +1032,10 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
         return pubTo === ch.chat || pubTo === '@'+ch.chat.replace('@','');
       });
       if(!testSrc) testSrc = allSrcs[0];
-      if(!testSrc) { await sendAdminMsg(chatId, '❌ لا توجد مصادر مضافة لاختبار النشر', [[{text:'🔙 رجوع', callback_data:'my_channels'}]]); return; }
+      if(!testSrc) { await sendAdminMsg(chatId, '❌ لا توجد مصادر مضافة لاختبار النشر', backHome('my_channels')); return; }
       const srcCh = testSrc.url.replace('https://t.me/s/','');
       const readResult = await readTelegramChannel(srcCh);
-      if(!readResult.success || !readResult.posts.length) { await sendAdminMsg(chatId, '❌ تعذر قراءة المصدر @'+srcCh, [[{text:'🔙 رجوع', callback_data:'my_channels'}]]); return; }
+      if(!readResult.success || !readResult.posts.length) { await sendAdminMsg(chatId, '❌ تعذر قراءة المصدر @'+srcCh, backHome('my_channels')); return; }
       const post = readResult.posts[0];
       let finalText = post.text || '';
       const rules = JSON.parse(getSetting('tg_rules_'+srcCh,'{"mode":"rewrite"}'));
@@ -1066,11 +1064,11 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
         parse_mode: 'HTML'
       });
       await sendAdminMsg(chatId, '✅ تم إرسال رسالة تجريبية لـ '+ch.name+' بنجاح!',
-        [[{text:'🔙 قنواتي', callback_data:'my_channels'}]]);
+        backHome('my_channels'));
     } catch(e) {
       const errMsg = e.response?.data?.description || e.message;
       await sendAdminMsg(chatId, '❌ فشل الإرسال لـ '+ch.name+':\n'+errMsg+'\n\n⚠️ تأكد أن بوت النشر (@publishing_bot) مضاف كمشرف في القناة وليس بوت التحكم',
-        [[{text:'🔙 قنواتي', callback_data:'my_channels'}]]);
+        backHome('my_channels'));
     }
 
   } else if(text.startsWith('del_mych_')) {
@@ -1079,7 +1077,7 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
     try { channels = JSON.parse(getSetting('my_tg_channels','[]')); } catch(e) {}
     const removed = channels.splice(idx,1);
     setSetting('my_tg_channels', JSON.stringify(channels));
-    await sendAdminMsg(chatId, '🗑️ تم حذف '+(removed[0]?removed[0].name:'القناة'), [[{text:'🔙 قنواتي', callback_data:'my_channels'}]]);
+    await sendAdminMsg(chatId, '🗑️ تم حذف '+(removed[0]?removed[0].name:'القناة'), backHome('my_channels'));
 
   // ===== AI SETTINGS =====
   } else if(text === 'ai_settings') {
@@ -1095,15 +1093,15 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
   } else if(text.startsWith('set_ai_')) {
     const prov = text.replace('set_ai_','');
     setSetting('ai_provider', prov);
-    await sendAdminMsg(chatId, '✅ تم تغيير المزود إلى <b>'+prov+'</b>', [[{text:'🔙 إعدادات AI', callback_data:'ai_settings'}]]);
+    await sendAdminMsg(chatId, '✅ تم تغيير المزود إلى <b>'+prov+'</b>', backHome('ai_settings'));
 
   } else if(text === 'test_ai') {
     await sendAdminMsg(chatId, '🔄 جاري اختبار AI...');
     try {
       const result = await callAI('قل: البوت يعمل بنجاح', 20);
-      await sendAdminMsg(chatId, '✅ AI يعمل!\nالرد: '+result, [[{text:'🔙 رجوع', callback_data:'ai_settings'}]]);
+      await sendAdminMsg(chatId, '✅ AI يعمل!\nالرد: '+result, backHome('ai_settings'));
     } catch(e) {
-      await sendAdminMsg(chatId, '❌ خطأ في AI: '+e.message, [[{text:'🔙 رجوع', callback_data:'ai_settings'}]]);
+      await sendAdminMsg(chatId, '❌ خطأ في AI: '+e.message, backHome('ai_settings'));
     }
 
   // ===== WRITING STYLE =====
@@ -1122,12 +1120,12 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
   } else if(text.startsWith('set_tone_')) {
     const tone = text.replace('set_tone_','');
     setSetting('writing_tone', tone);
-    await sendAdminMsg(chatId, '✅ تم تغيير الأسلوب إلى <b>'+tone+'</b>', [[{text:'🔙 رجوع', callback_data:'writing_style'}]]);
+    await sendAdminMsg(chatId, '✅ تم تغيير الأسلوب إلى <b>'+tone+'</b>', backHome('writing_style'));
 
   } else if(text.startsWith('set_lang_')) {
     const lang = text.replace('set_lang_','');
     setSetting('content_lang', lang);
-    await sendAdminMsg(chatId, '✅ تم تغيير اللغة', [[{text:'🔙 رجوع', callback_data:'writing_style'}]]);
+    await sendAdminMsg(chatId, '✅ تم تغيير اللغة', backHome('writing_style'));
 
   } else if(text === 'edit_hashtags') {
     setSetting('admin_awaiting','edit_hashtags');
@@ -1151,7 +1149,7 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
   } else if(text === 'restart_schedules') {
     setupTGSchedules();
     await sendAdminMsg(chatId, '✅ تم إعادة تفعيل الجداول!\nعدد القنوات النشطة: '+Object.keys(tgIntervals).length,
-      [[{text:'🔙 رجوع', callback_data:'schedules'}]]);
+      backHome('schedules'));
 
   // ===== RUN =====
   } else if(text === 'run') {
@@ -1165,7 +1163,7 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
 
   } else if(text === 'test_publish_all') {
     const srcs = db.prepare("SELECT * FROM sources WHERE type='telegram' AND active=1").all();
-    if(!srcs.length) { await sendAdminMsg(chatId, '❌ لا توجد مصادر تيليغرام', [[{text:'🔙 رجوع', callback_data:'main'}]]); return; }
+    if(!srcs.length) { await sendAdminMsg(chatId, '❌ لا توجد مصادر تيليغرام', backHome('main')); return; }
     const keyboard = srcs.map(s => {
       const ch = s.url.replace('https://t.me/s/','');
       return [{text:'📤 @'+ch, callback_data:'force_pub_'+ch}];
@@ -1244,10 +1242,10 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
   // ===== POSTS =====
   } else if(text === 'posts') {
     const ps = db.prepare("SELECT p.*,s.name sname FROM posts p LEFT JOIN sources s ON p.source_id=s.id ORDER BY p.created_at DESC LIMIT 8").all();
-    if(!ps.length) { await sendAdminMsg(chatId, '📋 لا توجد منشورات', [[{text:'🔙 رجوع', callback_data:'main'}]]); return; }
+    if(!ps.length) { await sendAdminMsg(chatId, '📋 لا توجد منشورات', backHome('main')); return; }
     let msg = '📋 <b>آخر المنشورات:</b>\n\n';
     ps.forEach(p => { msg += `${p.status==='published'?'✅':'⏳'} ${(p.original_title||'بدون عنوان').substring(0,40)}\n<i>${p.sname||''} — ${p.status}</i>\n\n`; });
-    await sendAdminMsg(chatId, msg, [[{text:'🔙 رجوع', callback_data:'main'}]]);
+    await sendAdminMsg(chatId, msg, backHome('main'));
 
   // ===== FACEBOOK =====
   } else if(text === 'fb_menu') {
@@ -1305,7 +1303,7 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
   } else if(text.startsWith('del_fb_')) {
     const id = text.replace('del_fb_','');
     const src = db.prepare('SELECT name FROM sources WHERE id=?').get(id);
-    if(src) { db.prepare('DELETE FROM sources WHERE id=?').run(id); setupFBSchedules(); await sendAdminMsg(chatId, '🗑️ تم حذف '+src.name, [[{text:'🔙 رجوع', callback_data:'list_fb_sources'}]]); }
+    if(src) { db.prepare('DELETE FROM sources WHERE id=?').run(id); setupFBSchedules(); await sendAdminMsg(chatId, '🗑️ تم حذف '+src.name, backHome('list_fb_sources')); }
 
   } else if(text.startsWith('test_fb_src_')) {
     const id = text.replace('test_fb_src_','');
@@ -1323,11 +1321,11 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
 
   } else if(text === 'test_fb') {
     const webhook = getSetting('make_webhook');
-    if(!webhook) { await sendAdminMsg(chatId, '❌ لم يتم ربط Make.com', [[{text:'🔙 رجوع', callback_data:'fb_menu'}]]); return; }
+    if(!webhook) { await sendAdminMsg(chatId, '❌ لم يتم ربط Make.com', backHome('fb_menu')); return; }
     try {
       await axios.post(webhook, {content:'اختبار من بوت التحكم - '+new Date().toLocaleString('ar'), platform:'facebook', timestamp:new Date().toISOString()});
-      await sendAdminMsg(chatId, '✅ تم إرسال منشور تجريبي لفيسبوك!', [[{text:'🔙 رجوع', callback_data:'fb_menu'}]]);
-    } catch(e) { await sendAdminMsg(chatId, '❌ خطأ: '+e.message, [[{text:'🔙 رجوع', callback_data:'fb_menu'}]]); }
+      await sendAdminMsg(chatId, '✅ تم إرسال منشور تجريبي لفيسبوك!', backHome('fb_menu'));
+    } catch(e) { await sendAdminMsg(chatId, '❌ خطأ: '+e.message, backHome('fb_menu')); }
 
   } else if(text === 'fb_settings') {
     const maxPosts = getSetting('fb_max_daily','10');
@@ -1351,7 +1349,7 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
     setSetting('fb_max_daily', max);
     const label = max==='0'?'بلا حد':max+' منشورات';
     await sendAdminMsg(chatId, '✅ تم تعيين الحد اليومي: '+label,
-      [[{text:'🔙 إعدادات FB', callback_data:'fb_settings'}]]);
+      backHome('fb_settings'));
 
   } else if(text === 'set_fb_interval') {
     await sendAdminMsg(chatId, '⏰ اختر تكرار فحص مصادر فيسبوك:',
@@ -1368,7 +1366,7 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
     setupFBSchedules();
     const labels = {'15':'15 دقيقة','30':'30 دقيقة','60':'ساعة','120':'ساعتين','360':'6 ساعات','1440':'يومياً'};
     await sendAdminMsg(chatId, '✅ تم تغيير تكرار الفحص إلى: '+(labels[iv]||iv+' دقيقة')+'\nتم تطبيقه على جميع مصادر فيسبوك',
-      [[{text:'🔙 إعدادات FB', callback_data:'fb_settings'}]]);
+      backHome('fb_settings'));
 
   // ===== GENERAL SETTINGS =====
   } else if(text === 'general_settings') {
@@ -1383,11 +1381,11 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
 
   } else if(text === 'set_auto_1') {
     setSetting('auto_publish','1');
-    await sendAdminMsg(chatId, '✅ تم تفعيل النشر التلقائي', [[{text:'🔙 رجوع', callback_data:'general_settings'}]]);
+    await sendAdminMsg(chatId, '✅ تم تفعيل النشر التلقائي', backHome('general_settings'));
 
   } else if(text === 'set_auto_0') {
     setSetting('auto_publish','0');
-    await sendAdminMsg(chatId, '⏸ تم إيقاف النشر التلقائي', [[{text:'🔙 رجوع', callback_data:'general_settings'}]]);
+    await sendAdminMsg(chatId, '⏸ تم إيقاف النشر التلقائي', backHome('general_settings'));
 
   // ===== CONNECTION SETTINGS =====
   } else if(text === 'connection_settings') {
@@ -1527,7 +1525,7 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
              [{text:'📋 نقل حرفي (حذف المصدر)', callback_data:'new_src_mode_asis'}],
              [{text:'⚡ تحويل مباشر مع الوسائط', callback_data:'new_src_mode_forward'}]]);
         } else {
-          await sendAdminMsg(chatId, '❌ تعذر الوصول لـ @'+ch+'\n'+(r.message||''), [[{text:'🔙 رجوع', callback_data:'sources'}]]);
+          await sendAdminMsg(chatId, '❌ تعذر الوصول لـ @'+ch+'\n'+(r.message||''), backHome('sources'));
         }
       } catch(e) { await sendAdminMsg(chatId, '❌ خطأ: '+e.message); }
 
@@ -1556,28 +1554,28 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
       try { channels = JSON.parse(getSetting('my_tg_channels','[]')); } catch(e) {}
       channels.push({name:name, chat:chat});
       setSetting('my_tg_channels', JSON.stringify(channels));
-      await sendAdminMsg(chatId, '✅ تمت إضافة القناة: '+name+' ('+chat+')', [[{text:'🔙 قنواتي', callback_data:'my_channels'}]]);
+      await sendAdminMsg(chatId, '✅ تمت إضافة القناة: '+name+' ('+chat+')', backHome('my_channels'));
 
     } else if(awaiting === 'edit_hashtags') {
       setSetting('hashtags', text);
-      await sendAdminMsg(chatId, '✅ تم حفظ الهاشتاقات', [[{text:'🔙 رجوع', callback_data:'writing_style'}]]);
+      await sendAdminMsg(chatId, '✅ تم حفظ الهاشتاقات', backHome('writing_style'));
 
     } else if(awaiting === 'edit_tg_token') {
       try {
         const r = await axios.get(`https://api.telegram.org/bot${text}/getMe`);
         if(r.data.ok) {
           setSetting('telegram_token', text);
-          await sendAdminMsg(chatId, '✅ تم حفظ Bot Token - @'+r.data.result.username, [[{text:'🔙 رجوع', callback_data:'connection_settings'}]]);
+          await sendAdminMsg(chatId, '✅ تم حفظ Bot Token - @'+r.data.result.username, backHome('connection_settings'));
         } else { await sendAdminMsg(chatId, '❌ Token غير صحيح'); }
       } catch(e) { await sendAdminMsg(chatId, '❌ خطأ: '+e.message); }
 
     } else if(awaiting === 'edit_tg_chat') {
       setSetting('telegram_chat', text);
-      await sendAdminMsg(chatId, '✅ تم حفظ القناة الافتراضية: '+text, [[{text:'🔙 رجوع', callback_data:'connection_settings'}]]);
+      await sendAdminMsg(chatId, '✅ تم حفظ القناة الافتراضية: '+text, backHome('connection_settings'));
 
     } else if(awaiting === 'edit_webhook') {
       setSetting('make_webhook', text);
-      await sendAdminMsg(chatId, '✅ تم حفظ Make.com Webhook', [[{text:'🔙 رجوع', callback_data:'connection_settings'}]]);
+      await sendAdminMsg(chatId, '✅ تم حفظ Make.com Webhook', backHome('connection_settings'));
 
     } else if(awaiting.startsWith('edit_key_')) {
       const provider = awaiting.replace('edit_key_','');
@@ -1591,11 +1589,11 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
         const result = await callAI('قل: المفتاح يعمل', 15);
         await sendAdminMsg(chatId,
           '✅ مفتاح '+provider+' يعمل بنجاح!\nتم تعيينه كمزود رئيسي',
-          [[{text:'🔙 إعدادات الربط', callback_data:'connection_settings'}]]);
+          backHome('connection_settings'));
       } catch(e) {
         await sendAdminMsg(chatId,
           '⚠️ تم حفظ المفتاح لكن الاختبار فشل:\n'+e.message+'\nتحقق من صحة المفتاح',
-          [[{text:'🔙 إعدادات الربط', callback_data:'connection_settings'}]]);
+          backHome('connection_settings'));
       }
 
     } else if(awaiting === 'add_fb_tg_src') {
