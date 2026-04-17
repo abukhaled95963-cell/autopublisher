@@ -1174,10 +1174,16 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
          [{text:'⚖️ محايد موضوعي', callback_data:'new_src_tone_neutral'}]]);
     } else {
       setupTGSchedules();
-      const modeLabel = mode==='as-is'?'📋 نقل حرفي':'⚡ تحويل مباشر';
-      await sendAdminMsg(chatId, '✅ تم إعداد @'+ch+' بأسلوب '+modeLabel,
-        [[{text:'⏱ تعديل التكرار', callback_data:'interval_'+ch},{text:'📢 تعديل القناة', callback_data:'pubto_'+ch}],
-         [{text:'🧪 اختبار', callback_data:'test_src_'+ch},{text:'🔙 المصادر', callback_data:'list_sources'}]]);
+      let myChannels = [];
+      try { myChannels = JSON.parse(getSetting('my_tg_channels','[]')); } catch(e) {}
+      if(myChannels.length > 0) {
+        const keyboard = myChannels.map(c => [{text: c.name+' ('+c.chat+')', callback_data:'new_src_pub_'+c.chat}]);
+        keyboard.push([{text:'📢 القناة الافتراضية', callback_data:'new_src_pub_default'}]);
+        await sendAdminMsg(chatId, '📢 اختر القناة التي ينشر عليها @'+ch+':', keyboard);
+      } else {
+        await sendAdminMsg(chatId, '✅ تم إعداد @'+ch+'!\n\n⚠️ لم تضف قنوات للنشر بعد. اذهب لـ 📢 قنواتي لإضافة قنواتك',
+          [[{text:'📢 قنواتي', callback_data:'my_channels'},{text:'🔙 المصادر', callback_data:'list_sources'}]]);
+      }
     }
 
   } else if(text.startsWith('new_src_tone_')) {
@@ -1189,11 +1195,31 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
     setSetting('tg_rules_'+ch, JSON.stringify(rules));
     setSetting('tg_tone_'+ch, tone);
     setupTGSchedules();
-    const toneLabel = {'informative':'📰 إخباري','analytical':'🔍 تحليلي','engaging':'✨ جذاب','neutral':'⚖️ محايد'}[tone];
+    let myChannels2 = [];
+    try { myChannels2 = JSON.parse(getSetting('my_tg_channels','[]')); } catch(e) {}
+    if(myChannels2.length > 0) {
+      const keyboard = myChannels2.map(c => [{text: c.name+' ('+c.chat+')', callback_data:'new_src_pub_'+c.chat}]);
+      keyboard.push([{text:'📢 القناة الافتراضية', callback_data:'new_src_pub_default'}]);
+      await sendAdminMsg(chatId, '📢 اختر القناة التي ينشر عليها @'+ch+':', keyboard);
+    } else {
+      await sendAdminMsg(chatId, '✅ تم إعداد @'+ch+'!\n\n⚠️ لم تضف قنوات للنشر بعد. اذهب لـ 📢 قنواتي لإضافة قنواتك',
+        [[{text:'📢 قنواتي', callback_data:'my_channels'},{text:'🔙 المصادر', callback_data:'list_sources'}]]);
+    }
+
+  } else if(text.startsWith('new_src_pub_')) {
+    const ch = getSetting('admin_new_src_ch','');
+    const pubChat = text.replace('new_src_pub_','');
+    if(pubChat !== 'default' && ch) {
+      setSetting('tg_publish_to_'+ch, pubChat);
+    }
+    const rules = JSON.parse(getSetting('tg_rules_'+ch,'{"mode":"rewrite"}'));
+    const modeLabel = {'rewrite':'🤖 إعادة صياغة','as-is':'📋 نقل حرفي','forward':'⚡ تحويل مباشر'}[rules.mode]||'🤖';
+    const tone = getSetting('tg_tone_'+ch,'');
+    const toneLabel = tone ? {'informative':'📰 إخباري','analytical':'🔍 تحليلي','engaging':'✨ جذاب','neutral':'⚖️ محايد'}[tone]||'' : '';
     await sendAdminMsg(chatId,
-      '✅ تم إعداد @'+ch+' بالكامل!\n\nوضع النشر: 🤖 إعادة صياغة\nأسلوب الكتابة: '+toneLabel,
-      [[{text:'⏱ تعديل التكرار', callback_data:'interval_'+ch},{text:'📢 تعديل القناة', callback_data:'pubto_'+ch}],
-       [{text:'🧪 اختبار القراءة', callback_data:'test_src_'+ch},{text:'🔙 المصادر', callback_data:'list_sources'}]]);
+      '✅ تم إعداد @'+ch+' بالكامل!\n\nوضع النشر: '+modeLabel+(toneLabel?'\nأسلوب: '+toneLabel:'')+'\nينشر على: '+(pubChat==='default'?'القناة الافتراضية':pubChat),
+      [[{text:'⏱ تعديل التكرار', callback_data:'interval_'+ch},{text:'🧪 اختبار', callback_data:'test_src_'+ch}],
+       [{text:'🔙 المصادر', callback_data:'list_sources'},{text:'🏠 الرئيسية', callback_data:'main'}]]);
 
   // ===== AWAITING INPUT =====
   } else {
