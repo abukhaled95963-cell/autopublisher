@@ -976,9 +976,44 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
     const tgToken = getSetting('telegram_token');
     if(!tgToken) { await sendAdminMsg(chatId, '❌ Bot Token غير مضاف في إعدادات الربط'); return; }
     try {
+      // Find a source that publishes to this channel
+      const allSrcs = db.prepare("SELECT * FROM sources WHERE type='telegram' AND active=1").all();
+      let testSrc = allSrcs.find(s => {
+        const srcCh = s.url.replace('https://t.me/s/','');
+        const pubTo = getSetting('tg_publish_to_'+srcCh,'') || getSetting('telegram_chat','');
+        return pubTo === ch.chat || pubTo === '@'+ch.chat.replace('@','');
+      });
+      if(!testSrc) testSrc = allSrcs[0];
+      if(!testSrc) { await sendAdminMsg(chatId, '❌ لا توجد مصادر مضافة لاختبار النشر', [[{text:'🔙 رجوع', callback_data:'my_channels'}]]); return; }
+      const srcCh = testSrc.url.replace('https://t.me/s/','');
+      const readResult = await readTelegramChannel(srcCh);
+      if(!readResult.success || !readResult.posts.length) { await sendAdminMsg(chatId, '❌ تعذر قراءة المصدر @'+srcCh, [[{text:'🔙 رجوع', callback_data:'my_channels'}]]); return; }
+      const post = readResult.posts[0];
+      let finalText = post.text || '';
+      const rules = JSON.parse(getSetting('tg_rules_'+srcCh,'{"mode":"rewrite"}'));
+      if(rules.mode === 'rewrite' && finalText) {
+        try {
+          const isNonArabic = !/[\u0600-\u06FF]/.test(finalText.substring(0,50));
+          const prompt = isNonArabic
+            ? 'Translate and rewrite as professional Arabic news. No source mention. No URLs:\n'+finalText+'\nReturn Arabic only.'
+            : 'أعد صياغة هذا الخبر بالعربية الاحترافية. لا تذكر المصدر أو روابط:\n'+finalText+'\nأعد الخبر فقط.';
+          finalText = await callAI(prompt, 500);
+          const refusals = ['لا أستطيع','لا يمكنني','عذراً'];
+          if(refusals.some(r=>finalText.includes(r))) finalText = post.text;
+        } catch(e) { finalText = post.text; }
+      }
+      finalText = finalText.replace(/https?:\/\/\S+/g,'').replace(/t\.me\/\S+/g,'').trim();
+      let myChannelLink = '';
+      try {
+        const myChans = JSON.parse(getSetting('my_tg_channels','[]'));
+        const mc = myChans.find(c=>c.chat===ch.chat||c.chat==='@'+ch.chat.replace('@',''));
+        if(mc) myChannelLink = '\n\n📢 @'+mc.chat.replace('@','');
+      } catch(e) {}
+      finalText = finalText + myChannelLink;
       await axios.post(`https://api.telegram.org/bot${tgToken}/sendMessage`,{
         chat_id: ch.chat,
-        text: '✅ اختبار من نظام النشر الآلي - البوت يعمل بنجاح!'
+        text: finalText,
+        parse_mode: 'HTML'
       });
       await sendAdminMsg(chatId, '✅ تم إرسال رسالة تجريبية لـ '+ch.name+' بنجاح!',
         [[{text:'🔙 قنواتي', callback_data:'my_channels'}]]);
