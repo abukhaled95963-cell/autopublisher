@@ -152,6 +152,19 @@ async function notifyAdminAIFailed(error) {
   } catch(e) {}
 }
 
+async function notifyAdminUpdate(version, changes) {
+  const adminToken = getSetting('admin_bot_token');
+  const adminChatId = getSetting('admin_chat_id');
+  if(!adminToken || !adminChatId) return;
+  try {
+    await axios.post(`https://api.telegram.org/bot${adminToken}/sendMessage`,{
+      chat_id: adminChatId,
+      text: '🚀 <b>تحديث جديد!</b>\n\n📦 الإصدار: <b>'+version+'</b>\n\n📝 التغييرات:\n'+changes+'\n\n🕐 '+new Date().toLocaleString('ar-SA',{timeZone:'Asia/Riyadh'}),
+      parse_mode: 'HTML'
+    });
+  } catch(e) { console.log('Notify update error:', e.message); }
+}
+
 // ===== Text filters =====
 function filterSourceLinks(text) {
   if(!text) return '';
@@ -1801,8 +1814,37 @@ app.get('/api/test/gemini-debug', async(req,res) => {
   }
 });
 
+app.get('/api/build-info', (req,res) => {
+  res.json({
+    version: getSetting('app_version','1.0.0'),
+    commitMsg: process.env.RAILWAY_GIT_COMMIT_MESSAGE || 'N/A',
+    commitSha: process.env.RAILWAY_GIT_COMMIT_SHA || 'N/A',
+    nodeEnv: process.env.NODE_ENV || 'N/A',
+    uptime: process.uptime()
+  });
+});
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log('Server on port', PORT));
+app.listen(PORT, async () => {
+  console.log('Server on port', PORT, '| DB:', DB_PATH);
+
+  setTimeout(async () => {
+    try {
+      const currentVersion = getSetting('app_version', '1.0.0');
+      const lastNotified = getSetting('last_notified_version', '');
+      const commitMsg = process.env.RAILWAY_GIT_COMMIT_MESSAGE || getSetting('last_commit_msg', '');
+      const commitSha = process.env.RAILWAY_GIT_COMMIT_SHA || '';
+
+      if(lastNotified !== currentVersion || commitSha !== getSetting('last_notified_sha','')) {
+        setSetting('last_notified_version', currentVersion);
+        setSetting('last_notified_sha', commitSha);
+
+        const changes = commitMsg ? '• '+commitMsg : '• تحديث النظام';
+        await notifyAdminUpdate(currentVersion, changes + (commitSha ? '\n\n🔖 '+commitSha.substring(0,7) : ''));
+      }
+    } catch(e) {}
+  }, 8000);
+});
 
 // ===== Per-Channel TG Scheduling =====
 // Store active intervals
