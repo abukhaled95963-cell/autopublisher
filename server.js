@@ -104,8 +104,15 @@ async function callAI(prompt, maxTokens) {
         try {
           const r = await axios.post(
             'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
-            {contents:[{parts:[{text:prompt}]}], generationConfig:{maxOutputTokens:maxTokens}},
-            {headers:{'x-goog-api-key': key, 'Content-Type':'application/json'}, timeout:30000}
+            {
+              contents:[{parts:[{text:prompt}]}],
+              generationConfig:{
+                maxOutputTokens: Math.max(maxTokens, 1024),
+                temperature: 0.7,
+                stopSequences: []
+              }
+            },
+            {headers:{'x-goog-api-key': key, 'Content-Type':'application/json'}, timeout:45000}
           );
           return r.data.candidates[0].content.parts[0].text;
         } catch(e) {
@@ -2000,6 +2007,24 @@ function fixArabicText(text) {
   return t.trim();
 }
 
+function validateRewrittenText(original, rewritten) {
+  if(!rewritten || rewritten.trim().length < 20) return null;
+
+  const sentences = rewritten.split(/[.؟!]/g).filter(s => s.trim().length > 10);
+  const uniqueSentences = new Set(sentences.map(s => s.trim().substring(0,30)));
+  if(sentences.length > 3 && uniqueSentences.size < sentences.length * 0.6) {
+    console.log('Repetition detected, using original');
+    return null;
+  }
+
+  if(original && rewritten.length < original.length * 0.2 && original.length > 100) {
+    console.log('Rewritten too short, using original');
+    return null;
+  }
+
+  return rewritten;
+}
+
 async function processTGChannel(channel) {
   try {
     const publishTo = getSetting('tg_publish_to_'+channel, '');
@@ -2074,8 +2099,8 @@ async function processTGChannel(channel) {
             const toneMap = {informative:'إخباري احترافي', analytical:'تحليلي معمق', engaging:'جذاب وشيق', neutral:'محايد موضوعي'};
             const toneAr = toneMap[srcTone] || 'إخباري احترافي';
             const prompt = isArabicText(text)
-              ? 'أعد صياغة هذا الخبر بالعربية الفصحى بأسلوب '+toneAr+'.\n\nقواعد صارمة:\n1. اكتب بالعربية فقط - ممنوع أي حرف من لغة أخرى\n2. إذا وجدت كلمات غير عربية في المصدر، ترجمها أو احذفها\n3. لا تذكر اسم القناة أو المصدر أو أي روابط\n4. إذا كان النص إعلاناً أو رأياً شخصياً بدون خبر حقيقي: أجب فقط بكلمة SKIP\n5. الحد الأقصى 250 كلمة\n\nالخبر:\n' + text + '\n\nأعد الخبر بالعربية فقط بدون أي حرف أجنبي.'
-              : 'You are a professional Arabic translator and news editor. Style: '+toneAr+'.\n\nYour task: Translate and rewrite the following text into fluent, professional Arabic.\n\nSTRICT RULES:\n1. ALWAYS write the output in Arabic ONLY - translate everything\n2. NEVER leave any English, Chinese, Russian, or other non-Arabic words in the output\n3. Do NOT mention the source, channel name, or any URLs\n4. If the text is ONLY an advertisement, spam, or meaningless: reply with exactly the word SKIP\n5. Keep the meaning intact, maximum 250 words\n\nText to translate:\n' + text + '\n\nWrite the Arabic translation now:';
+              ? 'أعد صياغة هذا الخبر بالعربية الفصحى بأسلوب '+toneAr+'.\n\nقواعد صارمة:\n1. اكتب بالعربية فقط - ممنوع أي حرف من لغة أخرى\n2. إذا وجدت كلمات غير عربية في المصدر، ترجمها أو احذفها\n3. لا تذكر اسم القناة أو المصدر أو أي روابط\n4. إذا كان النص إعلاناً أو رأياً شخصياً بدون خبر حقيقي: أجب فقط بكلمة SKIP\n5. الحد الأقصى 250 كلمة\n\nالخبر:\n' + text + '\n\nأعد الخبر بالعربية فقط بدون أي حرف أجنبي.\nمهم: لا تكرر الجمل. اكتب كل جملة مرة واحدة فقط. النص يجب أن يكون مكتملاً وغير منقوص.'
+              : 'You are a professional Arabic translator and news editor. Style: '+toneAr+'.\n\nYour task: Translate and rewrite the following text into fluent, professional Arabic.\n\nSTRICT RULES:\n1. ALWAYS write the output in Arabic ONLY - translate everything\n2. NEVER leave any English, Chinese, Russian, or other non-Arabic words in the output\n3. Do NOT mention the source, channel name, or any URLs\n4. If the text is ONLY an advertisement, spam, or meaningless: reply with exactly the word SKIP\n5. Keep the meaning intact, maximum 250 words\n\nText to translate:\n' + text + '\n\nWrite the Arabic translation now:\nIMPORTANT: Do not repeat sentences. Write each idea only once. The text must be complete and not truncated.';
             let rewritten = '';
             try {
               rewritten = await callAI(prompt, 800);
@@ -2086,6 +2111,11 @@ async function processTGChannel(channel) {
                 aiFailedNotified = true;
                 notifyAdminAIFailed(e.message).catch(()=>{});
               }
+            }
+
+            if(rewritten) {
+              const validated = validateRewrittenText(text, rewritten);
+              if(!validated) { rewritten = ''; } else { rewritten = validated; }
             }
 
             if(!rewritten || rewritten.trim().length < 10) {
