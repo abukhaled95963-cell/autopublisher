@@ -783,7 +783,8 @@ function getMainKeyboard() {
     [{text:'▶️ تشغيل الآن', callback_data:'run'}, {text:'⏰ الجداول', callback_data:'schedules'}],
     [{text:'🤖 إعدادات AI', callback_data:'ai_settings'}, {text:'📢 قنواتي', callback_data:'my_channels'}],
     [{text:'📘 فيسبوك', callback_data:'fb_menu'}, {text:'📋 آخر المنشورات', callback_data:'posts'}],
-    [{text:'⚙️ الإعدادات', callback_data:'settings'}, {text:'🔄 إعادة تشغيل الجداول', callback_data:'restart_schedules'}]
+    [{text:'⚙️ الإعدادات', callback_data:'general_settings'}, {text:'🔗 إعدادات الربط', callback_data:'connection_settings'}],
+    [{text:'🔄 إعادة تشغيل الجداول', callback_data:'restart_schedules'}]
   ];
 }
 
@@ -969,22 +970,21 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
     const idx = parseInt(text.replace('test_mych_',''));
     let channels = [];
     try { channels = JSON.parse(getSetting('my_tg_channels','[]')); } catch(e) {}
-    if(idx >= channels.length) return;
     const ch = channels[idx];
-    const token = getSetting('telegram_token');
-    if(!token) { await sendAdminMsg(chatId, '❌ لم يتم إعداد توكن البوت الرئيسي', [[{text:'🔙 قنواتي', callback_data:'my_channels'}]]); return; }
+    if(!ch) { await sendAdminMsg(chatId, '❌ القناة غير موجودة'); return; }
+    const tgToken = getSetting('telegram_token');
+    if(!tgToken) { await sendAdminMsg(chatId, '❌ Bot Token غير مضاف في إعدادات الربط'); return; }
     try {
-      const r = await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, {
-        chat_id: ch.chat, text: '🧪 اختبار الوصول — بوت النشر الآلي يعمل بنجاح!', parse_mode: 'HTML'
+      await axios.post(`https://api.telegram.org/bot${tgToken}/sendMessage`,{
+        chat_id: ch.chat,
+        text: '✅ اختبار من نظام النشر الآلي - البوت يعمل بنجاح!'
       });
-      if(r.data.ok) {
-        await sendAdminMsg(chatId, '✅ تم إرسال رسالة تجريبية إلى '+ch.name+' ('+ch.chat+')', [[{text:'🔙 قنواتي', callback_data:'my_channels'}]]);
-      } else {
-        await sendAdminMsg(chatId, '❌ فشل الإرسال — تأكد أن البوت مشرف في القناة', [[{text:'🔙 قنواتي', callback_data:'my_channels'}]]);
-      }
+      await sendAdminMsg(chatId, '✅ تم إرسال رسالة تجريبية لـ '+ch.name+' بنجاح!',
+        [[{text:'🔙 قنواتي', callback_data:'my_channels'}]]);
     } catch(e) {
       const errMsg = e.response?.data?.description || e.message;
-      await sendAdminMsg(chatId, '❌ خطأ: '+errMsg+'\n\nتأكد أن البوت مضاف كمشرف في القناة '+ch.chat, [[{text:'🔙 قنواتي', callback_data:'my_channels'}]]);
+      await sendAdminMsg(chatId, '❌ فشل الإرسال لـ '+ch.name+':\n'+errMsg+'\n\n⚠️ تأكد أن بوت النشر (@publishing_bot) مضاف كمشرف في القناة وليس بوت التحكم',
+        [[{text:'🔙 قنواتي', callback_data:'my_channels'}]]);
     }
 
   } else if(text.startsWith('del_mych_')) {
@@ -1122,6 +1122,7 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
       `⚙️ <b>الإعدادات العامة</b>\n\nنشر تلقائي: ${auto==='1'?'✅ مفعل':'❌ معطل'}\nوقت الجلب اليومي: ${ct}`,
       [[{text:auto==='1'?'⏸ إيقاف النشر':'▶️ تفعيل النشر', callback_data:auto==='1'?'set_auto_0':'set_auto_1'}],
        [{text:'🕐 تغيير وقت الجلب', callback_data:'edit_check_time'}],
+       [{text:'🔗 إعدادات الربط', callback_data:'connection_settings'}],
        [{text:'🔙 رجوع', callback_data:'main'}]]);
 
   } else if(text === 'set_auto_1') {
@@ -1131,6 +1132,33 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
   } else if(text === 'set_auto_0') {
     setSetting('auto_publish','0');
     await sendAdminMsg(chatId, '⏸ تم إيقاف النشر التلقائي', [[{text:'🔙 رجوع', callback_data:'general_settings'}]]);
+
+  // ===== CONNECTION SETTINGS =====
+  } else if(text === 'connection_settings') {
+    const tgToken = getSetting('telegram_token');
+    const tgChat = getSetting('telegram_chat');
+    const webhook = getSetting('make_webhook');
+    const aiProvider = getSetting('ai_provider','groq');
+    const hasGroq = !!getSetting('groq_key');
+    const hasGemini = !!getSetting('gemini_key');
+    const hasClaude = !!getSetting('claude_key');
+    await sendAdminMsg(chatId,
+      `🔗 <b>إعدادات الربط</b>\n\n✈️ Bot Token: ${tgToken?'✅ مضاف':'❌ غير مضاف'}\n📢 القناة الافتراضية: ${tgChat||'غير محددة'}\n📘 Make.com: ${webhook?'✅ مربوط':'❌ غير مربوط'}\n🤖 AI: ${aiProvider} ${hasGroq||hasGemini||hasClaude?'✅':'❌'}`,
+      [[{text:'🔑 تعديل Bot Token', callback_data:'edit_tg_token'},{text:'📢 تعديل القناة', callback_data:'edit_tg_chat'}],
+       [{text:'🔗 تعديل Make.com', callback_data:'edit_webhook'},{text:'🤖 إعدادات AI', callback_data:'ai_settings'}],
+       [{text:'🔙 رجوع', callback_data:'general_settings'}]]);
+
+  } else if(text === 'edit_tg_token') {
+    setSetting('admin_awaiting','edit_tg_token');
+    await sendAdminMsg(chatId, '🔑 أرسل Bot Token الجديد (من @BotFather):', [[{text:'❌ إلغاء', callback_data:'cancel_awaiting'}]]);
+
+  } else if(text === 'edit_tg_chat') {
+    setSetting('admin_awaiting','edit_tg_chat');
+    await sendAdminMsg(chatId, '📢 أرسل معرف القناة الافتراضية للنشر (@channel أو -100...):', [[{text:'❌ إلغاء', callback_data:'cancel_awaiting'}]]);
+
+  } else if(text === 'edit_webhook') {
+    setSetting('admin_awaiting','edit_webhook');
+    await sendAdminMsg(chatId, '🔗 أرسل رابط Make.com Webhook:', [[{text:'❌ إلغاء', callback_data:'cancel_awaiting'}]]);
 
   // ===== AWAITING INPUT =====
   } else {
@@ -1183,6 +1211,23 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
     } else if(awaiting === 'edit_hashtags') {
       setSetting('hashtags', text);
       await sendAdminMsg(chatId, '✅ تم حفظ الهاشتاقات', [[{text:'🔙 رجوع', callback_data:'writing_style'}]]);
+
+    } else if(awaiting === 'edit_tg_token') {
+      try {
+        const r = await axios.get(`https://api.telegram.org/bot${text}/getMe`);
+        if(r.data.ok) {
+          setSetting('telegram_token', text);
+          await sendAdminMsg(chatId, '✅ تم حفظ Bot Token - @'+r.data.result.username, [[{text:'🔙 رجوع', callback_data:'connection_settings'}]]);
+        } else { await sendAdminMsg(chatId, '❌ Token غير صحيح'); }
+      } catch(e) { await sendAdminMsg(chatId, '❌ خطأ: '+e.message); }
+
+    } else if(awaiting === 'edit_tg_chat') {
+      setSetting('telegram_chat', text);
+      await sendAdminMsg(chatId, '✅ تم حفظ القناة الافتراضية: '+text, [[{text:'🔙 رجوع', callback_data:'connection_settings'}]]);
+
+    } else if(awaiting === 'edit_webhook') {
+      setSetting('make_webhook', text);
+      await sendAdminMsg(chatId, '✅ تم حفظ Make.com Webhook', [[{text:'🔙 رجوع', callback_data:'connection_settings'}]]);
     }
   }
 }
