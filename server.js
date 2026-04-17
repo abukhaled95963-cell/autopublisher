@@ -134,7 +134,22 @@ async function callAI(prompt, maxTokens) {
       continue;
     }
   }
-  throw new Error('All AI providers failed. Last: ' + (lastError?.message || 'unknown'));
+  throw new Error('ALL_AI_FAILED:' + (lastError?.message || 'unknown'));
+}
+
+var aiFailedNotified = false;
+
+async function notifyAdminAIFailed(error) {
+  const adminToken = getSetting('admin_bot_token');
+  const adminChatId = getSetting('admin_chat_id');
+  if(!adminToken || !adminChatId) return;
+  try {
+    await axios.post('https://api.telegram.org/bot'+adminToken+'/sendMessage',{
+      chat_id: adminChatId,
+      text: '⚠️ تحذير: جميع مفاتيح AI توقفت!\n\n'+error+'\n\nالقنوات العربية تنشر بدون صياغة.\nالقنوات غير العربية موقوفة مؤقتاً.\n\nافتح البوت وأضف مفتاحاً جديداً من إعدادات الربط 🔗',
+      parse_mode: 'HTML'
+    });
+  } catch(e) {}
 }
 
 // ===== Text filters =====
@@ -695,7 +710,13 @@ async function processFBSource(source) {
 أعد المنشور فقط بدون أي مقدمة.`;
 
       let fbText = text;
-      try { fbText = await callAI(prompt, 600); } catch(e) {}
+      try {
+        fbText = await callAI(prompt,500);
+        aiFailedNotified = false;
+      } catch(e) {
+        console.log('FB AI failed, using cleaned original');
+        fbText = text.replace(/https?:\/\/\S+/g,'').replace(/t\.me\/\S+/g,'').replace(/@[\w\d]+/g,'').trim();
+      }
 
       // Save to DB
       const pid = db.prepare(`INSERT OR IGNORE INTO posts 
@@ -1827,28 +1848,45 @@ async function processTGChannel(channel) {
             const prompt = isArabicText(text)
               ? 'أعد صياغة هذا الخبر بالعربية الفصحى بأسلوب '+toneAr+'.\n\nقواعد صارمة:\n1. اكتب بالعربية فقط - ممنوع أي حرف من لغة أخرى\n2. إذا وجدت كلمات غير عربية في المصدر، ترجمها أو احذفها\n3. لا تذكر اسم القناة أو المصدر أو أي روابط\n4. إذا كان النص إعلاناً أو رأياً شخصياً بدون خبر حقيقي: أجب فقط بكلمة SKIP\n5. الحد الأقصى 250 كلمة\n\nالخبر:\n' + text + '\n\nأعد الخبر بالعربية فقط بدون أي حرف أجنبي.'
               : 'You are a professional Arabic translator and news editor. Style: '+toneAr+'.\n\nYour task: Translate and rewrite the following text into fluent, professional Arabic.\n\nSTRICT RULES:\n1. ALWAYS write the output in Arabic ONLY - translate everything\n2. NEVER leave any English, Chinese, Russian, or other non-Arabic words in the output\n3. Do NOT mention the source, channel name, or any URLs\n4. If the text is ONLY an advertisement, spam, or meaningless: reply with exactly the word SKIP\n5. Keep the meaning intact, maximum 250 words\n\nText to translate:\n' + text + '\n\nWrite the Arabic translation now:';
-            await new Promise(r=>setTimeout(r,2000));
             let rewritten = '';
             try {
               rewritten = await callAI(prompt, 800);
+              aiFailedNotified = false;
             } catch(e) {
-              if(e.message && e.message.includes('429')) {
-                console.log('Rate limit 429, waiting 15s then retry...');
-                await new Promise(r=>setTimeout(r,15000));
-                try { rewritten = await callAI(prompt, 800); } catch(e2) {
-                  console.log('Retry also failed:', e2.message);
-                  rewritten = '';
-                }
-              } else {
-                throw e;
+              console.log('AI failed for @'+channel+':', e.message);
+              if(!aiFailedNotified) {
+                aiFailedNotified = true;
+                notifyAdminAIFailed(e.message).catch(()=>{});
               }
             }
+
+            if(!rewritten || rewritten.trim().length < 10) {
+              const isNonArabic = !/[\u0600-\u06FF]/.test(text.substring(0,50));
+              if(isNonArabic) {
+                console.log('Skipping non-Arabic post - no AI for @'+channel);
+                db.prepare('INSERT OR IGNORE INTO posts (source_id,original_title,original_url,original_content,status) VALUES(0,?,?,?,?)').run('NO_AI:'+post.msgId, key, text, 'ignored');
+                await new Promise(r=>setTimeout(r,800));
+                continue;
+              } else {
+                rewritten = text
+                  .replace(/https?:\/\/\S+/g,'')
+                  .replace(/t\.me\/\S+/g,'')
+                  .replace(/@[\w\d]+/g,'')
+                  .trim();
+                console.log('AI unavailable - publishing Arabic as-is for @'+channel);
+              }
+            }
+
             if(rewritten && rewritten.trim() === 'SKIP') {
               skipped = true;
             } else {
               const refusalPhrases = ['لا أستطيع','لا يمكنني','عذراً','آسف','I cannot','I am unable','أنصحك','مصادر موثوقة','لا أملك','غير قادر'];
-              if(!rewritten || refusalPhrases.some(p => rewritten.includes(p))) throw new Error('ai_refusal');
-              rewritten = cleanArabicOnly(cleanRewrittenText(rewritten));
+              if(!rewritten || refusalPhrases.some(p => rewritten.includes(p))) {
+                rewritten = text.replace(/https?:\/\/\S+/g,'').replace(/t\.me\/\S+/g,'').replace(/@[\w\d]+/g,'').trim();
+                usedFallback = true;
+              } else {
+                rewritten = cleanArabicOnly(cleanRewrittenText(rewritten));
+              }
               finalText = appendMine(filterSourceLinks(rewritten));
             }
           }
