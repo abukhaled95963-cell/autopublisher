@@ -709,6 +709,7 @@ async function processFBSource(source) {
 
 أعد المنشور فقط بدون أي مقدمة.`;
 
+      console.log('FB processing source:', source.name, 'text length:', text.length, 'preview:', text.substring(0,80));
       let fbText = text;
       try {
         fbText = await callAI(prompt,500);
@@ -732,8 +733,19 @@ async function processFBSource(source) {
 
       // Send to Make.com webhook
       try {
+        // Validate content is not empty before sending
+        if(!fbText || fbText.trim().length < 10) {
+          console.log('FB content empty, skipping webhook for:', source.name);
+          db.prepare("INSERT INTO publish_log(post_id,platform,status,message) VALUES(?,'facebook','error','empty content')").run(pid);
+          continue;
+        }
+
+        console.log('Sending to FB webhook, content length:', fbText.length, 'preview:', fbText.substring(0,50));
+
         await axios.post(webhook, {
-          content: fbText,
+          content: fbText.trim(),
+          message: fbText.trim(),
+          text: fbText.trim(),
           platform: 'facebook',
           source: source.name,
           timestamp: new Date().toISOString()
