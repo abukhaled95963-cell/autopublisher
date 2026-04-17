@@ -1259,8 +1259,11 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
     const hasClaude = !!getSetting('claude_key');
     await sendAdminMsg(chatId,
       `🔗 <b>إعدادات الربط</b>\n\n✈️ Bot Token: ${tgToken?'✅ مضاف':'❌ غير مضاف'}\n📢 القناة الافتراضية: ${tgChat||'غير محددة'}\n📘 Make.com: ${webhook?'✅ مربوط':'❌ غير مربوط'}\n🤖 AI: ${aiProvider} ${hasGroq||hasGemini||hasClaude?'✅':'❌'}`,
-      [[{text:'🔑 تعديل Bot Token', callback_data:'edit_tg_token'},{text:'📢 تعديل القناة', callback_data:'edit_tg_chat'}],
-       [{text:'🔗 تعديل Make.com', callback_data:'edit_webhook'},{text:'🤖 إعدادات AI', callback_data:'ai_settings'}],
+      [[{text:'🔑 Bot Token', callback_data:'edit_tg_token'},{text:'📢 القناة الافتراضية', callback_data:'edit_tg_chat'}],
+       [{text:'🔗 Make.com Webhook', callback_data:'edit_webhook'}],
+       [{text:'⚡ مفتاح Groq', callback_data:'edit_key_groq'},{text:'💎 مفتاح Gemini', callback_data:'edit_key_gemini'}],
+       [{text:'🤖 مفتاح Claude', callback_data:'edit_key_claude'},{text:'🚀 مفتاح OpenAI', callback_data:'edit_key_openai'}],
+       [{text:'🧪 اختبار AI الحالي', callback_data:'test_ai'}],
        [{text:'🔙 رجوع', callback_data:'general_settings'}]]);
 
   } else if(text === 'edit_tg_token') {
@@ -1274,6 +1277,15 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
   } else if(text === 'edit_webhook') {
     setSetting('admin_awaiting','edit_webhook');
     await sendAdminMsg(chatId, '🔗 أرسل رابط Make.com Webhook:', [[{text:'❌ إلغاء', callback_data:'cancel_awaiting'}]]);
+
+  } else if(text.startsWith('edit_key_')) {
+    const provider = text.replace('edit_key_','');
+    const providerNames = {groq:'Groq', gemini:'Gemini', claude:'Claude', openai:'OpenAI'};
+    const placeholders = {groq:'gsk_...', gemini:'AIzaSy...', claude:'sk-ant-...', openai:'sk-...'};
+    setSetting('admin_awaiting','edit_key_'+provider);
+    await sendAdminMsg(chatId,
+      '🔑 أرسل مفتاح '+providerNames[provider]+' API:\n('+placeholders[provider]+')',
+      [[{text:'❌ إلغاء', callback_data:'cancel_awaiting'}]]);
 
   // ===== NEW SOURCE MODE/TONE =====
   } else if(text === 'new_src_mode_rewrite' || text === 'new_src_mode_asis' || text === 'new_src_mode_forward') {
@@ -1408,6 +1420,25 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
     } else if(awaiting === 'edit_webhook') {
       setSetting('make_webhook', text);
       await sendAdminMsg(chatId, '✅ تم حفظ Make.com Webhook', [[{text:'🔙 رجوع', callback_data:'connection_settings'}]]);
+
+    } else if(awaiting.startsWith('edit_key_')) {
+      const provider = awaiting.replace('edit_key_','');
+      const keyNames = {groq:'groq_key', gemini:'gemini_key', claude:'claude_key', openai:'openai_key'};
+      const keyName = keyNames[provider];
+      if(!keyName) return;
+      setSetting(keyName, text);
+      setSetting('ai_provider', provider);
+      await sendAdminMsg(chatId, '🔄 جاري اختبار مفتاح '+provider+'...');
+      try {
+        const result = await callAI('قل: المفتاح يعمل', 15);
+        await sendAdminMsg(chatId,
+          '✅ مفتاح '+provider+' يعمل بنجاح!\nتم تعيينه كمزود رئيسي',
+          [[{text:'🔙 إعدادات الربط', callback_data:'connection_settings'}]]);
+      } catch(e) {
+        await sendAdminMsg(chatId,
+          '⚠️ تم حفظ المفتاح لكن الاختبار فشل:\n'+e.message+'\nتحقق من صحة المفتاح',
+          [[{text:'🔙 إعدادات الربط', callback_data:'connection_settings'}]]);
+      }
     }
   }
 }
