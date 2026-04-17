@@ -1081,19 +1081,80 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
   } else if(text === 'test_publish_all') {
     const srcs = db.prepare("SELECT * FROM sources WHERE type='telegram' AND active=1").all();
     if(!srcs.length) { await sendAdminMsg(chatId, '❌ لا توجد مصادر تيليغرام', [[{text:'🔙 رجوع', callback_data:'main'}]]); return; }
-    await sendAdminMsg(chatId, '🔄 جاري اختبار النشر من '+srcs.length+' قناة...');
+    const keyboard = srcs.map(s => {
+      const ch = s.url.replace('https://t.me/s/','');
+      return [{text:'📤 @'+ch, callback_data:'force_pub_'+ch}];
+    });
+    keyboard.push([{text:'📤 نشر من الكل', callback_data:'force_pub_all'}]);
+    keyboard.push([{text:'🔙 رجوع', callback_data:'main'}]);
+    await sendAdminMsg(chatId, '📤 اختر القناة لنشر آخر رسالة منها على قناتك:', keyboard);
+
+  } else if(text.startsWith('force_pub_') && text !== 'force_pub_all') {
+    const ch = text.replace('force_pub_','');
+    await sendAdminMsg(chatId, '🔄 جاري جلب آخر رسالة من @'+ch+' ونشرها...');
+    try {
+      const result = await readTelegramChannel(ch);
+      if(!result.success || !result.posts.length) {
+        await sendAdminMsg(chatId, '❌ تعذر قراءة @'+ch+'\n'+(result.message||''), [[{text:'🔙 رجوع', callback_data:'test_publish_all'}]]);
+        return;
+      }
+      const post = result.posts[0];
+      const tgToken = getSetting('telegram_token');
+      const publishTo = getSetting('tg_publish_to_'+ch,'') || getSetting('telegram_chat','');
+      if(!tgToken || !publishTo) {
+        await sendAdminMsg(chatId, '❌ Bot Token أو القناة غير مضافة', [[{text:'🔗 إعدادات الربط', callback_data:'connection_settings'}]]);
+        return;
+      }
+      const rules = JSON.parse(getSetting('tg_rules_'+ch,'{"mode":"rewrite"}'));
+      const mode = rules.mode || 'rewrite';
+      let finalText = post.text;
+      if(mode === 'rewrite' || mode === 'as-is') {
+        if(mode === 'rewrite') {
+          try {
+            const isNonArabic = !/[\u0600-\u06FF]/.test((post.text||'').substring(0,50));
+            const prompt = isNonArabic
+              ? 'Translate and rewrite as professional Arabic news. No source mention. No URLs:\n'+post.text+'\nReturn Arabic only.'
+              : 'أعد صياغة هذا الخبر بالعربية الاحترافية. لا تذكر المصدر أو روابط:\n'+post.text+'\nأعد الخبر فقط.';
+            finalText = await callAI(prompt, 500);
+            const refusals = ['لا أستطيع','لا يمكنني','عذراً'];
+            if(refusals.some(r=>finalText.includes(r))) finalText = post.text;
+          } catch(e) { finalText = post.text; }
+        }
+        finalText = finalText.replace(/https?:\/\/\S+/g,'').replace(/t\.me\/\S+/g,'').trim();
+        let myChannelLink = '';
+        try {
+          const myChans = JSON.parse(getSetting('my_tg_channels','[]'));
+          const mc = myChans.find(c=>c.chat===publishTo||c.chat==='@'+publishTo.replace('@',''));
+          if(mc) myChannelLink = '\n\n📢 @'+mc.chat.replace('@','');
+        } catch(e) {}
+        finalText = finalText + myChannelLink;
+        await axios.post(`https://api.telegram.org/bot${tgToken}/sendMessage`,{chat_id:publishTo, text:finalText, parse_mode:'HTML'});
+      } else {
+        const result2 = await readTelegramChannel(ch);
+        if(result2.posts && result2.posts[0] && result2.posts[0].msgId) {
+          await axios.post(`https://api.telegram.org/bot${tgToken}/forwardMessage`,{chat_id:publishTo, from_chat_id:'@'+ch, message_id:result2.posts[0].msgId});
+        }
+      }
+      await sendAdminMsg(chatId, '✅ تم نشر آخر رسالة من @'+ch+' على '+publishTo,
+        [[{text:'📤 اختبار قناة أخرى', callback_data:'test_publish_all'},{text:'🏠 الرئيسية', callback_data:'main'}]]);
+    } catch(e) {
+      await sendAdminMsg(chatId, '❌ خطأ: '+e.message, [[{text:'🔙 رجوع', callback_data:'test_publish_all'}]]);
+    }
+
+  } else if(text === 'force_pub_all') {
+    const srcs = db.prepare("SELECT * FROM sources WHERE type='telegram' AND active=1").all();
+    await sendAdminMsg(chatId, '🔄 جاري النشر من '+srcs.length+' قناة...');
     let results = '';
     for(const src of srcs) {
       const ch = src.url.replace('https://t.me/s/','');
       try {
         await processTGChannel(ch);
         results += '✅ @'+ch+'\n';
-      } catch(e) {
-        results += '❌ @'+ch+': '+e.message.substring(0,50)+'\n';
-      }
-      await new Promise(r=>setTimeout(r,1000));
+      } catch(e) { results += '❌ @'+ch+'\n'; }
+      await new Promise(r=>setTimeout(r,1500));
     }
-    await sendAdminMsg(chatId, '📊 نتيجة الاختبار:\n\n'+results, [[{text:'📋 المنشورات', callback_data:'posts'},{text:'🏠 الرئيسية', callback_data:'main'}]]);
+    await sendAdminMsg(chatId, '📊 النتيجة:\n\n'+results,
+      [[{text:'📋 المنشورات', callback_data:'posts'},{text:'🏠 الرئيسية', callback_data:'main'}]]);
 
   // ===== POSTS =====
   } else if(text === 'posts') {
