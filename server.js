@@ -762,6 +762,7 @@ async function processFBSource(source) {
       if(fbRefusal) fbText = text.substring(0,500);
 
       // Send to Make.com webhook
+      fbText = fixArabicText(fbText);
       try {
         // Validate content is not empty before sending
         if(!fbText || fbText.trim().length < 10) {
@@ -1984,6 +1985,21 @@ function cleanRewrittenText(text) {
   return t.trim();
 }
 
+function fixArabicText(text) {
+  if(!text) return text;
+  let t = text;
+  t = t.replace(/([.،؛:!?؟])([^\s\d])/g, '$1 $2');
+  t = t.replace(/،([^\s])/g, '، $1');
+  t = t.replace(/\.([^\s\d])/g, '. $1');
+  t = t.replace(/[ \t]{2,}/g, ' ');
+  t = t.replace(/\s+([.،؛:!?؟])/g, '$1');
+  t = t.replace(/([\u0600-\u06FF])(\d)/g, '$1 $2');
+  t = t.replace(/(\d)([\u0600-\u06FF])/g, '$1 $2');
+  t = t.replace(/\n{3,}/g, '\n\n');
+  t = t.replace(/\)([^\s\d.،])/g, ') $1');
+  return t.trim();
+}
+
 async function processTGChannel(channel) {
   try {
     const publishTo = getSetting('tg_publish_to_'+channel, '');
@@ -2046,7 +2062,7 @@ async function processTGChannel(channel) {
       let skipped = false;
 
       if(mode === 'as-is') {
-        finalText = appendMine(filterSourceLinks(post.text||''));
+        finalText = appendMine(fixArabicText(filterSourceLinks(post.text||'')));
       } else {
         // Rewrite with AI (strict Arabic-only); fallback to filtered original on failure
         try {
@@ -2099,13 +2115,13 @@ async function processTGChannel(channel) {
               } else {
                 rewritten = cleanArabicOnly(cleanRewrittenText(rewritten));
               }
-              finalText = appendMine(filterSourceLinks(rewritten));
+              finalText = appendMine(fixArabicText(filterSourceLinks(rewritten)));
             }
           }
         } catch(e) {
           console.log('AI failed for msg', post.msgId, '- using filtered original:', e.message);
           usedFallback = true;
-          finalText = appendMine(filterSourceLinks(post.text || ''));
+          finalText = appendMine(fixArabicText(filterSourceLinks(post.text || '')));
         }
       }
 
