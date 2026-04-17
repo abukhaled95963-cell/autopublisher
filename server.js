@@ -1160,6 +1160,41 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
     setSetting('admin_awaiting','edit_webhook');
     await sendAdminMsg(chatId, '🔗 أرسل رابط Make.com Webhook:', [[{text:'❌ إلغاء', callback_data:'cancel_awaiting'}]]);
 
+  // ===== NEW SOURCE MODE/TONE =====
+  } else if(text === 'new_src_mode_rewrite' || text === 'new_src_mode_asis' || text === 'new_src_mode_forward') {
+    const ch = getSetting('admin_new_src_ch','');
+    if(!ch) { await sendAdminMsg(chatId, '❌ حدث خطأ', [[{text:'🏠 الرئيسية', callback_data:'main'}]]); return; }
+    const mode = text === 'new_src_mode_rewrite' ? 'rewrite' : text === 'new_src_mode_asis' ? 'as-is' : 'forward';
+    setSetting('tg_rules_'+ch, JSON.stringify({mode: mode}));
+    if(mode === 'rewrite') {
+      await sendAdminMsg(chatId, '✍️ اختر أسلوب الصياغة لـ @'+ch+':',
+        [[{text:'📰 إخباري رسمي', callback_data:'new_src_tone_informative'}],
+         [{text:'🔍 تحليلي معمق', callback_data:'new_src_tone_analytical'}],
+         [{text:'✨ جذاب وشيق', callback_data:'new_src_tone_engaging'}],
+         [{text:'⚖️ محايد موضوعي', callback_data:'new_src_tone_neutral'}]]);
+    } else {
+      setupTGSchedules();
+      const modeLabel = mode==='as-is'?'📋 نقل حرفي':'⚡ تحويل مباشر';
+      await sendAdminMsg(chatId, '✅ تم إعداد @'+ch+' بأسلوب '+modeLabel,
+        [[{text:'⏱ تعديل التكرار', callback_data:'interval_'+ch},{text:'📢 تعديل القناة', callback_data:'pubto_'+ch}],
+         [{text:'🧪 اختبار', callback_data:'test_src_'+ch},{text:'🔙 المصادر', callback_data:'list_sources'}]]);
+    }
+
+  } else if(text.startsWith('new_src_tone_')) {
+    const ch = getSetting('admin_new_src_ch','');
+    if(!ch) { await sendAdminMsg(chatId, '❌ حدث خطأ', [[{text:'🏠 الرئيسية', callback_data:'main'}]]); return; }
+    const tone = text.replace('new_src_tone_','');
+    const rules = JSON.parse(getSetting('tg_rules_'+ch,'{"mode":"rewrite"}'));
+    rules.tone = tone;
+    setSetting('tg_rules_'+ch, JSON.stringify(rules));
+    setSetting('tg_tone_'+ch, tone);
+    setupTGSchedules();
+    const toneLabel = {'informative':'📰 إخباري','analytical':'🔍 تحليلي','engaging':'✨ جذاب','neutral':'⚖️ محايد'}[tone];
+    await sendAdminMsg(chatId,
+      '✅ تم إعداد @'+ch+' بالكامل!\n\nوضع النشر: 🤖 إعادة صياغة\nأسلوب الكتابة: '+toneLabel,
+      [[{text:'⏱ تعديل التكرار', callback_data:'interval_'+ch},{text:'📢 تعديل القناة', callback_data:'pubto_'+ch}],
+       [{text:'🧪 اختبار القراءة', callback_data:'test_src_'+ch},{text:'🔙 المصادر', callback_data:'list_sources'}]]);
+
   // ===== AWAITING INPUT =====
   } else {
     if(callbackId) return;
@@ -1174,8 +1209,12 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
         if(r.success) {
           db.prepare('INSERT OR IGNORE INTO sources(name,url,type) VALUES(?,?,?)').run('TG: @'+ch,'https://t.me/s/'+ch,'telegram');
           setSetting('tg_interval_'+ch,'5');
-          setupTGSchedules();
-          await sendAdminMsg(chatId, '✅ تمت إضافة @'+ch+' كمصدر!\nعدد المنشورات المتاحة: '+r.posts.length, [[{text:'⚙️ إعدادات المصدر', callback_data:'src_'+ch},{text:'🔙 المصادر', callback_data:'sources'}]]);
+          setSetting('admin_new_src_ch', ch);
+          await sendAdminMsg(chatId,
+            '✅ تمت إضافة @'+ch+'\nعدد المنشورات: '+r.posts.length+'\n\n📋 اختر أسلوب النشر:',
+            [[{text:'🤖 إعادة صياغة بالذكاء الاصطناعي', callback_data:'new_src_mode_rewrite'}],
+             [{text:'📋 نقل حرفي (حذف المصدر)', callback_data:'new_src_mode_asis'}],
+             [{text:'⚡ تحويل مباشر مع الوسائط', callback_data:'new_src_mode_forward'}]]);
         } else {
           await sendAdminMsg(chatId, '❌ تعذر الوصول لـ @'+ch+'\n'+(r.message||''), [[{text:'🔙 رجوع', callback_data:'sources'}]]);
         }
@@ -1610,9 +1649,12 @@ async function processTGChannel(channel) {
             finalText = '';
           } else {
             const text = post.text;
+            const srcTone = getSetting('tg_tone_'+channel, getSetting('writing_tone','informative'));
+            const toneMap = {informative:'إخباري احترافي', analytical:'تحليلي معمق', engaging:'جذاب وشيق', neutral:'محايد موضوعي'};
+            const toneAr = toneMap[srcTone] || 'إخباري احترافي';
             const prompt = isArabicText(text)
-              ? 'أعد صياغة هذا الخبر بالعربية الفصحى الاحترافية.\n\nقواعد صارمة:\n1. اكتب بالعربية فقط - ممنوع أي حرف من لغة أخرى\n2. إذا وجدت كلمات غير عربية في المصدر، ترجمها أو احذفها\n3. لا تذكر اسم القناة أو المصدر أو أي روابط\n4. إذا كان النص إعلاناً أو رأياً شخصياً بدون خبر حقيقي: أجب فقط بكلمة SKIP\n5. الحد الأقصى 250 كلمة\n\nالخبر:\n' + text + '\n\nأعد الخبر بالعربية فقط بدون أي حرف أجنبي.'
-              : 'You are a professional Arabic translator and news editor.\n\nYour task: Translate and rewrite the following text into fluent, professional Arabic.\n\nSTRICT RULES:\n1. ALWAYS write the output in Arabic ONLY - translate everything\n2. NEVER leave any English, Chinese, Russian, or other non-Arabic words in the output\n3. Do NOT mention the source, channel name, or any URLs\n4. If the text is ONLY an advertisement, spam, or meaningless: reply with exactly the word SKIP\n5. Keep the meaning intact, maximum 250 words\n\nText to translate:\n' + text + '\n\nWrite the Arabic translation now:';
+              ? 'أعد صياغة هذا الخبر بالعربية الفصحى بأسلوب '+toneAr+'.\n\nقواعد صارمة:\n1. اكتب بالعربية فقط - ممنوع أي حرف من لغة أخرى\n2. إذا وجدت كلمات غير عربية في المصدر، ترجمها أو احذفها\n3. لا تذكر اسم القناة أو المصدر أو أي روابط\n4. إذا كان النص إعلاناً أو رأياً شخصياً بدون خبر حقيقي: أجب فقط بكلمة SKIP\n5. الحد الأقصى 250 كلمة\n\nالخبر:\n' + text + '\n\nأعد الخبر بالعربية فقط بدون أي حرف أجنبي.'
+              : 'You are a professional Arabic translator and news editor. Style: '+toneAr+'.\n\nYour task: Translate and rewrite the following text into fluent, professional Arabic.\n\nSTRICT RULES:\n1. ALWAYS write the output in Arabic ONLY - translate everything\n2. NEVER leave any English, Chinese, Russian, or other non-Arabic words in the output\n3. Do NOT mention the source, channel name, or any URLs\n4. If the text is ONLY an advertisement, spam, or meaningless: reply with exactly the word SKIP\n5. Keep the meaning intact, maximum 250 words\n\nText to translate:\n' + text + '\n\nWrite the Arabic translation now:';
             await new Promise(r=>setTimeout(r,2000));
             let rewritten = '';
             try {
