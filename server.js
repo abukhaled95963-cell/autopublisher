@@ -933,17 +933,17 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
   } else if(text === 'add_tg_src') {
     setSetting('admin_awaiting','add_tg_src');
     await sendAdminMsg(chatId, '✈️ أرسل اسم قناة تيليغرام (بدون @):\nمثال: BBCArabic',
-      [[{text:'❌ إلغاء', callback_data:'sources'}]]);
+      [[{text:'❌ إلغاء', callback_data:'cancel_awaiting'}]]);
 
   } else if(text === 'add_rss_src') {
     setSetting('admin_awaiting','add_rss_src');
     await sendAdminMsg(chatId, '🌐 أرسل رابط RSS:\nمثال: https://feeds.bbcarabic.com/bbcarabic-51',
-      [[{text:'❌ إلغاء', callback_data:'sources'}]]);
+      [[{text:'❌ إلغاء', callback_data:'cancel_awaiting'}]]);
 
   } else if(text === 'add_yt_src') {
     setSetting('admin_awaiting','add_yt_src');
     await sendAdminMsg(chatId, '▶️ أرسل رابط قناة YouTube أو فيديو:',
-      [[{text:'❌ إلغاء', callback_data:'sources'}]]);
+      [[{text:'❌ إلغاء', callback_data:'cancel_awaiting'}]]);
 
   // ===== MY CHANNELS =====
   } else if(text === 'my_channels') {
@@ -952,14 +952,40 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
     let msg = '📢 <b>قنواتك للنشر</b>\n\n';
     if(!channels.length) msg += 'لا توجد قنوات مضافة\n';
     else channels.forEach((c,i) => { msg += `${i+1}. ${c.name} — ${c.chat}\n`; });
-    const keyboard = channels.map((c,i) => [{text:'🗑️ حذف '+c.name, callback_data:'del_mych_'+i}]);
+    const keyboard = channels.map((c,i) => [{text:'🧪 '+c.name, callback_data:'test_mych_'+i},{text:'🗑️ حذف', callback_data:'del_mych_'+i}]);
     keyboard.push([{text:'➕ إضافة قناة', callback_data:'add_my_channel'},{text:'🔙 رجوع', callback_data:'main'}]);
     await sendAdminMsg(chatId, msg, keyboard);
 
   } else if(text === 'add_my_channel') {
     setSetting('admin_awaiting','add_my_channel_name');
     await sendAdminMsg(chatId, '📢 أرسل اسم القناة (سيظهر في نهاية المنشورات):',
-      [[{text:'❌ إلغاء', callback_data:'my_channels'}]]);
+      [[{text:'❌ إلغاء', callback_data:'cancel_awaiting'}]]);
+
+  } else if(text === 'cancel_awaiting') {
+    setSetting('admin_awaiting','');
+    await sendAdminMsg(chatId, '❌ تم الإلغاء', [[{text:'🔙 الرئيسية', callback_data:'main'}]]);
+
+  } else if(text.startsWith('test_mych_')) {
+    const idx = parseInt(text.replace('test_mych_',''));
+    let channels = [];
+    try { channels = JSON.parse(getSetting('my_tg_channels','[]')); } catch(e) {}
+    if(idx >= channels.length) return;
+    const ch = channels[idx];
+    const token = getSetting('telegram_token');
+    if(!token) { await sendAdminMsg(chatId, '❌ لم يتم إعداد توكن البوت الرئيسي', [[{text:'🔙 قنواتي', callback_data:'my_channels'}]]); return; }
+    try {
+      const r = await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, {
+        chat_id: ch.chat, text: '🧪 اختبار الوصول — بوت النشر الآلي يعمل بنجاح!', parse_mode: 'HTML'
+      });
+      if(r.data.ok) {
+        await sendAdminMsg(chatId, '✅ تم إرسال رسالة تجريبية إلى '+ch.name+' ('+ch.chat+')', [[{text:'🔙 قنواتي', callback_data:'my_channels'}]]);
+      } else {
+        await sendAdminMsg(chatId, '❌ فشل الإرسال — تأكد أن البوت مشرف في القناة', [[{text:'🔙 قنواتي', callback_data:'my_channels'}]]);
+      }
+    } catch(e) {
+      const errMsg = e.response?.data?.description || e.message;
+      await sendAdminMsg(chatId, '❌ خطأ: '+errMsg+'\n\nتأكد أن البوت مضاف كمشرف في القناة '+ch.chat, [[{text:'🔙 قنواتي', callback_data:'my_channels'}]]);
+    }
 
   } else if(text.startsWith('del_mych_')) {
     const idx = parseInt(text.replace('del_mych_',''));
@@ -1020,7 +1046,7 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
   } else if(text === 'edit_hashtags') {
     setSetting('admin_awaiting','edit_hashtags');
     await sendAdminMsg(chatId, '✏️ أرسل الهاشتاقات:\nمثال: #أخبار #تقنية #عاجل',
-      [[{text:'❌ إلغاء', callback_data:'writing_style'}]]);
+      [[{text:'❌ إلغاء', callback_data:'cancel_awaiting'}]]);
 
   // ===== SCHEDULES =====
   } else if(text === 'schedules') {
@@ -1108,6 +1134,7 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
 
   // ===== AWAITING INPUT =====
   } else {
+    if(callbackId) return;
     const awaiting = getSetting('admin_awaiting','');
     if(!awaiting) return;
     setSetting('admin_awaiting','');
@@ -1142,7 +1169,7 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
 
     } else if(awaiting === 'add_my_channel_name') {
       setSetting('admin_awaiting','add_my_channel_chat_'+text);
-      await sendAdminMsg(chatId, '📢 الآن أرسل معرف القناة (مثال: @mychannel أو -100123456789):', [[{text:'❌ إلغاء', callback_data:'my_channels'}]]);
+      await sendAdminMsg(chatId, '📢 الآن أرسل معرف القناة (مثال: @mychannel أو -100123456789):', [[{text:'❌ إلغاء', callback_data:'cancel_awaiting'}]]);
 
     } else if(awaiting.startsWith('add_my_channel_chat_')) {
       const name = awaiting.replace('add_my_channel_chat_','');
