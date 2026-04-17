@@ -703,23 +703,31 @@ async function processFBSource(source) {
       const existing = db.prepare('SELECT id FROM posts WHERE original_url=?').get(key);
       if(existing) continue;
 
-      // Rewrite for Facebook style - no source mention
-      const prompt = `أنت كاتب محتوى محترف لصفحات فيسبوك. أعد صياغة هذا المحتوى بأسلوب جذاب يناسب فيسبوك باللغة العربية.
-
-المحتوى: ${text.substring(0,800)}
-
-المطلوب:
-- منشور جذاب 100-150 كلمة
-- أسلوب بشري طبيعي وغير رسمي
-- يشجع على التفاعل والتعليق
-- لا تذكر اسم المصدر أو القناة الأصلية
-- لا تضع روابط أو URLs
-- اختم بسؤال للتفاعل
-
-أعد المنشور فقط بدون أي مقدمة.`;
-
-      console.log('FB processing source:', source.name, 'text length:', text.length, 'preview:', text.substring(0,80));
+      const fbMode = getSetting('fb_publish_mode_'+source.id, 'rewrite');
+      let prompt;
       let fbText = text;
+      if(fbMode === 'asis') {
+        fbText = text.replace(/https?:\/\/\S+/g,'').replace(/t\.me\/\S+/g,'').replace(/@[\w\d]+/g,'').trim();
+        const pid2 = db.prepare("INSERT OR IGNORE INTO posts (source_id,original_title,original_url,original_content,rewritten_facebook,status) VALUES(?,?,?,?,?,'ready')").run(source.id,text.substring(0,80),key,text,fbText).lastInsertRowid;
+        if(!pid2) continue;
+        if(!fbText || fbText.trim().length < 10) { console.log('FB content empty after asis cleanup'); continue; }
+        console.log('FB processing source:', source.name, 'text length:', text.length, 'preview:', text.substring(0,80));
+        console.log('Sending to FB webhook, content length:', fbText.length, 'preview:', fbText.substring(0,50));
+        try {
+          await axios.post(webhook, {content:fbText.trim(), message:fbText.trim(), text:fbText.trim(), platform:'facebook', source:source.name, timestamp:new Date().toISOString()});
+          db.prepare("UPDATE posts SET status='published', published_at=datetime('now') WHERE id=?").run(pid2);
+          db.prepare("INSERT INTO publish_log(post_id,platform,status,message) VALUES(?,'facebook','success','via Make.com')").run(pid2);
+          console.log('Published to Facebook via Make.com from:', source.name);
+        } catch(e) { db.prepare("INSERT INTO publish_log(post_id,platform,status,message) VALUES(?,'facebook','error',?)").run(pid2,e.message); }
+        await new Promise(r=>setTimeout(r,2000));
+        continue;
+      } else if(fbMode === 'summary') {
+        prompt = `اكتب ملخصاً قصيراً وجذاباً لهذا المحتوى بـ 3-4 جمل مناسبة لفيسبوك باللغة العربية. لا تذكر المصدر. اختم بسؤال.\n\n${text.substring(0,600)}\n\nأعد الملخص فقط.`;
+      } else {
+        prompt = `أنت كاتب محتوى فيسبوك. أعد صياغة هذا المحتوى بأسلوب جذاب مناسب لفيسبوك باللغة العربية. لا تذكر المصدر أو الروابط. اختم بسؤال للتفاعل.\n\n${text.substring(0,600)}\n\nأعد المنشور فقط.`;
+      }
+
+      console.log('FB processing source:', source.name, 'mode:', fbMode, 'text length:', text.length, 'preview:', text.substring(0,80));
       try {
         fbText = await callAI(prompt,500);
         aiFailedNotified = false;
@@ -1481,6 +1489,23 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
       [[{text:'⏱ تعديل التكرار', callback_data:'interval_'+ch},{text:'🧪 اختبار', callback_data:'test_src_'+ch}],
        [{text:'🔙 المصادر', callback_data:'list_sources'},{text:'🏠 الرئيسية', callback_data:'main'}]]);
 
+  } else if(text === 'fb_src_mode_rewrite' || text === 'fb_src_mode_asis' || text === 'fb_src_mode_summary') {
+    const srcId = getSetting('admin_fb_new_src_id','');
+    const ch = getSetting('admin_fb_new_src_ch','');
+    if(!srcId) { await sendAdminMsg(chatId, '❌ حدث خطأ', [[{text:'🏠 الرئيسية', callback_data:'main'}]]); return; }
+    const mode = text.replace('fb_src_mode_','');
+    setSetting('fb_publish_mode_'+srcId, mode);
+    const modeLabels = {
+      rewrite:'🤖 إعادة صياغة بأسلوب فيسبوك',
+      asis:'📋 نقل المحتوى كما هو',
+      summary:'⚡ ملخص قصير جذاب'
+    };
+    setupFBSchedules();
+    await sendAdminMsg(chatId,
+      '✅ تم إعداد @'+ch+' لفيسبوك!\n\nطريقة النشر: '+modeLabels[mode],
+      [[{text:'🧪 اختبار النشر', callback_data:'test_fb_src_'+srcId}],
+       [{text:'📋 مصادر FB', callback_data:'list_fb_sources'},{text:'🔙 رجوع', callback_data:'fb_menu'}]]);
+
   // ===== AWAITING INPUT =====
   } else {
     if(callbackId) return;
@@ -1582,11 +1607,14 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
         if(newSrc) {
           setSetting('fb_source_'+newSrc.id, String(newSrc.id));
           setSetting('fb_interval_'+newSrc.id, '30');
-          console.log('FB source added:', 'FB: @'+ch, 'id:', newSrc.id);
+          setSetting('admin_fb_new_src_id', String(newSrc.id));
+          setSetting('admin_fb_new_src_ch', ch);
         }
-        setupFBSchedules();
-        await sendAdminMsg(chatId, '✅ تمت إضافة @'+ch+' كمصدر لفيسبوك!',
-          [[{text:'📋 مصادر FB', callback_data:'list_fb_sources'},{text:'🔙 رجوع', callback_data:'fb_menu'}]]);
+        await sendAdminMsg(chatId,
+          '✅ تمت إضافة @'+ch+'\n\n📋 اختر طريقة النشر على فيسبوك:',
+          [[{text:'🤖 إعادة صياغة بأسلوب فيسبوك', callback_data:'fb_src_mode_rewrite'}],
+           [{text:'📋 نقل المحتوى كما هو', callback_data:'fb_src_mode_asis'}],
+           [{text:'⚡ ملخص قصير جذاب', callback_data:'fb_src_mode_summary'}]]);
       } catch(e) { await sendAdminMsg(chatId, '❌ خطأ: '+e.message); }
 
     } else if(awaiting === 'add_fb_rss_src') {
