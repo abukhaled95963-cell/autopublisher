@@ -1226,21 +1226,71 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
     const fbSrcs = db.prepare("SELECT COUNT(*) c FROM sources WHERE name LIKE 'FB:%' AND active=1").get();
     await sendAdminMsg(chatId,
       `📘 <b>فيسبوك</b>\n\nWebhook: ${webhook?'✅ مربوط':'❌ غير مربوط'}\nعدد المصادر: ${fbSrcs.c}`,
-      [[{text:'🧪 اختبار الربط', callback_data:'test_fb'},{text:'📋 مصادر FB', callback_data:'list_fb_sources'}],
-       [{text:'▶️ نشر فوري FB', callback_data:'run_fb'}],
+      [[{text:'➕ إضافة مصدر FB', callback_data:'add_fb_src'},{text:'📋 مصادر FB', callback_data:'list_fb_sources'}],
+       [{text:'🧪 اختبار الربط', callback_data:'test_fb'},{text:'▶️ نشر فوري', callback_data:'run_fb'}],
        [{text:'🔙 رجوع', callback_data:'main'}]]);
+
+  } else if(text === 'add_fb_src') {
+    await sendAdminMsg(chatId, '📘 اختر نوع المصدر لفيسبوك:',
+      [[{text:'✈️ قناة تيليغرام', callback_data:'add_fb_tg'}],
+       [{text:'🌐 RSS', callback_data:'add_fb_rss'}],
+       [{text:'🔙 رجوع', callback_data:'fb_menu'}]]);
+
+  } else if(text === 'add_fb_tg') {
+    setSetting('admin_awaiting','add_fb_tg_src');
+    await sendAdminMsg(chatId, '✈️ أرسل اسم قناة تيليغرام (بدون @):', [[{text:'❌ إلغاء', callback_data:'cancel_awaiting'}]]);
+
+  } else if(text === 'add_fb_rss') {
+    setSetting('admin_awaiting','add_fb_rss_src');
+    await sendAdminMsg(chatId, '🌐 أرسل رابط RSS:', [[{text:'❌ إلغاء', callback_data:'cancel_awaiting'}]]);
 
   } else if(text === 'list_fb_sources') {
     const srcs = db.prepare("SELECT * FROM sources WHERE name LIKE 'FB:%' AND active=1").all();
-    if(!srcs.length) { await sendAdminMsg(chatId, '📘 لا توجد مصادر فيسبوك', [[{text:'🔙 رجوع', callback_data:'fb_menu'}]]); return; }
-    const keyboard = srcs.map(s => [{text:s.name, callback_data:'del_fb_'+s.id}]);
-    keyboard.push([{text:'🔙 رجوع', callback_data:'fb_menu'}]);
-    await sendAdminMsg(chatId, '📘 مصادر فيسبوك (اضغط لحذف):', keyboard);
+    if(!srcs.length) {
+      await sendAdminMsg(chatId, '📘 لا توجد مصادر فيسبوك بعد',
+        [[{text:'➕ إضافة مصدر', callback_data:'add_fb_src'},{text:'🔙 رجوع', callback_data:'fb_menu'}]]);
+      return;
+    }
+    const keyboard = srcs.map(s => [{text: s.name.replace('FB: ',''), callback_data:'fb_src_'+s.id}]);
+    keyboard.push([{text:'➕ إضافة مصدر', callback_data:'add_fb_src'},{text:'🔙 رجوع', callback_data:'fb_menu'}]);
+    await sendAdminMsg(chatId, '📘 مصادر فيسبوك - اختر للتفاصيل:', keyboard);
+
+  } else if(text.startsWith('fb_src_')) {
+    const id = text.replace('fb_src_','');
+    const src = db.prepare('SELECT * FROM sources WHERE id=?').get(id);
+    if(!src) return;
+    const interval = getSetting('fb_interval_'+id,'30');
+    await sendAdminMsg(chatId,
+      '📘 <b>'+src.name+'</b>\n\nالنوع: '+src.type+'\nالرابط: '+src.url+'\nالتكرار: كل '+interval+' دقيقة',
+      [[{text:'🧪 اختبار النشر', callback_data:'test_fb_src_'+id}],
+       [{text:'🗑️ حذف هذا المصدر', callback_data:'confirm_del_fb_'+id}],
+       [{text:'🔙 قائمة المصادر', callback_data:'list_fb_sources'}]]);
+
+  } else if(text.startsWith('confirm_del_fb_')) {
+    const id = text.replace('confirm_del_fb_','');
+    const src = db.prepare('SELECT name FROM sources WHERE id=?').get(id);
+    if(!src) return;
+    await sendAdminMsg(chatId, '⚠️ هل تريد حذف '+src.name+'؟',
+      [[{text:'✅ نعم احذف', callback_data:'del_fb_'+id},{text:'❌ إلغاء', callback_data:'fb_src_'+id}]]);
 
   } else if(text.startsWith('del_fb_')) {
     const id = text.replace('del_fb_','');
     const src = db.prepare('SELECT name FROM sources WHERE id=?').get(id);
-    if(src) { db.prepare('DELETE FROM sources WHERE id=?').run(id); await sendAdminMsg(chatId, '🗑️ تم حذف '+src.name, [[{text:'🔙 رجوع', callback_data:'list_fb_sources'}]]); }
+    if(src) { db.prepare('DELETE FROM sources WHERE id=?').run(id); setupFBSchedules(); await sendAdminMsg(chatId, '🗑️ تم حذف '+src.name, [[{text:'🔙 رجوع', callback_data:'list_fb_sources'}]]); }
+
+  } else if(text.startsWith('test_fb_src_')) {
+    const id = text.replace('test_fb_src_','');
+    const src = db.prepare('SELECT * FROM sources WHERE id=?').get(id);
+    if(!src) return;
+    const webhook = getSetting('make_webhook');
+    if(!webhook) { await sendAdminMsg(chatId, '❌ Make.com غير مربوط', [[{text:'🔙 رجوع', callback_data:'fb_src_'+id}]]); return; }
+    await sendAdminMsg(chatId, '🔄 جاري جلب وإعادة صياغة ونشر على فيسبوك...');
+    try {
+      await processFBSource(src);
+      await sendAdminMsg(chatId, '✅ تم النشر على فيسبوك!', [[{text:'🔙 رجوع', callback_data:'fb_src_'+id}]]);
+    } catch(e) {
+      await sendAdminMsg(chatId, '❌ خطأ: '+e.message, [[{text:'🔙 رجوع', callback_data:'fb_src_'+id}]]);
+    }
 
   } else if(text === 'test_fb') {
     const webhook = getSetting('make_webhook');
@@ -1460,6 +1510,28 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
           '⚠️ تم حفظ المفتاح لكن الاختبار فشل:\n'+e.message+'\nتحقق من صحة المفتاح',
           [[{text:'🔙 إعدادات الربط', callback_data:'connection_settings'}]]);
       }
+
+    } else if(awaiting === 'add_fb_tg_src') {
+      const ch = text.replace('@','').trim();
+      const url = 'https://t.me/s/'+ch;
+      try {
+        db.prepare('INSERT OR IGNORE INTO sources(name,url,type) VALUES(?,?,?)').run('FB: @'+ch, url, 'telegram');
+        const newSrc = db.prepare('SELECT id FROM sources WHERE url=?').get(url);
+        if(newSrc) setSetting('fb_source_'+newSrc.id, String(newSrc.id));
+        setupFBSchedules();
+        await sendAdminMsg(chatId, '✅ تمت إضافة @'+ch+' كمصدر لفيسبوك!', [[{text:'📋 مصادر FB', callback_data:'list_fb_sources'}]]);
+      } catch(e) { await sendAdminMsg(chatId, '❌ خطأ: '+e.message); }
+
+    } else if(awaiting === 'add_fb_rss_src') {
+      try {
+        const feed = await parser.parseURL(text);
+        const name = feed.title || text;
+        db.prepare('INSERT OR IGNORE INTO sources(name,url,type) VALUES(?,?,?)').run('FB: '+name.substring(0,30), text, 'rss');
+        const newSrc = db.prepare('SELECT id FROM sources WHERE url=?').get(text);
+        if(newSrc) setSetting('fb_source_'+newSrc.id, String(newSrc.id));
+        setupFBSchedules();
+        await sendAdminMsg(chatId, '✅ تمت إضافة RSS كمصدر لفيسبوك: '+name, [[{text:'📋 مصادر FB', callback_data:'list_fb_sources'}]]);
+      } catch(e) { await sendAdminMsg(chatId, '❌ خطأ في RSS: '+e.message); }
     }
   }
 }
