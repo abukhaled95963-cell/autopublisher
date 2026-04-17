@@ -868,6 +868,21 @@ app.post('/api/test/gemini-debug', async(req,res) => {
   }
 });
 
+app.get('/api/test/gemini-debug', async(req,res) => {
+  const key = getSetting('gemini_key');
+  if(!key) return res.json({error:'No gemini key saved'});
+  try {
+    const r = await axios.post(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+      {contents:[{parts:[{text:'Say OK'}]}]},
+      {headers:{'x-goog-api-key': key, 'Content-Type':'application/json'}, timeout:30000}
+    );
+    res.json({success:true, response: r.data.candidates[0].content.parts[0].text});
+  } catch(e) {
+    res.json({success:false, status: e.response?.status, error: e.response?.data || e.message});
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log('Server on port', PORT));
 
