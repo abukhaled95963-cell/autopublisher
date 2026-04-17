@@ -685,6 +685,15 @@ async function processFBSource(source) {
 
     if(!posts.length) return;
 
+    const maxDaily = parseInt(getSetting('fb_max_daily','10'));
+    if(maxDaily > 0) {
+      const publishedToday = db.prepare("SELECT COUNT(*) c FROM publish_log WHERE platform='facebook' AND date(published_at)=date('now') AND status='success'").get().c;
+      if(publishedToday >= maxDaily) {
+        console.log('FB daily limit reached:', publishedToday, '/', maxDaily);
+        return;
+      }
+    }
+
     for(const post of posts) {
       const text = post.text || post.content || '';
       if(!text || text.length < 20) continue;
@@ -1239,7 +1248,7 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
     await sendAdminMsg(chatId,
       `📘 <b>فيسبوك</b>\n\nWebhook: ${webhook?'✅ مربوط':'❌ غير مربوط'}\nعدد المصادر: ${fbSrcs.c}`,
       [[{text:'➕ إضافة مصدر FB', callback_data:'add_fb_src'},{text:'📋 مصادر FB', callback_data:'list_fb_sources'}],
-       [{text:'🧪 اختبار الربط', callback_data:'test_fb'},{text:'▶️ نشر فوري', callback_data:'run_fb'}],
+       [{text:'🧪 اختبار الربط', callback_data:'test_fb'},{text:'⚙️ إعدادات FB', callback_data:'fb_settings'}],
        [{text:'🔙 رجوع', callback_data:'main'}]]);
 
   } else if(text === 'add_fb_src') {
@@ -1311,6 +1320,47 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
       await axios.post(webhook, {content:'اختبار من بوت التحكم - '+new Date().toLocaleString('ar'), platform:'facebook', timestamp:new Date().toISOString()});
       await sendAdminMsg(chatId, '✅ تم إرسال منشور تجريبي لفيسبوك!', [[{text:'🔙 رجوع', callback_data:'fb_menu'}]]);
     } catch(e) { await sendAdminMsg(chatId, '❌ خطأ: '+e.message, [[{text:'🔙 رجوع', callback_data:'fb_menu'}]]); }
+
+  } else if(text === 'fb_settings') {
+    const maxPosts = getSetting('fb_max_daily','10');
+    const checkInterval = getSetting('fb_check_interval','30');
+    const published = db.prepare("SELECT COUNT(*) c FROM publish_log WHERE platform='facebook' AND date(published_at)=date('now') AND status='success'").get();
+    await sendAdminMsg(chatId,
+      '⚙️ <b>إعدادات فيسبوك</b>\n\n📊 منشورات اليوم: '+published.c+'/'+maxPosts+'\n⏰ تكرار الفحص: كل '+checkInterval+' دقيقة',
+      [[{text:'📊 تحديد الحد اليومي', callback_data:'set_fb_max'}],
+       [{text:'⏰ تغيير تكرار الفحص', callback_data:'set_fb_interval'}],
+       [{text:'🔙 رجوع', callback_data:'fb_menu'}]]);
+
+  } else if(text === 'set_fb_max') {
+    await sendAdminMsg(chatId, '📊 اختر الحد الأقصى للمنشورات اليومية على فيسبوك:',
+      [[{text:'5 منشورات', callback_data:'fbmax_5'},{text:'10 منشورات', callback_data:'fbmax_10'}],
+       [{text:'15 منشور', callback_data:'fbmax_15'},{text:'20 منشور', callback_data:'fbmax_20'}],
+       [{text:'30 منشور', callback_data:'fbmax_30'},{text:'بلا حد', callback_data:'fbmax_0'}],
+       [{text:'🔙 رجوع', callback_data:'fb_settings'}]]);
+
+  } else if(text.startsWith('fbmax_')) {
+    const max = text.replace('fbmax_','');
+    setSetting('fb_max_daily', max);
+    const label = max==='0'?'بلا حد':max+' منشورات';
+    await sendAdminMsg(chatId, '✅ تم تعيين الحد اليومي: '+label,
+      [[{text:'🔙 إعدادات FB', callback_data:'fb_settings'}]]);
+
+  } else if(text === 'set_fb_interval') {
+    await sendAdminMsg(chatId, '⏰ اختر تكرار فحص مصادر فيسبوك:',
+      [[{text:'15 دقيقة', callback_data:'fbiv_15'},{text:'30 دقيقة', callback_data:'fbiv_30'}],
+       [{text:'ساعة', callback_data:'fbiv_60'},{text:'ساعتين', callback_data:'fbiv_120'}],
+       [{text:'6 ساعات', callback_data:'fbiv_360'},{text:'يومياً', callback_data:'fbiv_1440'}],
+       [{text:'🔙 رجوع', callback_data:'fb_settings'}]]);
+
+  } else if(text.startsWith('fbiv_')) {
+    const iv = text.replace('fbiv_','');
+    setSetting('fb_check_interval', iv);
+    const srcs = db.prepare("SELECT id FROM sources WHERE (name LIKE 'FB:%' OR id IN (SELECT CAST(value AS INTEGER) FROM settings WHERE key LIKE 'fb_source_%')) AND active=1").all();
+    srcs.forEach(s => setSetting('fb_interval_'+s.id, iv));
+    setupFBSchedules();
+    const labels = {'15':'15 دقيقة','30':'30 دقيقة','60':'ساعة','120':'ساعتين','360':'6 ساعات','1440':'يومياً'};
+    await sendAdminMsg(chatId, '✅ تم تغيير تكرار الفحص إلى: '+(labels[iv]||iv+' دقيقة')+'\nتم تطبيقه على جميع مصادر فيسبوك',
+      [[{text:'🔙 إعدادات FB', callback_data:'fb_settings'}]]);
 
   // ===== GENERAL SETTINGS =====
   } else if(text === 'general_settings') {
