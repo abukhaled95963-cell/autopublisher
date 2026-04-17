@@ -790,36 +790,54 @@ function getMainKeyboard() {
 async function handleAdminCommand(chatId, text, msgId, callbackId) {
   const adminId = getSetting('admin_chat_id') || process.env.ADMIN_CHAT_ID;
   if(String(chatId) !== String(adminId)) {
-    await sendAdminMsg(chatId, '❌ غير مصرح لك باستخدام هذا البوت');
+    await sendAdminMsg(chatId, '❌ غير مصرح لك');
     return;
   }
-
   if(callbackId) {
     const token = getSetting('admin_bot_token') || process.env.ADMIN_BOT_TOKEN;
     try { await axios.post(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {callback_query_id: callbackId}); } catch(e) {}
   }
 
-  if(text === '/start' || text === 'start' || text === 'main') {
-    const stats = db.prepare("SELECT COUNT(*) c FROM sources WHERE active=1").get();
-    const posts = db.prepare("SELECT COUNT(*) c FROM posts WHERE date(created_at)=date('now')").get();
-    const published = db.prepare("SELECT COUNT(*) c FROM publish_log WHERE date(published_at)=date('now') AND status='success'").get();
-    const msg = `🤖 <b>النشر الآلي Pro</b>\n\n📡 المصادر النشطة: ${stats.c}\n📝 منشورات اليوم: ${posts.c}\n✅ منشور بنجاح: ${published.c}\n\nاختر أمراً:`;
-    await sendAdminMsg(chatId, msg, getMainKeyboard());
+  // ===== MAIN MENU =====
+  if(text === '/start' || text === 'main') {
+    const s = db.prepare("SELECT COUNT(*) c FROM sources WHERE active=1").get();
+    const p = db.prepare("SELECT COUNT(*) c FROM publish_log WHERE date(published_at)=date('now') AND status='success'").get();
+    const e = db.prepare("SELECT COUNT(*) c FROM publish_log WHERE date(published_at)=date('now') AND status='error'").get();
+    const provider = getSetting('ai_provider','groq');
+    await sendAdminMsg(chatId,
+      `🤖 <b>النشر الآلي Pro</b>\n\n📡 المصادر: ${s.c} | ✅ اليوم: ${p.c} | ❌ أخطاء: ${e.c}\n🧠 AI: ${provider}`,
+      [[{text:'📡 المصادر',cb:'sources'},{text:'📢 قنواتي',cb:'my_channels'}],
+       [{text:'▶️ تشغيل',cb:'run'},{text:'⏰ الجداول',cb:'schedules'}],
+       [{text:'🤖 إعدادات AI',cb:'ai_settings'},{text:'✍️ أسلوب الكتابة',cb:'writing_style'}],
+       [{text:'📘 فيسبوك',cb:'fb_menu'},{text:'📋 المنشورات',cb:'posts'}],
+       [{text:'⚙️ الإعدادات العامة',cb:'general_settings'},{text:'📊 الإحصائيات',cb:'stats'}]
+      ].map(row => row.map(b => ({text:b.text, callback_data:b.cb}))));
 
+  // ===== STATS =====
   } else if(text === 'stats') {
     const s = db.prepare("SELECT COUNT(*) c FROM sources WHERE active=1").get();
     const p = db.prepare("SELECT COUNT(*) c FROM posts").get();
     const pub = db.prepare("SELECT COUNT(*) c FROM publish_log WHERE date(published_at)=date('now') AND status='success'").get();
     const err = db.prepare("SELECT COUNT(*) c FROM publish_log WHERE date(published_at)=date('now') AND status='error'").get();
-    const msg = `📊 <b>الإحصائيات</b>\n\n📡 المصادر: ${s.c}\n📝 إجمالي المنشورات: ${p.c}\n✅ نُشر اليوم: ${pub.c}\n❌ أخطاء اليوم: ${err.c}`;
-    await sendAdminMsg(chatId, msg, [[{text:'🔙 رجوع', callback_data:'main'}]]);
+    const tg = db.prepare("SELECT COUNT(*) c FROM sources WHERE type='telegram' AND active=1").get();
+    const fb = db.prepare("SELECT COUNT(*) c FROM sources WHERE name LIKE 'FB:%' AND active=1").get();
+    await sendAdminMsg(chatId,
+      `📊 <b>الإحصائيات الكاملة</b>\n\n📡 مصادر TG: ${tg.c}\n📘 مصادر FB: ${fb.c}\n📝 إجمالي منشورات: ${p.c}\n✅ نُشر اليوم: ${pub.c}\n❌ أخطاء اليوم: ${err.c}`,
+      [[{text:'🔙 رجوع', callback_data:'main'}]]);
 
+  // ===== SOURCES MENU =====
   } else if(text === 'sources') {
+    await sendAdminMsg(chatId, '📡 <b>إدارة المصادر</b>',
+      [[{text:'📋 عرض المصادر', callback_data:'list_sources'},{text:'➕ إضافة TG', callback_data:'add_tg_src'}],
+       [{text:'➕ إضافة RSS', callback_data:'add_rss_src'},{text:'➕ إضافة YouTube', callback_data:'add_yt_src'}],
+       [{text:'🔙 رجوع', callback_data:'main'}]]);
+
+  } else if(text === 'list_sources') {
     const srcs = db.prepare('SELECT * FROM sources WHERE active=1 ORDER BY type').all();
-    if(!srcs.length) { await sendAdminMsg(chatId, '📡 لا توجد مصادر نشطة', [[{text:'🔙 رجوع', callback_data:'main'}]]); return; }
-    const keyboard = srcs.map(s => [{text: (s.type==='telegram'?'✈️':s.type==='youtube'?'▶️':'🌐')+' '+s.name.substring(0,30), callback_data:'src_'+s.id}]);
-    keyboard.push([{text:'➕ إضافة مصدر TG', callback_data:'add_tg'}, {text:'🔙 رجوع', callback_data:'main'}]);
-    await sendAdminMsg(chatId, '📡 <b>المصادر النشطة:</b>', keyboard);
+    if(!srcs.length) { await sendAdminMsg(chatId, '📡 لا توجد مصادر', [[{text:'🔙 رجوع', callback_data:'sources'}]]); return; }
+    const keyboard = srcs.map(s => [{text: (s.type==='telegram'?'✈️ ':s.type==='youtube'?'▶️ ':'🌐 ')+s.name.substring(0,25), callback_data:'src_'+s.id}]);
+    keyboard.push([{text:'🔙 رجوع', callback_data:'sources'}]);
+    await sendAdminMsg(chatId, '📡 <b>المصادر النشطة - اختر للتعديل:</b>', keyboard);
 
   } else if(text.startsWith('src_')) {
     const id = text.replace('src_','');
@@ -827,104 +845,240 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
     if(!src) return;
     const ch = src.url.replace('https://t.me/s/','');
     const rules = JSON.parse(getSetting('tg_rules_'+ch,'{"mode":"rewrite"}'));
-    const modeLabel = {'rewrite':'🤖 إعادة صياغة','as-is':'📋 نقل حرفي','forward':'⚡ تحويل مباشر'}[rules.mode]||'🤖 إعادة صياغة';
-    const msg = `📡 <b>${src.name}</b>\n\nالنوع: ${src.type}\nوضع النشر: ${modeLabel}\nالرابط: ${src.url}`;
-    const keyboard = [
-      [{text:'🤖 إعادة صياغة', callback_data:'mode_rewrite_'+ch}, {text:'📋 نقل حرفي', callback_data:'mode_asis_'+ch}],
-      [{text:'⚡ تحويل مباشر', callback_data:'mode_forward_'+ch}],
-      [{text:'🧪 اختبار', callback_data:'test_src_'+ch}, {text:'🗑️ حذف', callback_data:'del_src_'+id}],
-      [{text:'🔙 رجوع', callback_data:'sources'}]
-    ];
-    await sendAdminMsg(chatId, msg, keyboard);
+    const modeLabel = {'rewrite':'🤖 إعادة صياغة','as-is':'📋 نقل حرفي','forward':'⚡ تحويل مباشر'}[rules.mode]||'🤖';
+    const interval = getSetting('tg_interval_'+ch,'5');
+    const publishTo = getSetting('tg_publish_to_'+ch,'افتراضي');
+    await sendAdminMsg(chatId,
+      `📡 <b>${src.name}</b>\n\nالنوع: ${src.type}\nوضع النشر: ${modeLabel}\nالتكرار: كل ${interval} دقيقة\nينشر على: ${publishTo||'القناة الافتراضية'}\nالرابط: ${src.url}`,
+      [[{text:'🤖 إعادة صياغة', callback_data:'mode_rewrite_'+ch},{text:'📋 نقل حرفي', callback_data:'mode_asis_'+ch}],
+       [{text:'⚡ تحويل مباشر', callback_data:'mode_forward_'+ch}],
+       [{text:'⏱ تغيير التكرار', callback_data:'interval_'+ch},{text:'📢 تغيير القناة', callback_data:'pubto_'+ch}],
+       [{text:'🧪 اختبار القراءة', callback_data:'test_src_'+ch},{text:'📤 نشر آخر رسالة', callback_data:'publish_last_'+ch}],
+       [{text:'🗑️ حذف المصدر', callback_data:'del_src_'+id},{text:'🔙 رجوع', callback_data:'list_sources'}]]);
 
   } else if(text.startsWith('mode_')) {
     const parts = text.split('_');
     const mode = parts[1]==='asis' ? 'as-is' : parts[1];
     const ch = parts.slice(2).join('_');
-    setSetting('tg_rules_'+ch, JSON.stringify({mode: mode}));
+    const rules = JSON.parse(getSetting('tg_rules_'+ch,'{}'));
+    rules.mode = mode;
+    setSetting('tg_rules_'+ch, JSON.stringify(rules));
     const modeLabel = {'rewrite':'🤖 إعادة صياغة','as-is':'📋 نقل حرفي','forward':'⚡ تحويل مباشر'}[mode];
-    await sendAdminMsg(chatId, '✅ تم تغيير وضع النشر لـ @'+ch+' إلى '+modeLabel, [[{text:'🔙 المصادر', callback_data:'sources'}]]);
+    await sendAdminMsg(chatId, '✅ تم تغيير وضع النشر لـ @'+ch+' إلى '+modeLabel,
+      [[{text:'🔙 المصدر', callback_data:'src_'+ch},{text:'🔙 المصادر', callback_data:'list_sources'}]]);
+
+  } else if(text.startsWith('interval_')) {
+    const ch = text.replace('interval_','');
+    await sendAdminMsg(chatId, '⏱ اختر تكرار الفحص لـ @'+ch+':',
+      [[{text:'2 دقيقة', callback_data:'setiv_2_'+ch},{text:'5 دقائق', callback_data:'setiv_5_'+ch}],
+       [{text:'10 دقائق', callback_data:'setiv_10_'+ch},{text:'15 دقيقة', callback_data:'setiv_15_'+ch}],
+       [{text:'30 دقيقة', callback_data:'setiv_30_'+ch},{text:'ساعة', callback_data:'setiv_60_'+ch}],
+       [{text:'🔙 رجوع', callback_data:'src_'+ch}]]);
+
+  } else if(text.startsWith('setiv_')) {
+    const parts = text.split('_');
+    const iv = parts[1];
+    const ch = parts.slice(2).join('_');
+    setSetting('tg_interval_'+ch, iv);
+    setupTGSchedules();
+    await sendAdminMsg(chatId, '✅ تم تغيير التكرار لـ @'+ch+' إلى كل '+iv+' دقيقة وتم تحديث الجداول',
+      [[{text:'🔙 المصدر', callback_data:'src_'+ch}]]);
+
+  } else if(text.startsWith('pubto_')) {
+    const ch = text.replace('pubto_','');
+    let channels = [];
+    try { channels = JSON.parse(getSetting('my_tg_channels','[]')); } catch(e) {}
+    if(!channels.length) { await sendAdminMsg(chatId, '❌ لا توجد قنوات مضافة', [[{text:'📢 إدارة قنواتي', callback_data:'my_channels'}]]); return; }
+    const keyboard = channels.map(c => [{text:c.name+' ('+c.chat+')', callback_data:'setpub_'+c.chat+'_'+ch}]);
+    keyboard.push([{text:'🔙 رجوع', callback_data:'src_'+ch}]);
+    await sendAdminMsg(chatId, '📢 اختر القناة التي ينشر عليها @'+ch+':', keyboard);
+
+  } else if(text.startsWith('setpub_')) {
+    const parts = text.replace('setpub_','').split('_');
+    const pubChat = parts[0];
+    const ch = parts.slice(1).join('_');
+    setSetting('tg_publish_to_'+ch, pubChat);
+    await sendAdminMsg(chatId, '✅ تم تعيين '+pubChat+' كقناة نشر لـ @'+ch,
+      [[{text:'🔙 المصدر', callback_data:'src_'+ch}]]);
 
   } else if(text.startsWith('del_src_')) {
     const id = text.replace('del_src_','');
     const src = db.prepare('SELECT name FROM sources WHERE id=?').get(id);
-    if(src) { db.prepare('DELETE FROM sources WHERE id=?').run(id); await sendAdminMsg(chatId, '🗑️ تم حذف '+src.name, [[{text:'🔙 المصادر', callback_data:'sources'}]]); }
+    if(src) {
+      db.prepare('DELETE FROM sources WHERE id=?').run(id);
+      setupTGSchedules();
+      await sendAdminMsg(chatId, '🗑️ تم حذف المصدر: '+src.name, [[{text:'🔙 المصادر', callback_data:'list_sources'}]]);
+    }
 
   } else if(text.startsWith('test_src_')) {
     const ch = text.replace('test_src_','');
-    await sendAdminMsg(chatId, '🔄 جاري جلب آخر رسالة من @'+ch+'...');
+    await sendAdminMsg(chatId, '🔄 جاري قراءة @'+ch+'...');
     const r = await readTelegramChannel(ch);
     if(r.success && r.posts.length) {
-      await sendAdminMsg(chatId, '📨 آخر رسالة:\n\n'+r.posts[0].text.substring(0,300), [[{text:'🔙 رجوع', callback_data:'sources'}]]);
+      const post = r.posts[0];
+      await sendAdminMsg(chatId,
+        `✅ نجح الاتصال بـ @${ch}\nعدد المنشورات: ${r.posts.length}\n\n📨 آخر رسالة:\n${post.text.substring(0,300)}`,
+        [[{text:'🔙 المصدر', callback_data:'src_'+ch}]]);
     } else {
-      await sendAdminMsg(chatId, '❌ تعذر قراءة القناة: '+(r.message||''), [[{text:'🔙 رجوع', callback_data:'sources'}]]);
+      await sendAdminMsg(chatId, '❌ تعذر قراءة @'+ch+'\n'+(r.message||''), [[{text:'🔙 المصادر', callback_data:'list_sources'}]]);
     }
 
-  } else if(text === 'run') {
-    await sendAdminMsg(chatId, '▶️ تم تشغيل الدورة اليدوية...');
-    dailyCycle().catch(console.error);
-    setTimeout(async()=>{ await sendAdminMsg(chatId, '✅ انتهت الدورة!', [[{text:'🔙 الرئيسية', callback_data:'main'}]]); }, 3000);
+  } else if(text.startsWith('publish_last_')) {
+    const ch = text.replace('publish_last_','');
+    await sendAdminMsg(chatId, '📤 جاري جلب ونشر آخر رسالة من @'+ch+'...');
+    await processTGChannel(ch);
+    await sendAdminMsg(chatId, '✅ تم معالجة آخر رسالة من @'+ch, [[{text:'🔙 المصدر', callback_data:'src_'+ch}]]);
 
-  } else if(text === 'schedules') {
-    const srcs = db.prepare("SELECT * FROM sources WHERE type='telegram' AND active=1").all();
-    let msg = '⏰ <b>الجداول النشطة:</b>\n\n';
-    srcs.forEach(s => {
-      const ch = s.url.replace('https://t.me/s/','');
-      const iv = getSetting('tg_interval_'+ch,'5');
-      const pub = getSetting('tg_publish_to_'+ch,'');
-      const active = !!tgIntervals[ch];
-      msg += `${active?'✅':'❌'} @${ch} — كل ${iv} دقيقة → ${pub||'افتراضي'}\n`;
-    });
-    const keyboard = [[{text:'🔄 إعادة تفعيل الجداول', callback_data:'restart_schedules'},{text:'🔙 رجوع', callback_data:'main'}]];
-    await sendAdminMsg(chatId, msg||'لا توجد جداول', keyboard);
+  // ===== ADD SOURCES =====
+  } else if(text === 'add_tg_src') {
+    setSetting('admin_awaiting','add_tg_src');
+    await sendAdminMsg(chatId, '✈️ أرسل اسم قناة تيليغرام (بدون @):\nمثال: BBCArabic',
+      [[{text:'❌ إلغاء', callback_data:'sources'}]]);
 
-  } else if(text === 'restart_schedules') {
-    setupTGSchedules();
-    await sendAdminMsg(chatId, '✅ تم إعادة تفعيل جداول التيليغرام!\nعدد القنوات: '+Object.keys(tgIntervals).length, [[{text:'🔙 رجوع', callback_data:'main'}]]);
+  } else if(text === 'add_rss_src') {
+    setSetting('admin_awaiting','add_rss_src');
+    await sendAdminMsg(chatId, '🌐 أرسل رابط RSS:\nمثال: https://feeds.bbcarabic.com/bbcarabic-51',
+      [[{text:'❌ إلغاء', callback_data:'sources'}]]);
 
-  } else if(text === 'posts') {
-    const ps = db.prepare("SELECT * FROM posts ORDER BY created_at DESC LIMIT 5").all();
-    if(!ps.length) { await sendAdminMsg(chatId, '📋 لا توجد منشورات', [[{text:'🔙 رجوع', callback_data:'main'}]]); return; }
-    let msg = '📋 <b>آخر المنشورات:</b>\n\n';
-    ps.forEach(p => { msg += `• ${p.original_title?p.original_title.substring(0,50):'بدون عنوان'} — <i>${p.status}</i>\n`; });
-    await sendAdminMsg(chatId, msg, [[{text:'🔙 رجوع', callback_data:'main'}]]);
+  } else if(text === 'add_yt_src') {
+    setSetting('admin_awaiting','add_yt_src');
+    await sendAdminMsg(chatId, '▶️ أرسل رابط قناة YouTube أو فيديو:',
+      [[{text:'❌ إلغاء', callback_data:'sources'}]]);
 
+  // ===== MY CHANNELS =====
+  } else if(text === 'my_channels') {
+    let channels = [];
+    try { channels = JSON.parse(getSetting('my_tg_channels','[]')); } catch(e) {}
+    let msg = '📢 <b>قنواتك للنشر</b>\n\n';
+    if(!channels.length) msg += 'لا توجد قنوات مضافة\n';
+    else channels.forEach((c,i) => { msg += `${i+1}. ${c.name} — ${c.chat}\n`; });
+    const keyboard = channels.map((c,i) => [{text:'🗑️ حذف '+c.name, callback_data:'del_mych_'+i}]);
+    keyboard.push([{text:'➕ إضافة قناة', callback_data:'add_my_channel'},{text:'🔙 رجوع', callback_data:'main'}]);
+    await sendAdminMsg(chatId, msg, keyboard);
+
+  } else if(text === 'add_my_channel') {
+    setSetting('admin_awaiting','add_my_channel_name');
+    await sendAdminMsg(chatId, '📢 أرسل اسم القناة (سيظهر في نهاية المنشورات):',
+      [[{text:'❌ إلغاء', callback_data:'my_channels'}]]);
+
+  } else if(text.startsWith('del_mych_')) {
+    const idx = parseInt(text.replace('del_mych_',''));
+    let channels = [];
+    try { channels = JSON.parse(getSetting('my_tg_channels','[]')); } catch(e) {}
+    const removed = channels.splice(idx,1);
+    setSetting('my_tg_channels', JSON.stringify(channels));
+    await sendAdminMsg(chatId, '🗑️ تم حذف '+(removed[0]?removed[0].name:'القناة'), [[{text:'🔙 قنواتي', callback_data:'my_channels'}]]);
+
+  // ===== AI SETTINGS =====
   } else if(text === 'ai_settings') {
     const provider = getSetting('ai_provider','groq');
-    const hasGroq = !!getSetting('groq_key');
-    const hasGemini = !!getSetting('gemini_key');
-    const hasClaude = !!getSetting('claude_key');
-    const hasOpenAI = !!getSetting('openai_key');
-    const msg = `🤖 <b>إعدادات AI</b>\n\nالمزود الحالي: <b>${provider}</b>\n\nالمفاتيح:\n${hasGroq?'✅':'❌'} Groq\n${hasGemini?'✅':'❌'} Gemini\n${hasClaude?'✅':'❌'} Claude\n${hasOpenAI?'✅':'❌'} OpenAI`;
-    const keyboard = [
-      [{text:'⚡ Groq', callback_data:'set_ai_groq'}, {text:'💎 Gemini', callback_data:'set_ai_gemini'}],
-      [{text:'🤖 Claude', callback_data:'set_ai_claude'}, {text:'🚀 OpenAI', callback_data:'set_ai_openai'}],
-      [{text:'🔙 رجوع', callback_data:'main'}]
-    ];
-    await sendAdminMsg(chatId, msg, keyboard);
+    const keys = {groq:!!getSetting('groq_key'),gemini:!!getSetting('gemini_key'),claude:!!getSetting('claude_key'),openai:!!getSetting('openai_key')};
+    const msg = `🤖 <b>إعدادات AI</b>\n\nالمزود النشط: <b>${provider}</b>\n\nالمفاتيح:\n${keys.groq?'✅':'❌'} Groq (مجاني)\n${keys.gemini?'✅':'❌'} Gemini\n${keys.claude?'✅':'❌'} Claude\n${keys.openai?'✅':'❌'} OpenAI`;
+    await sendAdminMsg(chatId, msg,
+      [[{text:'⚡ Groq'+(provider==='groq'?' ✓':''), callback_data:'set_ai_groq'},{text:'💎 Gemini'+(provider==='gemini'?' ✓':''), callback_data:'set_ai_gemini'}],
+       [{text:'🤖 Claude'+(provider==='claude'?' ✓':''), callback_data:'set_ai_claude'},{text:'🚀 OpenAI'+(provider==='openai'?' ✓':''), callback_data:'set_ai_openai'}],
+       [{text:'🧪 اختبار AI الحالي', callback_data:'test_ai'}],
+       [{text:'🔙 رجوع', callback_data:'main'}]]);
 
   } else if(text.startsWith('set_ai_')) {
     const prov = text.replace('set_ai_','');
     setSetting('ai_provider', prov);
-    await sendAdminMsg(chatId, '✅ تم تغيير المزود إلى '+prov, [[{text:'🔙 إعدادات AI', callback_data:'ai_settings'}]]);
+    await sendAdminMsg(chatId, '✅ تم تغيير المزود إلى <b>'+prov+'</b>', [[{text:'🔙 إعدادات AI', callback_data:'ai_settings'}]]);
 
-  } else if(text === 'my_channels') {
-    let channels = [];
-    try { channels = JSON.parse(getSetting('my_tg_channels','[]')); } catch(e) {}
-    let msg = '📢 <b>قنواتك للنشر:</b>\n\n';
-    if(!channels.length) msg += 'لا توجد قنوات مضافة';
-    else channels.forEach(c => { msg += `• ${c.name} — ${c.chat}\n`; });
+  } else if(text === 'test_ai') {
+    await sendAdminMsg(chatId, '🔄 جاري اختبار AI...');
+    try {
+      const result = await callAI('قل: البوت يعمل بنجاح', 20);
+      await sendAdminMsg(chatId, '✅ AI يعمل!\nالرد: '+result, [[{text:'🔙 رجوع', callback_data:'ai_settings'}]]);
+    } catch(e) {
+      await sendAdminMsg(chatId, '❌ خطأ في AI: '+e.message, [[{text:'🔙 رجوع', callback_data:'ai_settings'}]]);
+    }
+
+  // ===== WRITING STYLE =====
+  } else if(text === 'writing_style') {
+    const tone = getSetting('writing_tone','informative');
+    const lang = getSetting('content_lang','ar');
+    const hashtags = getSetting('hashtags','');
+    await sendAdminMsg(chatId,
+      `✍️ <b>أسلوب الكتابة</b>\n\nالأسلوب الحالي: <b>${tone}</b>\nاللغة: <b>${lang}</b>\nهاشتاقات: ${hashtags||'لا توجد'}`,
+      [[{text:'📰 إخباري'+(tone==='informative'?' ✓':''), callback_data:'set_tone_informative'},{text:'🔍 تحليلي'+(tone==='analytical'?' ✓':''), callback_data:'set_tone_analytical'}],
+       [{text:'✨ جذاب'+(tone==='engaging'?' ✓':''), callback_data:'set_tone_engaging'},{text:'⚖️ محايد'+(tone==='neutral'?' ✓':''), callback_data:'set_tone_neutral'}],
+       [{text:'🌐 عربي'+(lang==='ar'?' ✓':''), callback_data:'set_lang_ar'},{text:'🇬🇧 English'+(lang==='en'?' ✓':''), callback_data:'set_lang_en'}],
+       [{text:'✏️ تعديل الهاشتاقات', callback_data:'edit_hashtags'}],
+       [{text:'🔙 رجوع', callback_data:'main'}]]);
+
+  } else if(text.startsWith('set_tone_')) {
+    const tone = text.replace('set_tone_','');
+    setSetting('writing_tone', tone);
+    await sendAdminMsg(chatId, '✅ تم تغيير الأسلوب إلى <b>'+tone+'</b>', [[{text:'🔙 رجوع', callback_data:'writing_style'}]]);
+
+  } else if(text.startsWith('set_lang_')) {
+    const lang = text.replace('set_lang_','');
+    setSetting('content_lang', lang);
+    await sendAdminMsg(chatId, '✅ تم تغيير اللغة', [[{text:'🔙 رجوع', callback_data:'writing_style'}]]);
+
+  } else if(text === 'edit_hashtags') {
+    setSetting('admin_awaiting','edit_hashtags');
+    await sendAdminMsg(chatId, '✏️ أرسل الهاشتاقات:\nمثال: #أخبار #تقنية #عاجل',
+      [[{text:'❌ إلغاء', callback_data:'writing_style'}]]);
+
+  // ===== SCHEDULES =====
+  } else if(text === 'schedules') {
+    const srcs = db.prepare("SELECT * FROM sources WHERE type='telegram' AND active=1").all();
+    let msg = '⏰ <b>الجداول النشطة:</b>\n\n';
+    if(!srcs.length) msg += 'لا توجد جداول';
+    else srcs.forEach(s => {
+      const ch = s.url.replace('https://t.me/s/','');
+      const iv = getSetting('tg_interval_'+ch,'5');
+      const active = !!tgIntervals[ch];
+      msg += `${active?'✅':'❌'} @${ch} — كل ${iv} دقيقة\n`;
+    });
+    await sendAdminMsg(chatId, msg,
+      [[{text:'🔄 إعادة تفعيل الجداول', callback_data:'restart_schedules'},{text:'🔙 رجوع', callback_data:'main'}]]);
+
+  } else if(text === 'restart_schedules') {
+    setupTGSchedules();
+    await sendAdminMsg(chatId, '✅ تم إعادة تفعيل الجداول!\nعدد القنوات النشطة: '+Object.keys(tgIntervals).length,
+      [[{text:'🔙 رجوع', callback_data:'schedules'}]]);
+
+  // ===== RUN =====
+  } else if(text === 'run') {
+    await sendAdminMsg(chatId, '▶️ جاري تشغيل الدورة اليدوية...');
+    dailyCycle().then(async()=>{
+      await sendAdminMsg(chatId, '✅ انتهت الدورة بنجاح!', [[{text:'📊 الإحصائيات', callback_data:'stats'},{text:'🏠 الرئيسية', callback_data:'main'}]]);
+    }).catch(async(e)=>{
+      await sendAdminMsg(chatId, '❌ خطأ في الدورة: '+e.message);
+    });
+
+  // ===== POSTS =====
+  } else if(text === 'posts') {
+    const ps = db.prepare("SELECT p.*,s.name sname FROM posts p LEFT JOIN sources s ON p.source_id=s.id ORDER BY p.created_at DESC LIMIT 8").all();
+    if(!ps.length) { await sendAdminMsg(chatId, '📋 لا توجد منشورات', [[{text:'🔙 رجوع', callback_data:'main'}]]); return; }
+    let msg = '📋 <b>آخر المنشورات:</b>\n\n';
+    ps.forEach(p => { msg += `${p.status==='published'?'✅':'⏳'} ${(p.original_title||'بدون عنوان').substring(0,40)}\n<i>${p.sname||''} — ${p.status}</i>\n\n`; });
     await sendAdminMsg(chatId, msg, [[{text:'🔙 رجوع', callback_data:'main'}]]);
 
+  // ===== FACEBOOK =====
   } else if(text === 'fb_menu') {
     const webhook = getSetting('make_webhook');
     const fbSrcs = db.prepare("SELECT COUNT(*) c FROM sources WHERE name LIKE 'FB:%' AND active=1").get();
-    const msg = `📘 <b>فيسبوك</b>\n\nWebhook: ${webhook?'✅ مربوط':'❌ غير مربوط'}\nعدد المصادر: ${fbSrcs.c}`;
-    const keyboard = [
-      [{text:'🧪 اختبار الربط', callback_data:'test_fb'}, {text:'▶️ نشر الآن', callback_data:'run_fb'}],
-      [{text:'🔙 رجوع', callback_data:'main'}]
-    ];
-    await sendAdminMsg(chatId, msg, keyboard);
+    await sendAdminMsg(chatId,
+      `📘 <b>فيسبوك</b>\n\nWebhook: ${webhook?'✅ مربوط':'❌ غير مربوط'}\nعدد المصادر: ${fbSrcs.c}`,
+      [[{text:'🧪 اختبار الربط', callback_data:'test_fb'},{text:'📋 مصادر FB', callback_data:'list_fb_sources'}],
+       [{text:'▶️ نشر فوري FB', callback_data:'run_fb'}],
+       [{text:'🔙 رجوع', callback_data:'main'}]]);
+
+  } else if(text === 'list_fb_sources') {
+    const srcs = db.prepare("SELECT * FROM sources WHERE name LIKE 'FB:%' AND active=1").all();
+    if(!srcs.length) { await sendAdminMsg(chatId, '📘 لا توجد مصادر فيسبوك', [[{text:'🔙 رجوع', callback_data:'fb_menu'}]]); return; }
+    const keyboard = srcs.map(s => [{text:s.name, callback_data:'del_fb_'+s.id}]);
+    keyboard.push([{text:'🔙 رجوع', callback_data:'fb_menu'}]);
+    await sendAdminMsg(chatId, '📘 مصادر فيسبوك (اضغط لحذف):', keyboard);
+
+  } else if(text.startsWith('del_fb_')) {
+    const id = text.replace('del_fb_','');
+    const src = db.prepare('SELECT name FROM sources WHERE id=?').get(id);
+    if(src) { db.prepare('DELETE FROM sources WHERE id=?').run(id); await sendAdminMsg(chatId, '🗑️ تم حذف '+src.name, [[{text:'🔙 رجوع', callback_data:'list_fb_sources'}]]); }
 
   } else if(text === 'test_fb') {
     const webhook = getSetting('make_webhook');
@@ -934,24 +1088,75 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
       await sendAdminMsg(chatId, '✅ تم إرسال منشور تجريبي لفيسبوك!', [[{text:'🔙 رجوع', callback_data:'fb_menu'}]]);
     } catch(e) { await sendAdminMsg(chatId, '❌ خطأ: '+e.message, [[{text:'🔙 رجوع', callback_data:'fb_menu'}]]); }
 
-  } else if(text === 'settings') {
-    const tone = getSetting('writing_tone','informative');
-    const lang = getSetting('content_lang','ar');
+  // ===== GENERAL SETTINGS =====
+  } else if(text === 'general_settings') {
     const auto = getSetting('auto_publish','1');
-    const msg = `⚙️ <b>الإعدادات</b>\n\nأسلوب الكتابة: ${tone}\nاللغة: ${lang}\nنشر تلقائي: ${auto==='1'?'✅ مفعل':'❌ معطل'}`;
-    const keyboard = [
-      [{text:auto==='1'?'⏸ إيقاف النشر التلقائي':'▶️ تفعيل النشر التلقائي', callback_data:auto==='1'?'set_auto_0':'set_auto_1'}],
-      [{text:'🔙 رجوع', callback_data:'main'}]
-    ];
-    await sendAdminMsg(chatId, msg, keyboard);
+    const ct = getSetting('check_time','08:00');
+    await sendAdminMsg(chatId,
+      `⚙️ <b>الإعدادات العامة</b>\n\nنشر تلقائي: ${auto==='1'?'✅ مفعل':'❌ معطل'}\nوقت الجلب اليومي: ${ct}`,
+      [[{text:auto==='1'?'⏸ إيقاف النشر':'▶️ تفعيل النشر', callback_data:auto==='1'?'set_auto_0':'set_auto_1'}],
+       [{text:'🕐 تغيير وقت الجلب', callback_data:'edit_check_time'}],
+       [{text:'🔙 رجوع', callback_data:'main'}]]);
 
   } else if(text === 'set_auto_1') {
     setSetting('auto_publish','1');
-    await sendAdminMsg(chatId, '✅ تم تفعيل النشر التلقائي', [[{text:'🔙 الإعدادات', callback_data:'settings'}]]);
+    await sendAdminMsg(chatId, '✅ تم تفعيل النشر التلقائي', [[{text:'🔙 رجوع', callback_data:'general_settings'}]]);
 
   } else if(text === 'set_auto_0') {
     setSetting('auto_publish','0');
-    await sendAdminMsg(chatId, '⏸ تم إيقاف النشر التلقائي', [[{text:'🔙 الإعدادات', callback_data:'settings'}]]);
+    await sendAdminMsg(chatId, '⏸ تم إيقاف النشر التلقائي', [[{text:'🔙 رجوع', callback_data:'general_settings'}]]);
+
+  // ===== AWAITING INPUT =====
+  } else {
+    const awaiting = getSetting('admin_awaiting','');
+    if(!awaiting) return;
+    setSetting('admin_awaiting','');
+
+    if(awaiting === 'add_tg_src') {
+      const ch = text.replace('@','').trim();
+      try {
+        const r = await readTelegramChannel(ch);
+        if(r.success) {
+          db.prepare('INSERT OR IGNORE INTO sources(name,url,type) VALUES(?,?,?)').run('TG: @'+ch,'https://t.me/s/'+ch,'telegram');
+          setSetting('tg_interval_'+ch,'5');
+          setupTGSchedules();
+          await sendAdminMsg(chatId, '✅ تمت إضافة @'+ch+' كمصدر!\nعدد المنشورات المتاحة: '+r.posts.length, [[{text:'⚙️ إعدادات المصدر', callback_data:'src_'+ch},{text:'🔙 المصادر', callback_data:'sources'}]]);
+        } else {
+          await sendAdminMsg(chatId, '❌ تعذر الوصول لـ @'+ch+'\n'+(r.message||''), [[{text:'🔙 رجوع', callback_data:'sources'}]]);
+        }
+      } catch(e) { await sendAdminMsg(chatId, '❌ خطأ: '+e.message); }
+
+    } else if(awaiting === 'add_rss_src') {
+      try {
+        const feed = await parser.parseURL(text);
+        const name = feed.title || text;
+        db.prepare('INSERT OR IGNORE INTO sources(name,url,type) VALUES(?,?,?)').run(name,text,'rss');
+        await sendAdminMsg(chatId, '✅ تمت إضافة RSS: '+name, [[{text:'🔙 المصادر', callback_data:'sources'}]]);
+      } catch(e) { await sendAdminMsg(chatId, '❌ خطأ في RSS: '+e.message); }
+
+    } else if(awaiting === 'add_yt_src') {
+      const videoId = text.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)?.[1];
+      const url = videoId ? 'https://youtu.be/'+videoId : text;
+      db.prepare('INSERT OR IGNORE INTO sources(name,url,type) VALUES(?,?,?)').run('YouTube: '+url.substring(0,30),url,'youtube');
+      await sendAdminMsg(chatId, '✅ تمت إضافة مصدر YouTube', [[{text:'🔙 المصادر', callback_data:'sources'}]]);
+
+    } else if(awaiting === 'add_my_channel_name') {
+      setSetting('admin_awaiting','add_my_channel_chat_'+text);
+      await sendAdminMsg(chatId, '📢 الآن أرسل معرف القناة (مثال: @mychannel أو -100123456789):', [[{text:'❌ إلغاء', callback_data:'my_channels'}]]);
+
+    } else if(awaiting.startsWith('add_my_channel_chat_')) {
+      const name = awaiting.replace('add_my_channel_chat_','');
+      const chat = text.trim();
+      let channels = [];
+      try { channels = JSON.parse(getSetting('my_tg_channels','[]')); } catch(e) {}
+      channels.push({name:name, chat:chat});
+      setSetting('my_tg_channels', JSON.stringify(channels));
+      await sendAdminMsg(chatId, '✅ تمت إضافة القناة: '+name+' ('+chat+')', [[{text:'🔙 قنواتي', callback_data:'my_channels'}]]);
+
+    } else if(awaiting === 'edit_hashtags') {
+      setSetting('hashtags', text);
+      await sendAdminMsg(chatId, '✅ تم حفظ الهاشتاقات', [[{text:'🔙 رجوع', callback_data:'writing_style'}]]);
+    }
   }
 }
 
