@@ -139,6 +139,22 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
 <!-- Connect -->
 <div class="pg" id="pg-con">
 
+  <!-- Admin Bot -->
+  <div class="cc" id="cbot">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <div style="font-size:20px">&#x1F3AE;</div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:700">&#x628;&#x648;&#x62A; &#x627;&#x644;&#x62A;&#x62D;&#x643;&#x645;</div><div style="font-size:10px;color:var(--t2)">&#x62A;&#x62D;&#x643;&#x645; &#x643;&#x627;&#x645;&#x644; &#x645;&#x646; &#x62A;&#x64A;&#x644;&#x64A;&#x63A;&#x631;&#x627;&#x645;</div></div>
+      <span id="botbadge" class="tag ts" style="display:none">&#x2705;</span>
+    </div>
+    <div class="al altg" style="margin-bottom:10px">1- @BotFather &#x2190; /newbot &#x2190; &#x627;&#x646;&#x633;&#x62E; Token<br>2- @userinfobot &#x2190; &#x623;&#x631;&#x633;&#x644; &#x623;&#x64A; &#x631;&#x633;&#x627;&#x644;&#x629; &#x2190; &#x627;&#x646;&#x633;&#x62E; &#x631;&#x642;&#x645;&#x643;</div>
+    <label>Bot Token</label>
+    <input id="abt" type="password" placeholder="123456:ABC...">
+    <label>Chat ID (&#x631;&#x642;&#x645;&#x643; &#x627;&#x644;&#x634;&#x62E;&#x635;&#x64A;)</label>
+    <input id="abcid" placeholder="123456789">
+    <div id="bot-st" class="sb"><span class="dot da"></span> &#x63A;&#x64A;&#x631; &#x645;&#x641;&#x639;&#x644;</div>
+    <button class="btn btg" id="botbtn" onclick="setupAdminBot()">&#x1F3AE; &#x62A;&#x641;&#x639;&#x64A;&#x644; &#x627;&#x644;&#x628;&#x648;&#x62A;</button>
+  </div>
+
   <!-- Telegram Bot + My Channels -->
   <div class="cc" id="ctg">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
@@ -583,6 +599,27 @@ async function analyzeYT() {
 }
 
 // ===== Connect =====
+async function setupAdminBot() {
+  var token = G('abt').value.trim();
+  var chatId = G('abcid').value.trim();
+  if(!token || !chatId) { alert('Enter Bot Token and Chat ID'); return; }
+  var btn = G('botbtn');
+  var st = G('bot-st');
+  btn.innerHTML = '<div class="sp"></div>'; btn.disabled = true;
+  try {
+    var r = await api('/api/admin-bot/setup', 'POST', {token: token, chatId: chatId});
+    if(r.success) {
+      st.innerHTML = '<span class="dot dg"></span> Bot: @' + r.botName;
+      G('botbadge').style.display = 'inline-block';
+      G('cbot').classList.add('ok');
+      alert('Done! Open your bot and send /start');
+    } else {
+      st.innerHTML = '<span class="dot dr"></span> Error: ' + (r.error||'');
+    }
+  } catch(e) { st.innerHTML = '<span class="dot da"></span> Failed: ' + e.message; }
+  btn.textContent = 'Activate Bot'; btn.disabled = false;
+}
+
 function loadConnect() {
   var channels = getMyChannels();
   var cont = G('my-channels');
