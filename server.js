@@ -781,6 +781,7 @@ function getMainKeyboard() {
   return [
     [{text:'📊 الإحصائيات', callback_data:'stats'}, {text:'📡 المصادر', callback_data:'sources'}],
     [{text:'▶️ تشغيل الآن', callback_data:'run'}, {text:'⏰ الجداول', callback_data:'schedules'}],
+    [{text:'🧪 اختبار النشر من كل المصادر', callback_data:'test_publish_all'}],
     [{text:'🤖 إعدادات AI', callback_data:'ai_settings'}, {text:'📢 قنواتي', callback_data:'my_channels'}],
     [{text:'📘 فيسبوك', callback_data:'fb_menu'}, {text:'📋 آخر المنشورات', callback_data:'posts'}],
     [{text:'⚙️ الإعدادات', callback_data:'general_settings'}, {text:'🔗 إعدادات الربط', callback_data:'connection_settings'}],
@@ -1069,12 +1070,30 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
 
   // ===== RUN =====
   } else if(text === 'run') {
-    await sendAdminMsg(chatId, '▶️ جاري تشغيل الدورة اليدوية...');
+    await sendAdminMsg(chatId, '▶️ جاري تشغيل الدورة اليدوية...',
+      [[{text:'🧪 اختبار النشر من كل المصادر', callback_data:'test_publish_all'}]]);
     dailyCycle().then(async()=>{
       await sendAdminMsg(chatId, '✅ انتهت الدورة بنجاح!', [[{text:'📊 الإحصائيات', callback_data:'stats'},{text:'🏠 الرئيسية', callback_data:'main'}]]);
     }).catch(async(e)=>{
       await sendAdminMsg(chatId, '❌ خطأ في الدورة: '+e.message);
     });
+
+  } else if(text === 'test_publish_all') {
+    const srcs = db.prepare("SELECT * FROM sources WHERE type='telegram' AND active=1").all();
+    if(!srcs.length) { await sendAdminMsg(chatId, '❌ لا توجد مصادر تيليغرام', [[{text:'🔙 رجوع', callback_data:'main'}]]); return; }
+    await sendAdminMsg(chatId, '🔄 جاري اختبار النشر من '+srcs.length+' قناة...');
+    let results = '';
+    for(const src of srcs) {
+      const ch = src.url.replace('https://t.me/s/','');
+      try {
+        await processTGChannel(ch);
+        results += '✅ @'+ch+'\n';
+      } catch(e) {
+        results += '❌ @'+ch+': '+e.message.substring(0,50)+'\n';
+      }
+      await new Promise(r=>setTimeout(r,1000));
+    }
+    await sendAdminMsg(chatId, '📊 نتيجة الاختبار:\n\n'+results, [[{text:'📋 المنشورات', callback_data:'posts'},{text:'🏠 الرئيسية', callback_data:'main'}]]);
 
   // ===== POSTS =====
   } else if(text === 'posts') {
