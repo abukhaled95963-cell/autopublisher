@@ -2301,17 +2301,19 @@ async function filterByTopics(text, topics) {
 }
 
 function validateRewrittenText(original, rewritten) {
-  if(!rewritten || rewritten.trim().length < 20) return null;
+  if(!rewritten || rewritten.trim().length < 15) return null;
 
-  const sentences = rewritten.split(/[.؟!]/g).filter(s => s.trim().length > 10);
-  const uniqueSentences = new Set(sentences.map(s => s.trim().substring(0,30)));
-  if(sentences.length > 3 && uniqueSentences.size < sentences.length * 0.6) {
-    console.log('Repetition detected, using original');
-    return null;
+  const sentences = rewritten.split(/[.؟!]/g).filter(s => s.trim().length > 15);
+  if(sentences.length > 4) {
+    const uniqueSentences = new Set(sentences.map(s => s.trim().substring(0,25)));
+    if(uniqueSentences.size < sentences.length * 0.5) {
+      console.log('Repetition detected, using original');
+      return null;
+    }
   }
 
-  if(original && rewritten.length < original.length * 0.2 && original.length > 100) {
-    console.log('Rewritten too short, using original');
+  if(original && rewritten.length < original.length * 0.15 && original.length > 200) {
+    console.log('Rewritten too short vs original, using original');
     return null;
   }
 
@@ -2391,12 +2393,13 @@ async function processTGChannel(channel) {
             const srcTone = getSetting('tg_tone_'+channel, getSetting('writing_tone','informative'));
             const toneMap = {informative:'إخباري احترافي', analytical:'تحليلي معمق', engaging:'جذاب وشيق', neutral:'محايد موضوعي'};
             const toneAr = toneMap[srcTone] || 'إخباري احترافي';
-            const prompt = isArabicText(text)
-              ? 'أعد صياغة هذا الخبر بالعربية الفصحى بأسلوب '+toneAr+'.\n\nقواعد صارمة:\n1. اكتب بالعربية فقط - ممنوع أي حرف من لغة أخرى\n2. إذا وجدت كلمات غير عربية في المصدر، ترجمها أو احذفها\n3. لا تذكر اسم القناة أو المصدر أو أي روابط\n4. إذا كان النص إعلاناً أو رأياً شخصياً بدون خبر حقيقي: أجب فقط بكلمة SKIP\n5. الحد الأقصى 250 كلمة\n\nالخبر:\n' + text + '\n\nأعد الخبر بالعربية فقط بدون أي حرف أجنبي.\n\nتعليمات مهمة:\n- اكتب النص كاملاً من البداية للنهاية\n- لا تتوقف في منتصف الجملة\n- لا تكتب "..." أو "يتبع" أو أي إشارة للاستمرار\n- أنهِ النص بجملة كاملة ومناسبة\n- الحد الأقصى 300 كلمة'
-              : 'You are a professional Arabic translator and news editor. Style: '+toneAr+'.\n\nYour task: Translate and rewrite the following text into fluent, professional Arabic.\n\nSTRICT RULES:\n1. ALWAYS write the output in Arabic ONLY - translate everything\n2. NEVER leave any English, Chinese, Russian, or other non-Arabic words in the output\n3. Do NOT mention the source, channel name, or any URLs\n4. If the text is ONLY an advertisement, spam, or meaningless: reply with exactly the word SKIP\n5. Keep the meaning intact, maximum 250 words\n\nText to translate:\n' + text + '\n\nWrite the Arabic translation now:\n\nIMPORTANT RULES:\n- Write the COMPLETE article from start to finish\n- Never stop mid-sentence\n- Never use "..." or "to be continued"\n- End with a proper complete sentence\n- Maximum 300 words';
+            const isNonArabic = !isArabicText(text);
+            const prompt = isNonArabic
+              ? `You are a professional Arabic translator and news editor.\n\nTranslate and rewrite the following text into fluent professional Arabic.\n\nSTRICT RULES:\n1. Write in Arabic ONLY - translate everything\n2. Keep ALL important information - do not omit any facts\n3. Do NOT mention source, channel name, or URLs\n4. Write COMPLETE sentences - never stop mid-sentence\n5. Maximum 400 words\n6. Style: ${toneAr}\n\nText:\n${text}\n\nWrite complete Arabic article:`
+              : `أنت محرر أخبار محترف. أعد كتابة هذا الخبر بالعربية الفصحى بأسلوب ${toneAr}.\n\nقواعد صارمة:\n1. احتفظ بجميع المعلومات المهمة دون حذف أي تفصيل\n2. لا تذكر اسم القناة أو المصدر أو أي رابط\n3. اكتب النص كاملاً من البداية للنهاية بدون انقطاع\n4. لا تنهِ النص بـ "..." أو "يتبع" أو أي عبارة ناقصة\n5. النص يجب أن ينتهي بجملة كاملة ومناسبة\n6. الحد الأقصى 350 كلمة\n\nالخبر:\n${text}\n\nأعد كتابة الخبر كاملاً:`;
             let rewritten = '';
             try {
-              rewritten = await callAI(prompt, 2000);
+              rewritten = await callAI(prompt, 3000);
               aiFailedNotified = false;
             } catch(e) {
               console.log('AI failed for @'+channel+':', e.message);
