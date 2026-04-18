@@ -2162,6 +2162,23 @@ app.get('/api/test/gemini-debug', async(req,res) => {
   }
 });
 
+app.get('/api/debug/sources', (req,res) => {
+  const sources = db.prepare("SELECT * FROM sources WHERE type='telegram' AND active=1").all();
+  const result = sources.map(s => {
+    const ch = s.url.replace('https://t.me/s/','');
+    return {
+      id: s.id,
+      name: s.name,
+      channel: ch,
+      publishTo: getSetting('tg_publish_to_'+ch,'') || getSetting('telegram_chat','') || 'NOT SET',
+      interval: getSetting('tg_interval_'+ch,'5'),
+      mode: getSetting('tg_rules_'+ch,'{"mode":"rewrite"}'),
+      active: !!tgIntervals[ch]
+    };
+  });
+  res.json({sources: result, telegram_chat: getSetting('telegram_chat',''), telegram_token: getSetting('telegram_token','') ? 'SET' : 'NOT SET'});
+});
+
 app.get('/api/debug/fb-approval', (req,res) => {
   res.json({
     fb_approval_mode: getSetting('fb_approval_mode','0'),
