@@ -1511,6 +1511,7 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
       `⚙️ <b>الإعدادات العامة</b>\n\nنشر تلقائي: ${auto==='1'?'✅ مفعل':'❌ معطل'}\nوقت الجلب اليومي: ${ct}`,
       [[{text:auto==='1'?'⏸ إيقاف النشر':'▶️ تفعيل النشر', callback_data:auto==='1'?'set_auto_0':'set_auto_1'}],
        [{text:'🕐 تغيير وقت الجلب', callback_data:'edit_check_time'}],
+       [{text:'🏷️ فلترة المحتوى لكل قناة', callback_data:'manage_channel_topics'}],
        [{text:'🔗 إعدادات الربط', callback_data:'connection_settings'}],
        [{text:'🔙 رجوع', callback_data:'main'}]]);
 
@@ -1664,6 +1665,108 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
     if(!pendingStr) { await sendAdminMsg(chatId, '❌ المنشور انتهت صلاحيته', backHome('main')); return; }
     setSetting('admin_awaiting','fb_edit_content_'+pendingId);
     await sendAdminMsg(chatId, '✏️ أرسل النص المعدل وسيُنشر مباشرة:', [[{text:'❌ إلغاء', callback_data:'fb_reject_'+pendingId}]]);
+
+  // ===== CHANNEL TOPICS =====
+  } else if(text === 'manage_channel_topics') {
+    let myChannels = [];
+    try { myChannels = JSON.parse(getSetting('my_tg_channels','[]')); } catch(e) {}
+    if(!myChannels.length) {
+      await sendAdminMsg(chatId, '❌ لا توجد قنوات مضافة بعد\nأضف قنواتك من 📢 قنواتي للنشر', backHome('general_settings'));
+      return;
+    }
+    const keyboard = myChannels.map((c,i) => {
+      const topics = getChannelTopics(c.chat);
+      return [{text: c.name + (topics.length>0?' ('+topics.length+' مجال)':' (كل المحتوى)'), callback_data:'set_ch_topics_'+i}];
+    });
+    keyboard.push(...backHome('general_settings'));
+    await sendAdminMsg(chatId, '📢 <b>فلترة المحتوى لكل قناة</b>\n\nاختر قناة لتحديد مجالاتها:', keyboard);
+
+  } else if(text.startsWith('set_ch_topics_')) {
+    const idx = parseInt(text.replace('set_ch_topics_',''));
+    let myChannels = [];
+    try { myChannels = JSON.parse(getSetting('my_tg_channels','[]')); } catch(e) {}
+    const ch = myChannels[idx];
+    if(!ch) { await sendAdminMsg(chatId, '❌ القناة غير موجودة', backHome('manage_channel_topics')); return; }
+
+    const topics = getChannelTopics(ch.chat);
+    const allTopics = [
+      {id:'tech',label:'💻 تقنية'},{id:'news',label:'📰 أخبار'},
+      {id:'culture',label:'🎭 ثقافة'},{id:'history',label:'📜 تاريخ'},
+      {id:'sports',label:'⚽ رياضة'},{id:'economy',label:'💰 اقتصاد'},
+      {id:'health',label:'🏥 صحة'},{id:'politics',label:'🏛️ سياسة'},
+      {id:'religion',label:'🕌 دين'},{id:'science',label:'🔬 علوم'}
+    ];
+
+    setSetting('admin_topic_channel', ch.chat);
+    setSetting('admin_topic_channel_name', ch.name);
+
+    const keyboard = [];
+    for(let i=0; i<allTopics.length; i+=2) {
+      const row = [];
+      for(let j=i; j<Math.min(i+2,allTopics.length); j++) {
+        const t = allTopics[j];
+        const selected = topics.includes(t.id);
+        row.push({text:(selected?'✅ ':'☐ ')+t.label, callback_data:'tog_ch_topic_'+t.id});
+      }
+      keyboard.push(row);
+    }
+    keyboard.push([{text:'🗑️ نشر كل المحتوى', callback_data:'clear_ch_topics'},{text:'💾 حفظ', callback_data:'save_ch_topics'}]);
+    keyboard.push([{text:'🔙 رجوع', callback_data:'manage_channel_topics'},{text:'🏠 الرئيسية', callback_data:'main'}]);
+
+    const msg = '📢 <b>'+ch.name+'</b>\n\n'+
+      (topics.length > 0
+        ? 'المجالات المحددة: '+topics.length+'\nالمحتوى الغير متوافق سيُرفض'
+        : '⚠️ لم تحدد مجالاً — كل المحتوى سيُنشر')+
+      '\n\nاختر مجالات هذه القناة:';
+    await sendAdminMsg(chatId, msg, keyboard);
+
+  } else if(text.startsWith('tog_ch_topic_')) {
+    const topicId = text.replace('tog_ch_topic_','');
+    const chChat = getSetting('admin_topic_channel','');
+    if(!chChat) return;
+    const topics = getChannelTopics(chChat);
+    const idx = topics.indexOf(topicId);
+    if(idx === -1) topics.push(topicId);
+    else topics.splice(idx,1);
+    setChannelTopics(chChat, topics);
+    const chName = getSetting('admin_topic_channel_name','');
+    const allTopics = [
+      {id:'tech',label:'💻 تقنية'},{id:'news',label:'📰 أخبار'},
+      {id:'culture',label:'🎭 ثقافة'},{id:'history',label:'📜 تاريخ'},
+      {id:'sports',label:'⚽ رياضة'},{id:'economy',label:'💰 اقتصاد'},
+      {id:'health',label:'🏥 صحة'},{id:'politics',label:'🏛️ سياسة'},
+      {id:'religion',label:'🕌 دين'},{id:'science',label:'🔬 علوم'}
+    ];
+    const keyboard = [];
+    for(let i=0; i<allTopics.length; i+=2) {
+      const row = [];
+      for(let j=i; j<Math.min(i+2,allTopics.length); j++) {
+        const t = allTopics[j];
+        const selected = topics.includes(t.id);
+        row.push({text:(selected?'✅ ':'☐ ')+t.label, callback_data:'tog_ch_topic_'+t.id});
+      }
+      keyboard.push(row);
+    }
+    keyboard.push([{text:'🗑️ نشر كل المحتوى', callback_data:'clear_ch_topics'},{text:'💾 حفظ', callback_data:'save_ch_topics'}]);
+    keyboard.push([{text:'🔙 رجوع', callback_data:'manage_channel_topics'},{text:'🏠 الرئيسية', callback_data:'main'}]);
+    await sendAdminMsg(chatId, '📢 <b>'+chName+'</b>\n\nالمجالات: '+topics.length+'\n\nاختر:', keyboard);
+
+  } else if(text === 'clear_ch_topics') {
+    const chChat = getSetting('admin_topic_channel','');
+    const chName = getSetting('admin_topic_channel_name','');
+    if(chChat) setChannelTopics(chChat, []);
+    await sendAdminMsg(chatId, '✅ تم مسح الفلتر لـ '+chName+' — كل المحتوى سيُنشر',
+      [[{text:'🔙 قائمة القنوات', callback_data:'manage_channel_topics'},{text:'🏠 الرئيسية', callback_data:'main'}]]);
+
+  } else if(text === 'save_ch_topics') {
+    const chChat = getSetting('admin_topic_channel','');
+    const chName = getSetting('admin_topic_channel_name','');
+    const topics = getChannelTopics(chChat);
+    const topicLabels = {tech:'تقنية',news:'أخبار',culture:'ثقافة',history:'تاريخ',sports:'رياضة',economy:'اقتصاد',health:'صحة',politics:'سياسة',religion:'دين',science:'علوم'};
+    const names = topics.map(t=>topicLabels[t]||t).join('، ');
+    await sendAdminMsg(chatId,
+      '✅ تم حفظ مجالات <b>'+chName+'</b>\n\n'+(topics.length>0?'المجالات: '+names:'كل المحتوى سيُنشر'),
+      [[{text:'🔙 قائمة القنوات', callback_data:'manage_channel_topics'},{text:'🏠 الرئيسية', callback_data:'main'}]]);
 
   // ===== AWAITING INPUT =====
   } else {
@@ -2168,6 +2271,18 @@ function fixArabicText(text) {
   t = t.replace(/\n{3,}/g, '\n\n');
   t = t.replace(/\)([^\s\d.،])/g, ') $1');
   return t.trim();
+}
+
+function getChannelTopics(channelId) {
+  try {
+    const key = channelId ? 'channel_topics_'+channelId : 'channel_topics';
+    return JSON.parse(getSetting(key,'[]'));
+  } catch(e) { return []; }
+}
+
+function setChannelTopics(channelId, topics) {
+  const key = channelId ? 'channel_topics_'+channelId : 'channel_topics';
+  setSetting(key, JSON.stringify(topics));
 }
 
 function validateRewrittenText(original, rewritten) {
