@@ -811,6 +811,28 @@ async function processFBSource(source) {
         continue;
       }
 
+      // Check for duplicate content (same story from different sources)
+      const recentFBPosts = db.prepare("SELECT original_content FROM posts WHERE source_id IN (SELECT id FROM sources WHERE name LIKE 'FB:%') AND datetime(created_at) > datetime('now', '-24 hours') ORDER BY created_at DESC LIMIT 20").all();
+
+      const isDuplicate = recentFBPosts.some(p => {
+        if(!p.original_content) return false;
+        const existing = p.original_content.substring(0,100).trim();
+        const current = text.substring(0,100).trim();
+        if(existing === current) return true;
+        const existingWords = new Set(existing.split(/\s+/).filter(w=>w.length>3));
+        const currentWords = current.split(/\s+/).filter(w=>w.length>3);
+        if(currentWords.length === 0) return false;
+        const matchCount = currentWords.filter(w=>existingWords.has(w)).length;
+        return matchCount / currentWords.length > 0.6;
+      });
+
+      if(isDuplicate) {
+        console.log('FB duplicate content detected, skipping:', source.name);
+        db.prepare('INSERT OR IGNORE INTO posts (source_id,original_title,original_url,original_content,status) VALUES(?,?,?,?,?)').run(source.id,'DUP:'+text.substring(0,50),key,text,'ignored');
+        await new Promise(r=>setTimeout(r,500));
+        continue;
+      }
+
       try {
         // Validate content is not empty before sending
         if(!fbText || fbText.trim().length < 10) {
@@ -2520,6 +2542,26 @@ async function processTGChannel(channel) {
                 await new Promise(r=>setTimeout(r,500));
                 continue;
               }
+            }
+
+            // Check for duplicate content across all channels
+            const recentTGPosts = db.prepare("SELECT original_content FROM posts WHERE datetime(created_at) > datetime('now', '-12 hours') AND status='published' ORDER BY created_at DESC LIMIT 30").all();
+            const isTGDuplicate = recentTGPosts.some(p => {
+              if(!p.original_content) return false;
+              const existing = p.original_content.substring(0,120).trim();
+              const current = text.substring(0,120).trim();
+              if(existing === current) return true;
+              const existingWords = new Set(existing.split(/\s+/).filter(w=>w.length>3));
+              const currentWords = current.split(/\s+/).filter(w=>w.length>3);
+              if(currentWords.length === 0) return false;
+              const matchCount = currentWords.filter(w=>existingWords.has(w)).length;
+              return matchCount / currentWords.length > 0.65;
+            });
+            if(isTGDuplicate) {
+              console.log('TG duplicate content @'+channel+' msgId:'+post.msgId);
+              db.prepare('INSERT OR IGNORE INTO posts (source_id,original_title,original_url,original_content,status) VALUES(0,?,?,?,?)').run('DUP:'+post.msgId,key,text,'ignored');
+              await new Promise(r=>setTimeout(r,500));
+              continue;
             }
 
             if(!rewritten || rewritten.trim().length < 10) {
