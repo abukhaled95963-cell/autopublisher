@@ -2461,8 +2461,8 @@ async function processTGChannel(channel) {
             const toneAr = toneMap[srcTone] || 'إخباري احترافي';
             const isNonArabic = !isArabicText(text);
             const prompt = isNonArabic
-              ? `You are a professional Arabic translator and news editor.\n\nTranslate and rewrite the following text into fluent professional Arabic.\n\nSTRICT RULES:\n1. Write in Arabic ONLY - translate everything\n2. Keep ALL important information - do not omit any facts\n3. Do NOT mention source, channel name, or URLs\n4. Write COMPLETE sentences - never stop mid-sentence\n5. Maximum 400 words\n6. Style: ${toneAr}\n\nText:\n${text}\n\nWrite complete Arabic article:`
-              : `أنت محرر أخبار محترف. أعد كتابة هذا الخبر بالعربية الفصحى بأسلوب ${toneAr}.\n\nقواعد صارمة:\n1. احتفظ بجميع المعلومات المهمة دون حذف أي تفصيل\n2. لا تذكر اسم القناة أو المصدر أو أي رابط\n3. اكتب النص كاملاً من البداية للنهاية بدون انقطاع\n4. لا تنهِ النص بـ "..." أو "يتبع" أو أي عبارة ناقصة\n5. النص يجب أن ينتهي بجملة كاملة ومناسبة\n6. الحد الأقصى 350 كلمة\n\nالخبر:\n${text}\n\nأعد كتابة الخبر كاملاً:`;
+              ? `You are a professional Arabic translator and news editor.\n\nTranslate and rewrite the following text into fluent professional Arabic.\n\nSTRICT RULES:\n1. Write in Arabic ONLY - translate everything\n2. Keep ALL important information - do not omit any facts\n3. Do NOT mention source, channel name, or URLs\n4. Write COMPLETE sentences - never stop mid-sentence\n5. Style: ${toneAr}\n6. If text is long, summarize secondary details but keep all key facts\n7. ALWAYS end with a complete sentence - never cut mid-word or mid-sentence\n\nText:\n${text.substring(0,1500)}\n\nWrite complete Arabic article ending with a full sentence:`
+              : `أنت محرر أخبار محترف. أعد كتابة هذا الخبر بالعربية الفصحى بأسلوب ${toneAr}.\n\nقواعد صارمة:\n1. احتفظ بجميع المعلومات المهمة دون حذف أي تفصيل\n2. لا تذكر اسم القناة أو المصدر أو أي رابط\n3. اكتب النص كاملاً من البداية للنهاية بدون انقطاع\n4. لا تنهِ النص بـ "..." أو "يتبع" أو أي عبارة ناقصة\n5. النص يجب أن ينتهي بجملة كاملة ومناسبة - لا تقطع النص في منتصف جملة أو كلمة\n6. إذا كان الخبر طويلاً، اختصر التفاصيل الثانوية مع الحفاظ على النقاط الرئيسية\n\nالخبر:\n${text.substring(0,1500)}\n\nأعد كتابة الخبر كاملاً وأنهِه بجملة تامة:`;
             let rewritten = '';
             try {
               rewritten = await callAI(prompt, 3000);
@@ -2478,6 +2478,22 @@ async function processTGChannel(channel) {
             if(rewritten) {
               const validated = validateRewrittenText(text, rewritten);
               if(!validated) { rewritten = ''; } else { rewritten = validated; }
+            }
+
+            // Check if text is cut mid-sentence
+            if(rewritten) {
+              const lastChar = rewritten.trim().slice(-1);
+              const badEndings = ['إ','ا','و','ب','ل','ف','ك','م','ن','ه','ي','ت','ع','ح','خ','د','ذ','ر','ز','س','ش','ص','ض','ط','ظ','غ','ق'];
+              const lastWord = rewritten.trim().split(' ').slice(-1)[0];
+              if(lastWord && lastWord.length <= 2 && badEndings.includes(lastChar)) {
+                console.log('Text appears truncated, retrying with shorter input for @'+channel);
+                try {
+                  const shortPrompt = isNonArabic
+                    ? 'Summarize this in Arabic in 5-6 complete sentences. End with a complete sentence:\n'+text.substring(0,800)
+                    : 'لخّص هذا الخبر في 5-6 جمل كاملة بالعربية. أنهِ بجملة تامة:\n'+text.substring(0,800);
+                  rewritten = await callAI(shortPrompt, 1000);
+                } catch(e) {}
+              }
             }
 
             // Per-channel topic filter
