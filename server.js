@@ -768,7 +768,7 @@ async function processFBSource(source) {
       } else if(fbMode === 'summary') {
         prompt = `اكتب ملخصاً قصيراً وجذاباً لهذا المحتوى بـ 3-4 جمل مناسبة لفيسبوك باللغة العربية. لا تذكر المصدر. اختم بسؤال.\n\n${text.substring(0,600)}\n\nأعد الملخص فقط.`;
       } else {
-        prompt = `أنت كاتب محتوى فيسبوك. أعد صياغة هذا المحتوى بأسلوب جذاب مناسب لفيسبوك باللغة العربية. لا تذكر المصدر أو الروابط. اختم بسؤال للتفاعل.\n\n${text.substring(0,600)}\n\nأعد المنشور فقط.`;
+        prompt = `اكتب منشور فيسبوك عربي بسيط عن هذا الموضوع.\n\nممنوع منعاً باتاً:\n- أي إيموجي أو رموز (🔹❌✅💡 وغيرها)\n- عبارات مثل: "إليك" أو "بالتأكيد" أو "فيما يلي" أو "---" أو "صياغة"\n- عناوين أو نقاط مرقمة\n- ذكر المصدر أو الروابط\n\nالمطلوب:\n- ابدأ مباشرة بالمحتوى بدون أي مقدمة\n- فقرات نثرية متصلة فقط\n- جملة سؤال بسيطة في النهاية بدون إيموجي\n\nالموضوع:\n${text.substring(0,600)}\n\nابدأ المنشور الآن:`;
       }
 
       console.log('FB processing source:', source.name, 'mode:', fbMode, 'text length:', text.length, 'preview:', text.substring(0,80));
@@ -793,7 +793,12 @@ async function processFBSource(source) {
       if(fbRefusal) fbText = text.substring(0,500);
 
       // Send to Make.com webhook
-      fbText = fixArabicText(fbText);
+      fbText = fixArabicText(cleanRewrittenText(fbText
+        .replace(/^[-*#]+\s*/gm, '')
+        .replace(/\*\*([^*]+)\*\*/g, '$1')
+        .replace(/^---+$/gm, '')
+        .replace(/🔹|🔸|▪|▫|•|·/g, '')
+      ));
 
       const fbApprovalMode = getSetting('fb_approval_mode','0');
       if(fbApprovalMode === '1') {
@@ -2310,6 +2315,8 @@ function cleanRewrittenText(text) {
   const patterns = [
     /^صحيح[،,]?\s*/i,
     /^إليك\s+[^:\n]+[:\n]\s*/i,
+    /^إليك\s+صياغة[^:\n]*[:\n-]*\s*/i,
+    /^بالتأكيد[،,]?\s*/i,
     /^يعد\s+صياغة\s+[^:\n]+[:\n]\s*/i,
     /^بعد\s+إعادة\s+[^:\n]+[:\n]\s*/i,
     /^إعادة\s+صياغة\s+[^:\n]+[:\n]\s*/i,
@@ -2317,7 +2324,12 @@ function cleanRewrittenText(text) {
     /^الخبر\s+[^:\n]+[:\n]\s*/i,
     /^تمت\s+إعادة\s+[^:\n]+[:\n]\s*/i,
     /^فيما\s+يلي\s+[^:\n]+[:\n]\s*/i,
+    /^وفقاً\s+لما\s+[^:\n]+[:\n]\s*/i,
     /^هذا\s+هو\s+[^:\n]+[:\n]\s*/i,
+    /^صياغة\s+[^:\n]*[:\n]\s*/i,
+    /^منشور\s+فيسبوك[:\n-]*\s*/i,
+    /^---+\s*/,
+    /^_{3,}\s*/,
   ];
   let t = text.trim();
   for(const p of patterns) t = t.replace(p, '');
