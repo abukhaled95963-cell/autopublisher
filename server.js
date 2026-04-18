@@ -96,8 +96,8 @@ async function callAI(prompt, maxTokens) {
       console.log('Trying AI provider:', provider);
       if(provider === 'groq') {
         const r = await axios.post('https://api.groq.com/openai/v1/chat/completions',
-          {model:'llama3-8b-8192', max_tokens:maxTokens, messages:[{role:'user',content:prompt}]},
-          {headers:{Authorization:'Bearer '+key}, timeout:30000}
+          {model:'llama-3.3-70b-versatile', max_tokens:maxTokens, messages:[{role:'user',content:prompt}]},
+          {headers:{Authorization:'Bearer '+key}, timeout:45000}
         );
         return r.data.choices[0].message.content;
       } else if(provider === 'gemini') {
@@ -2185,11 +2185,11 @@ async function processTGChannel(channel) {
             const toneMap = {informative:'إخباري احترافي', analytical:'تحليلي معمق', engaging:'جذاب وشيق', neutral:'محايد موضوعي'};
             const toneAr = toneMap[srcTone] || 'إخباري احترافي';
             const prompt = isArabicText(text)
-              ? 'أعد صياغة هذا الخبر بالعربية الفصحى بأسلوب '+toneAr+'.\n\nقواعد صارمة:\n1. اكتب بالعربية فقط - ممنوع أي حرف من لغة أخرى\n2. إذا وجدت كلمات غير عربية في المصدر، ترجمها أو احذفها\n3. لا تذكر اسم القناة أو المصدر أو أي روابط\n4. إذا كان النص إعلاناً أو رأياً شخصياً بدون خبر حقيقي: أجب فقط بكلمة SKIP\n5. الحد الأقصى 250 كلمة\n\nالخبر:\n' + text + '\n\nأعد الخبر بالعربية فقط بدون أي حرف أجنبي.\nمهم: لا تكرر الجمل. اكتب كل جملة مرة واحدة فقط. النص يجب أن يكون مكتملاً وغير منقوص.'
-              : 'You are a professional Arabic translator and news editor. Style: '+toneAr+'.\n\nYour task: Translate and rewrite the following text into fluent, professional Arabic.\n\nSTRICT RULES:\n1. ALWAYS write the output in Arabic ONLY - translate everything\n2. NEVER leave any English, Chinese, Russian, or other non-Arabic words in the output\n3. Do NOT mention the source, channel name, or any URLs\n4. If the text is ONLY an advertisement, spam, or meaningless: reply with exactly the word SKIP\n5. Keep the meaning intact, maximum 250 words\n\nText to translate:\n' + text + '\n\nWrite the Arabic translation now:\nIMPORTANT: Do not repeat sentences. Write each idea only once. The text must be complete and not truncated.';
+              ? 'أعد صياغة هذا الخبر بالعربية الفصحى بأسلوب '+toneAr+'.\n\nقواعد صارمة:\n1. اكتب بالعربية فقط - ممنوع أي حرف من لغة أخرى\n2. إذا وجدت كلمات غير عربية في المصدر، ترجمها أو احذفها\n3. لا تذكر اسم القناة أو المصدر أو أي روابط\n4. إذا كان النص إعلاناً أو رأياً شخصياً بدون خبر حقيقي: أجب فقط بكلمة SKIP\n5. الحد الأقصى 250 كلمة\n\nالخبر:\n' + text + '\n\nأعد الخبر بالعربية فقط بدون أي حرف أجنبي.\n\nتعليمات مهمة:\n- اكتب النص كاملاً من البداية للنهاية\n- لا تتوقف في منتصف الجملة\n- لا تكتب "..." أو "يتبع" أو أي إشارة للاستمرار\n- أنهِ النص بجملة كاملة ومناسبة\n- الحد الأقصى 300 كلمة'
+              : 'You are a professional Arabic translator and news editor. Style: '+toneAr+'.\n\nYour task: Translate and rewrite the following text into fluent, professional Arabic.\n\nSTRICT RULES:\n1. ALWAYS write the output in Arabic ONLY - translate everything\n2. NEVER leave any English, Chinese, Russian, or other non-Arabic words in the output\n3. Do NOT mention the source, channel name, or any URLs\n4. If the text is ONLY an advertisement, spam, or meaningless: reply with exactly the word SKIP\n5. Keep the meaning intact, maximum 250 words\n\nText to translate:\n' + text + '\n\nWrite the Arabic translation now:\n\nIMPORTANT RULES:\n- Write the COMPLETE article from start to finish\n- Never stop mid-sentence\n- Never use "..." or "to be continued"\n- End with a proper complete sentence\n- Maximum 300 words';
             let rewritten = '';
             try {
-              rewritten = await callAI(prompt, 1500);
+              rewritten = await callAI(prompt, 2000);
               aiFailedNotified = false;
             } catch(e) {
               console.log('AI failed for @'+channel+':', e.message);
