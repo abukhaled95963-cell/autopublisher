@@ -103,11 +103,11 @@ async function callAI(prompt, maxTokens) {
       } else if(provider === 'gemini') {
         try {
           const r = await axios.post(
-            'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent',
             {
               contents:[{parts:[{text:prompt}]}],
               generationConfig:{
-                maxOutputTokens: Math.max(maxTokens, 2048),
+                maxOutputTokens: Math.max(maxTokens, 4096),
                 temperature: 0.7
               }
             },
@@ -1883,7 +1883,7 @@ app.post('/api/test/gemini-debug', async(req,res) => {
   const {key} = req.body;
   try {
     const r = await axios.post(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent',
       {contents:[{parts:[{text:'Say OK'}]}]},
       {headers:{'x-goog-api-key': key, 'Content-Type':'application/json'}, timeout:30000}
     );
@@ -1898,7 +1898,7 @@ app.get('/api/test/gemini-debug', async(req,res) => {
   if(!key) return res.json({error:'No gemini key saved'});
   try {
     const r = await axios.post(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent',
       {contents:[{parts:[{text:'Say OK'}]}]},
       {headers:{'x-goog-api-key': key, 'Content-Type':'application/json'}, timeout:30000}
     );
