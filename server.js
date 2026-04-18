@@ -2285,6 +2285,21 @@ function setChannelTopics(channelId, topics) {
   setSetting(key, JSON.stringify(topics));
 }
 
+async function filterByTopics(text, topics) {
+  if(!topics || !topics.length || !text) return true;
+  const topicMap = {tech:'technology/programming/AI/software/hardware',news:'breaking news/current events',culture:'art/music/cinema/literature',history:'historical events/heritage',sports:'football/basketball/athletics/competitions',economy:'finance/markets/business/trade',health:'medicine/wellness/diseases',politics:'government/elections/diplomacy',religion:'Islam/faith/worship',science:'research/discoveries/physics/biology'};
+  const topicList = topics.map(t => topicMap[t] || t).join(', ');
+  try {
+    const result = await callAI(
+      'Classify this text. Is it about ANY of these topics: '+topicList+'?\nReply ONLY "YES" or "NO".\n\nText: '+text.substring(0,400),
+      10
+    );
+    return /yes/i.test(result || '');
+  } catch(e) {
+    return true;
+  }
+}
+
 function validateRewrittenText(original, rewritten) {
   if(!rewritten || rewritten.trim().length < 20) return null;
 
@@ -2394,6 +2409,20 @@ async function processTGChannel(channel) {
             if(rewritten) {
               const validated = validateRewrittenText(text, rewritten);
               if(!validated) { rewritten = ''; } else { rewritten = validated; }
+            }
+
+            // Per-channel topic filter
+            const publishToChannel = getSetting('tg_publish_to_'+channel,'') || getSetting('telegram_chat','');
+            const chTopics = getChannelTopics(publishToChannel);
+            if(chTopics.length > 0) {
+              const textToCheck = rewritten || text;
+              const allowed = await filterByTopics(textToCheck, chTopics);
+              if(!allowed) {
+                console.log('Topic filtered @'+channel+' msgId:'+post.msgId+' channel:'+publishToChannel);
+                db.prepare('INSERT OR IGNORE INTO posts (source_id,original_title,original_url,original_content,status) VALUES(0,?,?,?,?)').run('TOPIC:'+post.msgId, key, text, 'ignored');
+                await new Promise(r=>setTimeout(r,500));
+                continue;
+              }
             }
 
             if(!rewritten || rewritten.trim().length < 10) {
