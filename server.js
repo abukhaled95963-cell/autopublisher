@@ -107,9 +107,8 @@ async function callAI(prompt, maxTokens) {
             {
               contents:[{parts:[{text:prompt}]}],
               generationConfig:{
-                maxOutputTokens: Math.max(maxTokens, 1024),
-                temperature: 0.7,
-                stopSequences: []
+                maxOutputTokens: Math.max(maxTokens, 2048),
+                temperature: 0.7
               }
             },
             {headers:{'x-goog-api-key': key, 'Content-Type':'application/json'}, timeout:45000}
@@ -170,6 +169,31 @@ async function notifyAdminUpdate(version, changes) {
       parse_mode: 'HTML'
     });
   } catch(e) { console.log('Notify update error:', e.message); }
+}
+
+async function sendFBForApproval(sourceId, sourceName, content, postKey) {
+  const adminToken = getSetting('admin_bot_token');
+  const adminChatId = getSetting('admin_chat_id');
+  if(!adminToken || !adminChatId) return false;
+
+  const pendingId = 'fb_pending_'+Date.now();
+  setSetting(pendingId, JSON.stringify({sourceId, sourceName, content, postKey, createdAt: new Date().toISOString()}));
+
+  try {
+    await axios.post(`https://api.telegram.org/bot${adminToken}/sendMessage`,{
+      chat_id: adminChatId,
+      text: '📘 <b>منشور فيسبوك بانتظار موافقتك</b>\n\nالمصدر: '+sourceName+'\n\n'+content,
+      parse_mode: 'HTML',
+      reply_markup: {inline_keyboard:[
+        [{text:'✅ نشر', callback_data:'fb_approve_'+pendingId},{text:'❌ رفض', callback_data:'fb_reject_'+pendingId}],
+        [{text:'✏️ تعديل ونشر', callback_data:'fb_edit_'+pendingId}]
+      ]}
+    });
+    return true;
+  } catch(e) {
+    console.error('FB approval send error:', e.message);
+    return false;
+  }
 }
 
 // ===== Text filters =====
@@ -770,6 +794,18 @@ async function processFBSource(source) {
 
       // Send to Make.com webhook
       fbText = fixArabicText(fbText);
+
+      const fbApprovalMode = getSetting('fb_approval_mode','0');
+      if(fbApprovalMode === '1') {
+        const sent = await sendFBForApproval(source.id, source.name, fbText, key);
+        if(sent) {
+          console.log('FB post sent for approval from:', source.name);
+          db.prepare("INSERT OR IGNORE INTO posts (source_id,original_title,original_url,original_content,rewritten_facebook,status) VALUES(?,?,?,?,?,'pending')").run(source.id,text.substring(0,80),key,text,fbText);
+        }
+        await new Promise(r=>setTimeout(r,2000));
+        continue;
+      }
+
       try {
         // Validate content is not empty before sending
         if(!fbText || fbText.trim().length < 10) {
@@ -1351,11 +1387,13 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
   } else if(text === 'fb_settings') {
     const maxPosts = getSetting('fb_max_daily','10');
     const checkInterval = getSetting('fb_check_interval','30');
+    const approvalMode = getSetting('fb_approval_mode','0');
     const published = db.prepare("SELECT COUNT(*) c FROM publish_log WHERE platform='facebook' AND date(published_at)=date('now') AND status='success'").get();
     await sendAdminMsg(chatId,
-      '⚙️ <b>إعدادات فيسبوك</b>\n\n📊 منشورات اليوم: '+published.c+'/'+maxPosts+'\n⏰ تكرار الفحص: كل '+checkInterval+' دقيقة',
+      '⚙️ <b>إعدادات فيسبوك</b>\n\n📊 منشورات اليوم: '+published.c+'/'+maxPosts+'\n⏰ تكرار الفحص: كل '+checkInterval+' دقيقة\n📋 مراجعة قبل النشر: '+(approvalMode==='1'?'✅ مفعلة':'❌ معطلة'),
       [[{text:'📊 تحديد الحد اليومي', callback_data:'set_fb_max'}],
        [{text:'⏰ تغيير تكرار الفحص', callback_data:'set_fb_interval'}],
+       [{text:(approvalMode==='1'?'✅':'❌')+' مراجعة قبل النشر', callback_data:'toggle_fb_approval'}],
        [{text:'🔙 رجوع', callback_data:'fb_menu'}]]);
 
   } else if(text === 'set_fb_max') {
@@ -1387,6 +1425,14 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
     setupFBSchedules();
     const labels = {'15':'15 دقيقة','30':'30 دقيقة','60':'ساعة','120':'ساعتين','360':'6 ساعات','1440':'يومياً'};
     await sendAdminMsg(chatId, '✅ تم تغيير تكرار الفحص إلى: '+(labels[iv]||iv+' دقيقة')+'\nتم تطبيقه على جميع مصادر فيسبوك',
+      backHome('fb_settings'));
+
+  } else if(text === 'toggle_fb_approval') {
+    const current = getSetting('fb_approval_mode','0');
+    const newVal = current === '1' ? '0' : '1';
+    setSetting('fb_approval_mode', newVal);
+    await sendAdminMsg(chatId,
+      newVal === '1' ? '✅ تم تفعيل المراجعة قبل النشر على فيسبوك' : '❌ تم إلغاء المراجعة - النشر تلقائي',
       backHome('fb_settings'));
 
   // ===== GENERAL SETTINGS =====
@@ -1525,6 +1571,32 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
       [[{text:'🧪 اختبار النشر', callback_data:'test_fb_src_'+srcId}],
        [{text:'📋 مصادر FB', callback_data:'list_fb_sources'},{text:'🔙 رجوع', callback_data:'fb_menu'}]]);
 
+  } else if(text.startsWith('fb_approve_')) {
+    const pendingId = text.replace('fb_approve_','');
+    const pendingStr = getSetting(pendingId,'');
+    if(!pendingStr) { await sendAdminMsg(chatId, '❌ المنشور انتهت صلاحيته', backHome('main')); return; }
+    const pending = JSON.parse(pendingStr);
+    const webhook = getSetting('make_webhook');
+    try {
+      await axios.post(webhook, {content:pending.content.trim(), message:pending.content.trim(), text:pending.content.trim(), platform:'facebook', source:pending.sourceName, timestamp:new Date().toISOString()});
+      setSetting(pendingId, '');
+      await sendAdminMsg(chatId, '✅ تم النشر على فيسبوك!', backHome('main'));
+    } catch(e) {
+      await sendAdminMsg(chatId, '❌ فشل النشر: '+e.message, backHome('main'));
+    }
+
+  } else if(text.startsWith('fb_reject_')) {
+    const pendingId = text.replace('fb_reject_','');
+    setSetting(pendingId, '');
+    await sendAdminMsg(chatId, '🗑️ تم رفض المنشور وحذفه', backHome('main'));
+
+  } else if(text.startsWith('fb_edit_')) {
+    const pendingId = text.replace('fb_edit_','');
+    const pendingStr = getSetting(pendingId,'');
+    if(!pendingStr) { await sendAdminMsg(chatId, '❌ المنشور انتهت صلاحيته', backHome('main')); return; }
+    setSetting('admin_awaiting','fb_edit_content_'+pendingId);
+    await sendAdminMsg(chatId, '✏️ أرسل النص المعدل وسيُنشر مباشرة:', [[{text:'❌ إلغاء', callback_data:'fb_reject_'+pendingId}]]);
+
   // ===== AWAITING INPUT =====
   } else {
     if(callbackId) return;
@@ -1597,6 +1669,20 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
     } else if(awaiting === 'edit_webhook') {
       setSetting('make_webhook', text);
       await sendAdminMsg(chatId, '✅ تم حفظ Make.com Webhook', backHome('connection_settings'));
+
+    } else if(awaiting.startsWith('fb_edit_content_')) {
+      const pendingId = awaiting.replace('fb_edit_content_','');
+      const pendingStr = getSetting(pendingId,'');
+      if(!pendingStr) { await sendAdminMsg(chatId, '❌ المنشور انتهت صلاحيته'); return; }
+      const pending = JSON.parse(pendingStr);
+      const webhook = getSetting('make_webhook');
+      try {
+        await axios.post(webhook, {content:text.trim(), message:text.trim(), platform:'facebook', source:pending.sourceName, timestamp:new Date().toISOString()});
+        setSetting(pendingId, '');
+        await sendAdminMsg(chatId, '✅ تم نشر النص المعدل على فيسبوك!', backHome('main'));
+      } catch(e) {
+        await sendAdminMsg(chatId, '❌ فشل النشر: '+e.message);
+      }
 
     } else if(awaiting.startsWith('edit_key_')) {
       const provider = awaiting.replace('edit_key_','');
@@ -2103,7 +2189,7 @@ async function processTGChannel(channel) {
               : 'You are a professional Arabic translator and news editor. Style: '+toneAr+'.\n\nYour task: Translate and rewrite the following text into fluent, professional Arabic.\n\nSTRICT RULES:\n1. ALWAYS write the output in Arabic ONLY - translate everything\n2. NEVER leave any English, Chinese, Russian, or other non-Arabic words in the output\n3. Do NOT mention the source, channel name, or any URLs\n4. If the text is ONLY an advertisement, spam, or meaningless: reply with exactly the word SKIP\n5. Keep the meaning intact, maximum 250 words\n\nText to translate:\n' + text + '\n\nWrite the Arabic translation now:\nIMPORTANT: Do not repeat sentences. Write each idea only once. The text must be complete and not truncated.';
             let rewritten = '';
             try {
-              rewritten = await callAI(prompt, 800);
+              rewritten = await callAI(prompt, 1500);
               aiFailedNotified = false;
             } catch(e) {
               console.log('AI failed for @'+channel+':', e.message);
