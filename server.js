@@ -2079,6 +2079,16 @@ app.get('/api/test/gemini-debug', async(req,res) => {
   }
 });
 
+app.get('/api/debug/fb-approval', (req,res) => {
+  res.json({
+    fb_approval_mode: getSetting('fb_approval_mode','0'),
+    admin_bot_token: getSetting('admin_bot_token','') ? 'SET' : 'NOT SET',
+    admin_chat_id: getSetting('admin_chat_id',''),
+    make_webhook: getSetting('make_webhook','') ? 'SET' : 'NOT SET',
+    fb_sources: db.prepare("SELECT id,name FROM sources WHERE name LIKE 'FB:%' AND active=1").all()
+  });
+});
+
 app.get('/api/build-info', (req,res) => {
   res.json({
     version: getSetting('app_version','1.0.0'),
