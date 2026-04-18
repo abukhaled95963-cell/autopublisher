@@ -269,7 +269,7 @@ async function readTelegramChannel(channel) {
 
       if(text || media.length > 0) {
         results.push({
-          text: text.substring(0,500)||'',
+          text: text.substring(0,3000)||'',
           date: new Date().toISOString(),
           source: 'tme',
           media: media
