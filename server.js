@@ -766,9 +766,9 @@ async function processFBSource(source) {
         await new Promise(r=>setTimeout(r,2000));
         continue;
       } else if(fbMode === 'summary') {
-        prompt = `اكتب ملخصاً قصيراً وجذاباً لهذا المحتوى بـ 3-4 جمل مناسبة لفيسبوك باللغة العربية. لا تذكر المصدر. اختم بسؤال.\n\n${text.substring(0,600)}\n\nأعد الملخص فقط.`;
+        prompt = `لخّص في 3 جمل فقط:\n${text.substring(0,400)}\n\nبدون إيموجي. بدون عناوين. اختم بسؤال.`;
       } else {
-        prompt = `اكتب منشور فيسبوك عربي بسيط عن هذا الموضوع.\n\nممنوع منعاً باتاً:\n- أي إيموجي أو رموز (🔹❌✅💡 وغيرها)\n- عبارات مثل: "إليك" أو "بالتأكيد" أو "فيما يلي" أو "---" أو "صياغة"\n- عناوين أو نقاط مرقمة\n- ذكر المصدر أو الروابط\n\nالمطلوب:\n- ابدأ مباشرة بالمحتوى بدون أي مقدمة\n- فقرات نثرية متصلة فقط\n- جملة سؤال بسيطة في النهاية بدون إيموجي\n\nالموضوع:\n${text.substring(0,600)}\n\nابدأ المنشور الآن:`;
+        prompt = `أعد صياغة النص التالي بالعربية في فقرة واحدة أو فقرتين فقط.\n\nالشروط:\n- نموذج واحد فقط لا أكثر\n- بدون إيموجي\n- بدون عناوين أو نقاط\n- ابدأ مباشرة بالخبر\n- اختم بسؤال واحد\n\nالنص:\n${text.substring(0,500)}\n\nالصياغة:`;
       }
 
       console.log('FB processing source:', source.name, 'mode:', fbMode, 'text length:', text.length, 'preview:', text.substring(0,80));
@@ -1458,8 +1458,8 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
       let fbText = srcText;
       if(fbMode !== 'asis') {
         const prompt = fbMode === 'summary'
-          ? 'اكتب ملخصاً قصيراً وجذاباً لهذا المحتوى بـ 3-4 جمل مناسبة لفيسبوك باللغة العربية. لا تذكر المصدر. اختم بسؤال.\n\n'+srcText.substring(0,600)+'\n\nأعد الملخص فقط.'
-          : 'أنت كاتب محتوى فيسبوك. أعد صياغة هذا المحتوى بأسلوب جذاب مناسب لفيسبوك باللغة العربية. لا تذكر المصدر أو الروابط. اختم بسؤال للتفاعل.\n\n'+srcText.substring(0,600)+'\n\nأعد المنشور فقط.';
+          ? 'لخّص في 3 جمل:\n'+srcText.substring(0,400)+'\n\nبدون إيموجي. بدون عناوين. اختم بسؤال.'
+          : 'أعد صياغة في فقرة واحدة:\n'+srcText.substring(0,500)+'\n\nنموذج واحد فقط. بدون إيموجي. بدون عناوين. ابدأ مباشرة. اختم بسؤال.';
         try { fbText = await callAI(prompt, 500); } catch(e) {}
       }
       fbText = fixArabicText(fbText.replace(/https?:\/\/\S+/g,'').replace(/t\.me\/\S+/g,'').trim());
@@ -1499,7 +1499,7 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
         posts = items.slice(0,1).map(i=>({text:i.title+'. '+i.content}));
       }
       const postText = posts.length ? posts[0].text : 'اختبار الاتصال مع فيسبوك';
-      const prompt = 'أنت كاتب محتوى فيسبوك. أعد صياغة هذا المحتوى بأسلوب جذاب باللغة العربية. لا تذكر المصدر. اختم بسؤال.\n\n'+postText.substring(0,400)+'\n\nأعد المنشور فقط.';
+      const prompt = 'أعد صياغة في فقرة واحدة:\n'+postText.substring(0,400)+'\n\nنموذج واحد فقط. بدون إيموجي. بدون عناوين. ابدأ مباشرة. اختم بسؤال.';
       let fbText = postText;
       try { fbText = await callAI(prompt, 400); } catch(e) {}
       fbText = fixArabicText(fbText.replace(/https?:\/\/\S+/g,'').trim());
