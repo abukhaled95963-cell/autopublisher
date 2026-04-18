@@ -1436,10 +1436,35 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
     if(!src) return;
     const webhook = getSetting('make_webhook');
     if(!webhook) { await sendAdminMsg(chatId, '❌ Make.com غير مربوط', [[{text:'🔙 رجوع', callback_data:'fb_src_'+id}]]); return; }
-    await sendAdminMsg(chatId, '🔄 جاري جلب وإعادة صياغة ونشر على فيسبوك...');
+    await sendAdminMsg(chatId, '🔄 جاري جلب وإعادة الصياغة...');
     try {
-      await processFBSource(src);
-      await sendAdminMsg(chatId, '✅ تم النشر على فيسبوك!', [[{text:'🔙 رجوع', callback_data:'fb_src_'+id}]]);
+      let posts = [];
+      if(src.type === 'telegram') {
+        const ch = src.url.replace('https://t.me/s/','');
+        const r = await readTelegramChannel(ch);
+        if(r.success) posts = r.posts.slice(0,1);
+      } else {
+        const items = await fetchRSS(src);
+        posts = items.slice(0,1).map(i=>({text:i.title+'. '+i.content}));
+      }
+      if(!posts.length) { await sendAdminMsg(chatId, '❌ لا توجد منشورات في المصدر', [[{text:'🔙 رجوع', callback_data:'fb_src_'+id}]]); return; }
+      const srcText = posts[0].text || '';
+      const fbMode = getSetting('fb_publish_mode_'+id, 'rewrite');
+      let fbText = srcText;
+      if(fbMode !== 'asis') {
+        const prompt = fbMode === 'summary'
+          ? 'اكتب ملخصاً قصيراً وجذاباً لهذا المحتوى بـ 3-4 جمل مناسبة لفيسبوك باللغة العربية. لا تذكر المصدر. اختم بسؤال.\n\n'+srcText.substring(0,600)+'\n\nأعد الملخص فقط.'
+          : 'أنت كاتب محتوى فيسبوك. أعد صياغة هذا المحتوى بأسلوب جذاب مناسب لفيسبوك باللغة العربية. لا تذكر المصدر أو الروابط. اختم بسؤال للتفاعل.\n\n'+srcText.substring(0,600)+'\n\nأعد المنشور فقط.';
+        try { fbText = await callAI(prompt, 500); } catch(e) {}
+      }
+      fbText = fixArabicText(fbText.replace(/https?:\/\/\S+/g,'').replace(/t\.me\/\S+/g,'').trim());
+      const pendingId = 'fb_pending_'+Date.now();
+      setSetting(pendingId, JSON.stringify({sourceId:id, sourceName:src.name, content:fbText, postKey:'test_'+Date.now(), createdAt:new Date().toISOString()}));
+      await sendAdminMsg(chatId,
+        '📘 <b>معاينة منشور فيسبوك</b>\n\nالمصدر: '+src.name+'\n\n'+fbText,
+        [[{text:'✅ نشر على فيسبوك', callback_data:'fb_approve_'+pendingId},{text:'❌ إلغاء', callback_data:'fb_reject_'+pendingId}],
+         [{text:'✏️ تعديل ونشر', callback_data:'fb_edit_'+pendingId}],
+         [{text:'🔙 رجوع', callback_data:'fb_src_'+id}]]);
     } catch(e) {
       await sendAdminMsg(chatId, '❌ خطأ: '+e.message, [[{text:'🔙 رجوع', callback_data:'fb_src_'+id}]]);
     }
@@ -1447,10 +1472,41 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
   } else if(text === 'test_fb') {
     const webhook = getSetting('make_webhook');
     if(!webhook) { await sendAdminMsg(chatId, '❌ لم يتم ربط Make.com', backHome('fb_menu')); return; }
+    const fbSrcs = db.prepare("SELECT * FROM sources WHERE (name LIKE 'FB:%' OR id IN (SELECT CAST(value AS INTEGER) FROM settings WHERE key LIKE 'fb_source_%')) AND active=1 LIMIT 1").get();
+    if(!fbSrcs) {
+      const testContent = 'اختبار اتصال فيسبوك - '+new Date().toLocaleString('ar-SA',{timeZone:'Asia/Riyadh'});
+      const pendingId = 'fb_pending_'+Date.now();
+      setSetting(pendingId, JSON.stringify({sourceId:0, sourceName:'اختبار', content:testContent, postKey:'test', createdAt:new Date().toISOString()}));
+      await sendAdminMsg(chatId,
+        '📘 <b>اختبار اتصال فيسبوك</b>\n\n'+testContent,
+        [[{text:'✅ إرسال للفيسبوك', callback_data:'fb_approve_'+pendingId},{text:'❌ إلغاء', callback_data:'fb_reject_'+pendingId}]]);
+      return;
+    }
+    await sendAdminMsg(chatId, '🔄 جاري جلب منشور من '+fbSrcs.name+'...');
     try {
-      await axios.post(webhook, {content:'اختبار من بوت التحكم - '+new Date().toLocaleString('ar'), platform:'facebook', timestamp:new Date().toISOString()});
-      await sendAdminMsg(chatId, '✅ تم إرسال منشور تجريبي لفيسبوك!', backHome('fb_menu'));
-    } catch(e) { await sendAdminMsg(chatId, '❌ خطأ: '+e.message, backHome('fb_menu')); }
+      let posts = [];
+      if(fbSrcs.type === 'telegram') {
+        const ch = fbSrcs.url.replace('https://t.me/s/','');
+        const r = await readTelegramChannel(ch);
+        if(r.success) posts = r.posts.slice(0,1);
+      } else {
+        const items = await fetchRSS(fbSrcs);
+        posts = items.slice(0,1).map(i=>({text:i.title+'. '+i.content}));
+      }
+      const postText = posts.length ? posts[0].text : 'اختبار الاتصال مع فيسبوك';
+      const prompt = 'أنت كاتب محتوى فيسبوك. أعد صياغة هذا المحتوى بأسلوب جذاب باللغة العربية. لا تذكر المصدر. اختم بسؤال.\n\n'+postText.substring(0,400)+'\n\nأعد المنشور فقط.';
+      let fbText = postText;
+      try { fbText = await callAI(prompt, 400); } catch(e) {}
+      fbText = fixArabicText(fbText.replace(/https?:\/\/\S+/g,'').trim());
+      const pendingId = 'fb_pending_'+Date.now();
+      setSetting(pendingId, JSON.stringify({sourceId:fbSrcs.id, sourceName:fbSrcs.name, content:fbText, postKey:'test_'+Date.now(), createdAt:new Date().toISOString()}));
+      await sendAdminMsg(chatId,
+        '📘 <b>معاينة منشور فيسبوك</b>\n\nالمصدر: '+fbSrcs.name+'\n\n'+fbText,
+        [[{text:'✅ نشر على فيسبوك', callback_data:'fb_approve_'+pendingId},{text:'❌ إلغاء', callback_data:'fb_reject_'+pendingId}],
+         [{text:'✏️ تعديل ونشر', callback_data:'fb_edit_'+pendingId},{text:'🔙 رجوع', callback_data:'fb_menu'}]]);
+    } catch(e) {
+      await sendAdminMsg(chatId, '❌ خطأ: '+e.message, backHome('fb_menu'));
+    }
 
   } else if(text === 'fb_settings') {
     const maxPosts = getSetting('fb_max_daily','10');
