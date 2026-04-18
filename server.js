@@ -930,7 +930,59 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
     const fb = db.prepare("SELECT COUNT(*) c FROM sources WHERE name LIKE 'FB:%' AND active=1").get();
     await sendAdminMsg(chatId,
       `📊 <b>الإحصائيات الكاملة</b>\n\n📡 مصادر TG: ${tg.c}\n📘 مصادر FB: ${fb.c}\n📝 إجمالي منشورات: ${p.c}\n✅ نُشر اليوم: ${pub.c}\n❌ أخطاء اليوم: ${err.c}`,
-      backHome('main'));
+      [[{text:'✈️ إحصائيات تيليغرام', callback_data:'tg_stats'},{text:'📘 إحصائيات فيسبوك', callback_data:'fb_stats'}],
+       ...backHome('main')]);
+
+  } else if(text === 'tg_stats') {
+    const tgSrcs = db.prepare("SELECT COUNT(*) c FROM sources WHERE type='telegram' AND active=1").get();
+    const tgPub = db.prepare("SELECT COUNT(*) c FROM publish_log WHERE platform='telegram' AND date(published_at)=date('now') AND status='success'").get();
+    const tgTotal = db.prepare("SELECT COUNT(*) c FROM publish_log WHERE platform='telegram' AND status='success'").get();
+    const tgPending = db.prepare("SELECT COUNT(*) c FROM posts WHERE status='ready' AND rewritten_telegram IS NOT NULL").get();
+    const tgErr = db.prepare("SELECT COUNT(*) c FROM publish_log WHERE platform='telegram' AND date(published_at)=date('now') AND status='error'").get();
+    const tgIgnored = db.prepare("SELECT COUNT(*) c FROM posts WHERE status='ignored'").get();
+    const activeSchedules = Object.keys(tgIntervals).length;
+    await sendAdminMsg(chatId,
+      '✈️ <b>إحصائيات تيليغرام</b>\n\n'+
+      '📡 المصادر النشطة: '+tgSrcs.c+'\n'+
+      '⏰ جداول نشطة: '+activeSchedules+'\n'+
+      '✅ نُشر اليوم: '+tgPub.c+'\n'+
+      '📊 إجمالي المنشورات: '+tgTotal.c+'\n'+
+      '⏳ جاهزة للنشر: '+tgPending.c+'\n'+
+      '🚫 تم تجاهلها: '+tgIgnored.c+'\n'+
+      '❌ أخطاء اليوم: '+tgErr.c,
+      [[{text:'📋 عرض الجاهزة للنشر', callback_data:'pending_tg_posts'}], ...backHome('stats')]);
+
+  } else if(text === 'fb_stats') {
+    const fbSrcs = db.prepare("SELECT COUNT(*) c FROM sources WHERE name LIKE 'FB:%' AND active=1").get();
+    const fbPub = db.prepare("SELECT COUNT(*) c FROM publish_log WHERE platform='facebook' AND date(published_at)=date('now') AND status='success'").get();
+    const fbTotal = db.prepare("SELECT COUNT(*) c FROM publish_log WHERE platform='facebook' AND status='success'").get();
+    const fbPending = db.prepare("SELECT COUNT(*) c FROM posts WHERE status='ready' AND rewritten_facebook IS NOT NULL").get();
+    const fbErr = db.prepare("SELECT COUNT(*) c FROM publish_log WHERE platform='facebook' AND date(published_at)=date('now') AND status='error'").get();
+    const maxDaily = getSetting('fb_max_daily','10');
+    const approvalMode = getSetting('fb_approval_mode','0');
+    await sendAdminMsg(chatId,
+      '📘 <b>إحصائيات فيسبوك</b>\n\n'+
+      '📡 المصادر النشطة: '+fbSrcs.c+'\n'+
+      '✅ نُشر اليوم: '+fbPub.c+'/'+(maxDaily==='0'?'∞':maxDaily)+'\n'+
+      '📊 إجمالي المنشورات: '+fbTotal.c+'\n'+
+      '⏳ جاهزة للنشر: '+fbPending.c+'\n'+
+      '❌ أخطاء اليوم: '+fbErr.c+'\n'+
+      '🔍 مراجعة قبل النشر: '+(approvalMode==='1'?'✅ مفعل':'❌ معطل'),
+      [[{text:'📋 عرض الجاهزة للنشر', callback_data:'pending_fb_posts'}], ...backHome('stats')]);
+
+  } else if(text === 'pending_tg_posts') {
+    const posts = db.prepare("SELECT p.*,s.name sname FROM posts p LEFT JOIN sources s ON p.source_id=s.id WHERE p.status='ready' AND p.rewritten_telegram IS NOT NULL ORDER BY p.created_at DESC LIMIT 5").all();
+    if(!posts.length) { await sendAdminMsg(chatId, '✅ لا توجد منشورات معلقة لتيليغرام', backHome('tg_stats')); return; }
+    let msg = '⏳ <b>منشورات تيليغرام الجاهزة:</b>\n\n';
+    posts.forEach((p,i) => { msg += (i+1)+'. '+(p.original_title||'بدون عنوان').substring(0,50)+'\n<i>'+(p.sname||'')+' — '+(p.created_at||'').substring(0,16)+'</i>\n\n'; });
+    await sendAdminMsg(chatId, msg, backHome('tg_stats'));
+
+  } else if(text === 'pending_fb_posts') {
+    const posts = db.prepare("SELECT p.*,s.name sname FROM posts p LEFT JOIN sources s ON p.source_id=s.id WHERE p.status='ready' AND p.rewritten_facebook IS NOT NULL ORDER BY p.created_at DESC LIMIT 5").all();
+    if(!posts.length) { await sendAdminMsg(chatId, '✅ لا توجد منشورات معلقة لفيسبوك', backHome('fb_stats')); return; }
+    let msg = '⏳ <b>منشورات فيسبوك الجاهزة:</b>\n\n';
+    posts.forEach((p,i) => { msg += (i+1)+'. '+(p.original_title||'بدون عنوان').substring(0,50)+'\n<i>'+(p.sname||'')+' — '+(p.created_at||'').substring(0,16)+'</i>\n\n'; });
+    await sendAdminMsg(chatId, msg, backHome('fb_stats'));
 
   // ===== SOURCES MENU =====
   } else if(text === 'sources') {
@@ -1231,54 +1283,70 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
 
   } else if(text.startsWith('force_pub_') && text !== 'force_pub_all') {
     const ch = text.replace('force_pub_','');
-    await sendAdminMsg(chatId, '🔄 جاري جلب آخر رسالة من @'+ch+' ونشرها...');
+    await sendAdminMsg(chatId, '🔄 جاري جلب آخر رسالة من @'+ch+'...');
     try {
       const result = await readTelegramChannel(ch);
       if(!result.success || !result.posts.length) {
-        await sendAdminMsg(chatId, '❌ تعذر قراءة @'+ch+'\n'+(result.message||''), [[{text:'🔙 رجوع', callback_data:'test_publish_all'}]]);
+        await sendAdminMsg(chatId, '❌ تعذر قراءة @'+ch, backHome('test_publish_all'));
         return;
       }
       const post = result.posts[0];
-      const tgToken = getSetting('telegram_token');
-      const publishTo = getSetting('tg_publish_to_'+ch,'') || getSetting('telegram_chat','');
-      if(!tgToken || !publishTo) {
-        await sendAdminMsg(chatId, '❌ Bot Token أو القناة غير مضافة', [[{text:'🔗 إعدادات الربط', callback_data:'connection_settings'}]]);
-        return;
-      }
       const rules = JSON.parse(getSetting('tg_rules_'+ch,'{"mode":"rewrite"}'));
       const mode = rules.mode || 'rewrite';
-      let finalText = post.text;
-      if(mode === 'rewrite' || mode === 'as-is') {
-        if(mode === 'rewrite') {
-          try {
-            const isNonArabic = !/[\u0600-\u06FF]/.test((post.text||'').substring(0,50));
-            const prompt = isNonArabic
-              ? 'Translate and rewrite as professional Arabic news. No source mention. No URLs:\n'+post.text+'\nReturn Arabic only.'
-              : 'أعد صياغة هذا الخبر بالعربية الاحترافية. لا تذكر المصدر أو روابط:\n'+post.text+'\nأعد الخبر فقط.';
-            finalText = await callAI(prompt, 500);
-            const refusals = ['لا أستطيع','لا يمكنني','عذراً'];
-            if(refusals.some(r=>finalText.includes(r))) finalText = post.text;
-          } catch(e) { finalText = post.text; }
-        }
-        finalText = finalText.replace(/https?:\/\/\S+/g,'').replace(/t\.me\/\S+/g,'').trim();
-        let myChannelLink = '';
+      let previewText = post.text || '';
+
+      if(mode === 'rewrite' && previewText) {
+        await sendAdminMsg(chatId, '🤖 جاري إعادة الصياغة...');
         try {
-          const myChans = JSON.parse(getSetting('my_tg_channels','[]'));
-          const mc = myChans.find(c=>c.chat===publishTo||c.chat==='@'+publishTo.replace('@',''));
-          if(mc) myChannelLink = '\n\n📢 @'+mc.chat.replace('@','');
-        } catch(e) {}
-        finalText = finalText + myChannelLink;
-        await axios.post(`https://api.telegram.org/bot${tgToken}/sendMessage`,{chat_id:publishTo, text:finalText, parse_mode:'HTML'});
-      } else {
-        const result2 = await readTelegramChannel(ch);
-        if(result2.posts && result2.posts[0] && result2.posts[0].msgId) {
-          await axios.post(`https://api.telegram.org/bot${tgToken}/forwardMessage`,{chat_id:publishTo, from_chat_id:'@'+ch, message_id:result2.posts[0].msgId});
-        }
+          const isNonArabic = !/[\u0600-\u06FF]/.test(previewText.substring(0,50));
+          const prompt = isNonArabic
+            ? 'Translate and rewrite as professional Arabic news. No source. No URLs:\n'+previewText+'\nReturn Arabic only.'
+            : 'أعد صياغة هذا الخبر بالعربية الاحترافية. لا تذكر المصدر أو روابط. النص يجب أن يكون مكتملاً:\n'+previewText+'\nأعد الخبر فقط.';
+          previewText = await callAI(prompt, 1500);
+          previewText = fixArabicText(cleanRewrittenText(previewText));
+        } catch(e) { previewText = post.text; }
+      } else if(mode !== 'forward') {
+        previewText = fixArabicText(previewText.replace(/https?:\/\/\S+/g,'').replace(/t\.me\/\S+/g,'').trim());
       }
-      await sendAdminMsg(chatId, '✅ تم نشر آخر رسالة من @'+ch+' على '+publishTo,
-        [[{text:'📤 اختبار قناة أخرى', callback_data:'test_publish_all'},{text:'🏠 الرئيسية', callback_data:'main'}]]);
+
+      const publishTo = getSetting('tg_publish_to_'+ch,'') || getSetting('telegram_chat','');
+      let myChannelLink = '';
+      try {
+        const myChans = JSON.parse(getSetting('my_tg_channels','[]'));
+        const mc = myChans.find(c=>c.chat===publishTo||c.chat==='@'+publishTo.replace('@',''));
+        if(mc) myChannelLink = '\n\n📢 @'+mc.chat.replace('@','');
+      } catch(e) {}
+      const finalPreview = previewText + myChannelLink;
+
+      const previewId = 'tg_preview_'+Date.now();
+      setSetting(previewId, JSON.stringify({ch, finalText:finalPreview, publishTo, mode}));
+
+      await sendAdminMsg(chatId,
+        '👁️ <b>معاينة المنشور من @'+ch+'</b>\n\n'+finalPreview.substring(0,800),
+        [[{text:'✅ نشر الآن', callback_data:'approve_pub_'+previewId},{text:'❌ إلغاء', callback_data:'test_publish_all'}],
+         [{text:'🔄 جلب منشور آخر', callback_data:'force_pub_'+ch}]]);
+
     } catch(e) {
-      await sendAdminMsg(chatId, '❌ خطأ: '+e.message, [[{text:'🔙 رجوع', callback_data:'test_publish_all'}]]);
+      await sendAdminMsg(chatId, '❌ خطأ: '+e.message, backHome('test_publish_all'));
+    }
+
+  } else if(text.startsWith('approve_pub_')) {
+    const previewId = text.replace('approve_pub_','');
+    const previewStr = getSetting(previewId,'');
+    if(!previewStr) { await sendAdminMsg(chatId, '❌ انتهت صلاحية المعاينة', backHome('main')); return; }
+    const preview = JSON.parse(previewStr);
+    const tgToken = getSetting('telegram_token');
+    setSetting(previewId,'');
+    try {
+      await axios.post(`https://api.telegram.org/bot${tgToken}/sendMessage`,{
+        chat_id: preview.publishTo,
+        text: preview.finalText,
+        parse_mode: 'HTML'
+      });
+      await sendAdminMsg(chatId, '✅ تم النشر على '+preview.publishTo,
+        [[{text:'🧪 اختبار آخر', callback_data:'test_publish_all'},{text:'🏠 الرئيسية', callback_data:'main'}]]);
+    } catch(e) {
+      await sendAdminMsg(chatId, '❌ فشل النشر: '+e.message, backHome('main'));
     }
 
   } else if(text === 'force_pub_all') {
@@ -1924,10 +1992,19 @@ app.listen(PORT, async () => {
 
   setTimeout(async () => {
     try {
-      const currentVersion = getSetting('app_version', '1.0.0');
+      let currentVersion = getSetting('app_version', '1.0.0');
       const lastNotified = getSetting('last_notified_version', '');
       const commitMsg = process.env.RAILWAY_GIT_COMMIT_MESSAGE || getSetting('last_commit_msg', '');
       const commitSha = process.env.RAILWAY_GIT_COMMIT_SHA || '';
+
+      if(commitSha && commitSha !== getSetting('last_notified_sha','')) {
+        const parts = currentVersion.split('.').map(Number);
+        parts[2] = (parts[2] || 0) + 1;
+        if(parts[2] >= 100) { parts[2] = 0; parts[1]++; }
+        if(parts[1] >= 100) { parts[1] = 0; parts[0]++; }
+        currentVersion = parts.join('.');
+        setSetting('app_version', currentVersion);
+      }
 
       if(lastNotified !== currentVersion || commitSha !== getSetting('last_notified_sha','')) {
         setSetting('last_notified_version', currentVersion);
