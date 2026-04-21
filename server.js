@@ -2612,17 +2612,40 @@ async function processArchiveMode(channel, publishTo, tgToken) {
     return;
   }
 
-  let selectedPost = null;
+  const batchSize = 10;
+  const batch = [];
+
   for(const post of allPosts) {
+    if(batch.length >= batchSize) break;
     const content = post.original_content || post.rewritten_telegram || '';
     if(!content || content.length < 80) continue;
     const timeless = await isTimelessContent(content);
-    if(timeless) { selectedPost = post; break; }
+    if(timeless) batch.push(post);
   }
 
-  if(!selectedPost) {
-    console.log('Archive mode: no timeless posts found for @'+channel);
+  if(!batch.length) {
+    console.log('Archive mode: no timeless posts in batch for @'+channel);
     return;
+  }
+
+  let selectedPost = batch[0];
+
+  if(batch.length > 1) {
+    try {
+      const options = batch.map((p,i) => {
+        const content = (p.original_content||p.rewritten_telegram||'').substring(0,150);
+        return (i+1)+'. '+content;
+      }).join('\n\n');
+      const prompt = 'من بين هذه المنشورات، أيها يحتوي على معلومة أو فائدة أو قيمة أكبر للقارئ العربي؟\n\nأجب برقم فقط (1 إلى '+batch.length+'):\n\n'+options;
+      const result = await callAI(prompt, 5);
+      const chosen = parseInt(result.trim()) - 1;
+      if(chosen >= 0 && chosen < batch.length) {
+        selectedPost = batch[chosen];
+        console.log('Archive mode: AI chose post '+(chosen+1)+' of '+batch.length+' for @'+channel);
+      }
+    } catch(e) {
+      console.log('Archive mode: AI selection failed, using first post');
+    }
   }
 
   setSetting('archive_used_'+selectedPost.id+'_'+channel, String(selectedPost.id));
