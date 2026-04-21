@@ -1040,6 +1040,7 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
        [{text:'⚡ تحويل مباشر', callback_data:'mode_forward_'+ch}],
        [{text:'⏱ تغيير التكرار', callback_data:'interval_'+ch},{text:'📢 تغيير القناة', callback_data:'pubto_'+ch}],
        [{text:'🧪 اختبار القراءة', callback_data:'test_src_'+ch},{text:'📤 نشر آخر رسالة', callback_data:'publish_last_'+ch}],
+       [{text:(getSetting('tg_archive_'+ch,'0')==='1'?'✅':'❌')+' وضع الأرشيف', callback_data:'toggle_archive_'+ch}],
        [{text:'🗑️ حذف المصدر', callback_data:'del_src_'+id},{text:'🔙 رجوع', callback_data:'list_sources'}]]);
 
   } else if(text.startsWith('mode_')) {
@@ -1114,6 +1115,18 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
     await sendAdminMsg(chatId, '📤 جاري جلب ونشر آخر رسالة من @'+ch+'...');
     await processTGChannel(ch);
     await sendAdminMsg(chatId, '✅ تم معالجة آخر رسالة من @'+ch, [[{text:'🔙 المصدر', callback_data:'src_'+ch}]]);
+
+  } else if(text.startsWith('toggle_archive_')) {
+    const ch = text.replace('toggle_archive_','');
+    const current = getSetting('tg_archive_'+ch,'0');
+    const newVal = current === '1' ? '0' : '1';
+    setSetting('tg_archive_'+ch, newVal);
+    setupTGSchedules();
+    await sendAdminMsg(chatId,
+      newVal === '1'
+        ? '✅ تم تفعيل وضع الأرشيف لـ @'+ch+'\n\nسيُعيد النشر من المنشورات القديمة الخالدة عند انخفاض النشر اليومي'
+        : '❌ تم إيقاف وضع الأرشيف لـ @'+ch,
+      [[{text:'🔙 المصدر', callback_data:'src_'+ch},{text:'🏠 الرئيسية', callback_data:'main'}]]);
 
   // ===== ADD SOURCES =====
   } else if(text === 'add_tg_src') {
@@ -1587,15 +1600,31 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
       newVal === '1' ? '✅ تم تفعيل المراجعة قبل النشر على فيسبوك' : '❌ تم إلغاء المراجعة - النشر تلقائي',
       backHome('fb_settings'));
 
+  } else if(text === 'archive_settings') {
+    const minDaily = getSetting('archive_min_daily','3');
+    const archiveSrcs = db.prepare("SELECT value FROM settings WHERE key LIKE 'tg_archive_%' AND value='1'").all();
+    await sendAdminMsg(chatId,
+      '📦 <b>وضع الأرشيف</b>\n\nيعمل عند: أقل من '+minDaily+' منشورات يومياً\nأوقات التفعيل: 10ص، 2م، 8م\nالمصادر المفعّل عليها: '+archiveSrcs.length,
+      [[{text:'2 منشورات', callback_data:'set_archive_min_2'},{text:'3 منشورات', callback_data:'set_archive_min_3'}],
+       [{text:'5 منشورات', callback_data:'set_archive_min_5'},{text:'8 منشورات', callback_data:'set_archive_min_8'}],
+       ...backHome('general_settings')]);
+
+  } else if(text.startsWith('set_archive_min_')) {
+    const min = text.replace('set_archive_min_','');
+    setSetting('archive_min_daily', min);
+    await sendAdminMsg(chatId, '✅ وضع الأرشيف يعمل عند أقل من '+min+' منشورات يومياً', backHome('archive_settings'));
+
   // ===== GENERAL SETTINGS =====
   } else if(text === 'general_settings') {
     const auto = getSetting('auto_publish','1');
     const ct = getSetting('check_time','08:00');
+    const minDaily = getSetting('archive_min_daily','3');
     await sendAdminMsg(chatId,
-      `⚙️ <b>الإعدادات العامة</b>\n\nنشر تلقائي: ${auto==='1'?'✅ مفعل':'❌ معطل'}\nوقت الجلب اليومي: ${ct}`,
+      `⚙️ <b>الإعدادات العامة</b>\n\nنشر تلقائي: ${auto==='1'?'✅ مفعل':'❌ معطل'}\nوقت الجلب اليومي: ${ct}\n📦 وضع الأرشيف: يُفعّل عند أقل من ${minDaily} منشورات/يوم`,
       [[{text:auto==='1'?'⏸ إيقاف النشر':'▶️ تفعيل النشر', callback_data:auto==='1'?'set_auto_0':'set_auto_1'}],
        [{text:'🕐 تغيير وقت الجلب', callback_data:'edit_check_time'}],
        [{text:'🏷️ فلترة المحتوى لكل قناة', callback_data:'manage_channel_topics'}],
+       [{text:'📦 إعدادات الأرشيف', callback_data:'archive_settings'}],
        [{text:'🔗 إعدادات الربط', callback_data:'connection_settings'}],
        [{text:'🔙 رجوع', callback_data:'main'}]]);
 
@@ -2536,6 +2565,96 @@ async function filterByTopics(text, topics) {
   }
 }
 
+async function isTimelessContent(text) {
+  const timeIndicators = [
+    'اليوم','أمس','غداً','الآن','عاجل','منذ','ساعة','دقيقة','أعلن','صرح',
+    'اندلع','سقط','قُتل','اعتُقل','انفجر','هاجم','شنّ','أفادت','كشفت',
+    'انتخاب','معركة','عملية','حادثة','حريق','زلزال','فيضان',
+    'الأسبوع الماضي','الشهر الماضي','2024','2025','2026'
+  ];
+  const hasTimeIndicator = timeIndicators.some(kw => text.includes(kw));
+  if(hasTimeIndicator) return false;
+
+  const timelessIndicators = [
+    'نصيحة','فائدة','معلومة','حكمة','مقولة','قال','روى','حديث','آية',
+    'تعلم','هل تعلم','اقتباس','شعر','قصيدة','تاريخ','حضارة','علم',
+    'كيف','طريقة','أسلوب','سر','فن','مهارة','تقنية','برمجة','تطبيق'
+  ];
+  const hasTimeless = timelessIndicators.some(kw => text.includes(kw));
+  if(hasTimeless) return true;
+
+  try {
+    const result = await callAI(
+      'هل هذا النص معلومة عامة خالدة (نصيحة/معلومة/حكمة/شعر/تقنية) لا ترتبط بحدث أو تاريخ محدد؟\n\n'+text.substring(0,300)+'\n\nأجب بـ YES أو NO فقط.',
+      5
+    );
+    return result.trim().toUpperCase().startsWith('YES');
+  } catch(e) { return false; }
+}
+
+async function processArchiveMode(channel, publishTo, tgToken) {
+  console.log('Archive mode: checking @'+channel);
+
+  const todayCount = db.prepare("SELECT COUNT(*) c FROM publish_log WHERE platform='telegram' AND date(published_at)=date('now') AND status='success'").get().c;
+  const minDaily = parseInt(getSetting('archive_min_daily','3'));
+  if(todayCount >= minDaily) {
+    console.log('Archive mode: enough posts today ('+todayCount+'/'+minDaily+'), skipping');
+    return;
+  }
+
+  const oldPosts = db.prepare(
+    "SELECT * FROM posts WHERE status='published' AND datetime(published_at) < datetime('now','-7 days') ORDER BY RANDOM() LIMIT 10"
+  ).all();
+
+  if(!oldPosts.length) {
+    console.log('Archive mode: no old posts found for @'+channel);
+    return;
+  }
+
+  for(const post of oldPosts) {
+    const content = post.original_content || post.rewritten_telegram || '';
+    if(!content || content.length < 50) continue;
+
+    const timeless = await isTimelessContent(content);
+    if(!timeless) continue;
+
+    const rules = JSON.parse(getSetting('tg_rules_'+channel,'{"mode":"rewrite"}'));
+    let finalText = content;
+
+    if(rules.mode === 'rewrite') {
+      try {
+        const srcTone = getSetting('tg_tone_'+channel, getSetting('writing_tone','informative'));
+        const toneMap = {informative:'إخباري احترافي', analytical:'تحليلي معمق', engaging:'جذاب وشيق', neutral:'محايد موضوعي'};
+        const toneAr = toneMap[srcTone] || 'إخباري احترافي';
+        const prompt = 'أعد كتابة هذه المعلومة بأسلوب '+toneAr+' جديد ومختلف.\nلا تذكر أنها قديمة أو مأخوذة من أرشيف.\nاكتب النص كاملاً:\n\n'+content.substring(0,800);
+        finalText = await callAI(prompt, 1500);
+        finalText = fixArabicText(cleanRewrittenText(finalText));
+      } catch(e) { finalText = content; }
+    }
+
+    let myChannelLink = '';
+    try {
+      const myChans = JSON.parse(getSetting('my_tg_channels','[]'));
+      const mc = myChans.find(c=>c.chat===publishTo||c.chat==='@'+publishTo.replace('@',''));
+      if(mc) myChannelLink = '\n\n📢 <a href="https://t.me/'+mc.chat.replace('@','')+'">'+(mc.name||mc.chat)+'</a>';
+    } catch(e) {}
+
+    finalText = finalText + myChannelLink;
+
+    try {
+      await axios.post(`https://api.telegram.org/bot${tgToken}/sendMessage`,{
+        chat_id: publishTo, text: finalText, parse_mode: 'HTML'
+      });
+      db.prepare("INSERT INTO publish_log(post_id,platform,status,message) VALUES(?,'telegram','success','archive_mode')").run(post.id);
+      console.log('Archive mode: published timeless post from @'+channel);
+      await new Promise(r=>setTimeout(r,2000));
+      break;
+    } catch(e) {
+      console.error('Archive mode publish error:', e.message);
+    }
+  }
+}
+
 function validateRewrittenText(original, rewritten) {
   if(!rewritten || rewritten.trim().length < 15) return null;
 
@@ -2844,6 +2963,25 @@ function setupTGSchedules() {
       } catch(e2) {
         console.error('Schedule setup failed for', channel, e2.message);
       }
+    }
+
+    // Archive mode scheduler
+    const archiveEnabled = getSetting('tg_archive_'+channel, '0');
+    if(archiveEnabled === '1') {
+      const archiveCron = '0 10,14,20 * * *';
+      try {
+        const archiveJob = cron.schedule(archiveCron, () => {
+          const todayCount = db.prepare("SELECT COUNT(*) c FROM publish_log WHERE platform='telegram' AND date(published_at)=date('now') AND status='success'").get().c;
+          const minDaily = parseInt(getSetting('archive_min_daily','3'));
+          if(todayCount < minDaily) {
+            const publishTo = getSetting('tg_publish_to_'+channel,'') || getSetting('telegram_chat','');
+            const tgToken = getSetting('telegram_token');
+            if(tgToken && publishTo) processArchiveMode(channel, publishTo, tgToken).catch(console.error);
+          }
+        }, {timezone:'Asia/Riyadh'});
+        tgIntervals['archive_'+channel] = archiveJob;
+        console.log('Archive mode scheduler enabled for @'+channel);
+      } catch(e) {}
     }
   });
 
