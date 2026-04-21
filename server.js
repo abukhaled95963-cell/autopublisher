@@ -2557,6 +2557,16 @@ function validateRewrittenText(original, rewritten) {
 }
 
 async function processTGChannel(channel) {
+  // Skip during low-engagement hours (1 AM - 6 AM Riyadh time)
+  const autoPublish = getSetting('auto_publish','1');
+  if(autoPublish === '1') {
+    const optimalTime = isOptimalPostingTime();
+    if(!optimalTime) {
+      console.log('Skipping @'+channel+' - low engagement hours');
+      return;
+    }
+  }
+
   try {
     const publishTo = getSetting('tg_publish_to_'+channel, '');
     const tgToken = getSetting('telegram_token');
@@ -2786,6 +2796,14 @@ async function processTGChannel(channel) {
 }
 
 
+function isOptimalPostingTime() {
+  const now = new Date();
+  const riyadhTime = new Date(now.toLocaleString('en-US', {timeZone:'Asia/Riyadh'}));
+  const hour = riyadhTime.getHours();
+  if(hour >= 1 && hour < 6) return false;
+  return true;
+}
+
 function setupTGSchedules() {
   // Clear existing cron jobs
   Object.values(tgIntervals).forEach(job => { try { job.stop(); } catch(e) {} });
@@ -2796,7 +2814,7 @@ function setupTGSchedules() {
 
   tgSources.forEach(src => {
     const channel = src.url.replace('https://t.me/s/','');
-    const intervalMin = parseInt(getSetting('tg_interval_'+channel, '5'));
+    const intervalMin = parseInt(getSetting('tg_interval_'+channel, '30'));
     const publishTo = getSetting('tg_publish_to_'+channel, '');
 
     // Build cron expression
@@ -2818,9 +2836,25 @@ function setupTGSchedules() {
       tgIntervals[channel] = job;
     } catch(e) {
       console.error('Cron error for', channel, e.message);
-      // Fallback to setInterval
-      tgIntervals[channel] = { stop: () => {} };
-      setInterval(() => processTGChannel(channel).catch(console.error), intervalMin * 60 * 1000);
+      try {
+        const ms = intervalMin * 60 * 1000;
+        const intervalId = setInterval(() => processTGChannel(channel).catch(console.error), ms);
+        tgIntervals[channel] = { stop: () => clearInterval(intervalId) };
+        console.log('TG schedule (interval fallback):', channel, 'every', intervalMin, 'min');
+      } catch(e2) {
+        console.error('Schedule setup failed for', channel, e2.message);
+      }
+    }
+  });
+
+  // Set recommended intervals if not already customized
+  const allSrcs = db.prepare("SELECT * FROM sources WHERE type='telegram' AND active=1").all();
+  allSrcs.forEach(src => {
+    const ch = src.url.replace('https://t.me/s/','');
+    const currentIv = getSetting('tg_interval_'+ch,'');
+    if(!currentIv || currentIv === '5') {
+      setSetting('tg_interval_'+ch, '30');
+      console.log('Updated interval for @'+ch+' to 30 min');
     }
   });
 
