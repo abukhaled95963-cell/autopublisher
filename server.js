@@ -2602,56 +2602,67 @@ async function processArchiveMode(channel, publishTo, tgToken) {
     return;
   }
 
-  const oldPosts = db.prepare(
-    "SELECT * FROM posts WHERE status='published' AND datetime(published_at) < datetime('now','-7 days') ORDER BY RANDOM() LIMIT 10"
-  ).all();
+  const allPosts = db.prepare(
+    "SELECT p.* FROM posts p JOIN sources s ON p.source_id=s.id WHERE s.url LIKE ? AND p.status='published' AND (p.original_content IS NOT NULL OR p.rewritten_telegram IS NOT NULL) AND p.id NOT IN (SELECT CAST(value AS INTEGER) FROM settings WHERE key LIKE 'archive_used_%') ORDER BY p.id ASC"
+  ).all('%'+channel+'%');
 
-  if(!oldPosts.length) {
-    console.log('Archive mode: no old posts found for @'+channel);
+  if(!allPosts.length) {
+    db.prepare("DELETE FROM settings WHERE key LIKE ?").run('archive_used_%_'+channel);
+    console.log('Archive mode: all posts used, resetting rotation for @'+channel);
     return;
   }
 
-  for(const post of oldPosts) {
+  let selectedPost = null;
+  for(const post of allPosts) {
     const content = post.original_content || post.rewritten_telegram || '';
-    if(!content || content.length < 50) continue;
-
+    if(!content || content.length < 80) continue;
     const timeless = await isTimelessContent(content);
-    if(!timeless) continue;
+    if(timeless) { selectedPost = post; break; }
+  }
 
-    const rules = JSON.parse(getSetting('tg_rules_'+channel,'{"mode":"rewrite"}'));
-    let finalText = content;
+  if(!selectedPost) {
+    console.log('Archive mode: no timeless posts found for @'+channel);
+    return;
+  }
 
-    if(rules.mode === 'rewrite') {
-      try {
-        const srcTone = getSetting('tg_tone_'+channel, getSetting('writing_tone','informative'));
-        const toneMap = {informative:'إخباري احترافي', analytical:'تحليلي معمق', engaging:'جذاب وشيق', neutral:'محايد موضوعي'};
-        const toneAr = toneMap[srcTone] || 'إخباري احترافي';
-        const prompt = 'أعد كتابة هذه المعلومة بأسلوب '+toneAr+' جديد ومختلف.\nلا تذكر أنها قديمة أو مأخوذة من أرشيف.\nاكتب النص كاملاً:\n\n'+content.substring(0,800);
-        finalText = await callAI(prompt, 1500);
-        finalText = fixArabicText(cleanRewrittenText(finalText));
-      } catch(e) { finalText = content; }
-    }
+  setSetting('archive_used_'+selectedPost.id+'_'+channel, String(selectedPost.id));
 
-    let myChannelLink = '';
+  const rules = JSON.parse(getSetting('tg_rules_'+channel,'{"mode":"rewrite"}'));
+  const content = selectedPost.original_content || selectedPost.rewritten_telegram || '';
+  let finalText = content;
+
+  if(rules.mode === 'rewrite') {
     try {
-      const myChans = JSON.parse(getSetting('my_tg_channels','[]'));
-      const mc = myChans.find(c=>c.chat===publishTo||c.chat==='@'+publishTo.replace('@',''));
-      if(mc) myChannelLink = '\n\n📢 <a href="https://t.me/'+mc.chat.replace('@','')+'">'+(mc.name||mc.chat)+'</a>';
-    } catch(e) {}
+      const srcTone = getSetting('tg_tone_'+channel, getSetting('writing_tone','informative'));
+      const toneMap = {informative:'إخباري احترافي', analytical:'تحليلي معمق', engaging:'جذاب وشيق', neutral:'محايد موضوعي'};
+      const toneAr = toneMap[srcTone] || 'إخباري احترافي';
+      const prompt = 'أعد كتابة هذه المعلومة بأسلوب '+toneAr+' جديد ومنعش.\nلا تذكر أنها قديمة أو من أرشيف.\nاكتب النص كاملاً بدون عناوين:\n\n'+content.substring(0,1000);
+      finalText = await callAI(prompt, 1500);
+      finalText = fixArabicText(cleanRewrittenText(finalText));
+    } catch(e) { finalText = content; }
+  } else if(rules.mode === 'as-is') {
+    finalText = content.replace(/https?:\/\/\S+/g,'').replace(/t\.me\/\S+/g,'').replace(/@[\w\d]+/g,'').trim();
+    finalText = fixArabicText(finalText);
+  }
 
-    finalText = finalText + myChannelLink;
+  let myChannelLink = '';
+  try {
+    const myChans = JSON.parse(getSetting('my_tg_channels','[]'));
+    const mc = myChans.find(c=>c.chat===publishTo||c.chat==='@'+publishTo.replace('@',''));
+    if(mc) myChannelLink = '\n\n📢 <a href="https://t.me/'+mc.chat.replace('@','')+'">'+(mc.name||mc.chat)+'</a>';
+  } catch(e) {}
 
-    try {
-      await axios.post(`https://api.telegram.org/bot${tgToken}/sendMessage`,{
-        chat_id: publishTo, text: finalText, parse_mode: 'HTML'
-      });
-      db.prepare("INSERT INTO publish_log(post_id,platform,status,message) VALUES(?,'telegram','success','archive_mode')").run(post.id);
-      console.log('Archive mode: published timeless post from @'+channel);
-      await new Promise(r=>setTimeout(r,2000));
-      break;
-    } catch(e) {
-      console.error('Archive mode publish error:', e.message);
-    }
+  finalText = finalText + myChannelLink;
+
+  try {
+    await axios.post(`https://api.telegram.org/bot${tgToken}/sendMessage`,{
+      chat_id: publishTo, text: finalText, parse_mode: 'HTML'
+    });
+    db.prepare("INSERT INTO publish_log(post_id,platform,status,message) VALUES(?,'telegram','success','archive_mode')").run(selectedPost.id);
+    console.log('Archive mode: published post id:'+selectedPost.id+' from @'+channel+' ('+allPosts.length+' remaining)');
+  } catch(e) {
+    console.error('Archive publish error:', e.message);
+    db.prepare("DELETE FROM settings WHERE key=?").run('archive_used_'+selectedPost.id+'_'+channel);
   }
 }
 
