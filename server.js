@@ -2440,6 +2440,50 @@ app.get('/api/debug/channel-stats', (req,res) => {
   });
 });
 
+app.get('/api/test/ai-simple', async(req,res) => {
+  const groqKey = getSetting('groq_key','');
+  const geminiKey = getSetting('gemini_key','');
+  const provider = getSetting('ai_provider','groq');
+
+  let groqResult = 'NOT TESTED';
+  let geminiResult = 'NOT TESTED';
+
+  if(groqKey) {
+    try {
+      const r = await axios.post('https://api.groq.com/openai/v1/chat/completions',
+        {model:'llama3-8b-8192', max_tokens:10, messages:[{role:'user',content:'Say OK'}]},
+        {headers:{Authorization:'Bearer '+groqKey}, timeout:15000}
+      );
+      groqResult = r.data.choices[0].message.content;
+    } catch(e) {
+      groqResult = 'ERROR: '+(e.response?.status||e.message);
+    }
+  } else {
+    groqResult = 'NO KEY';
+  }
+
+  if(geminiKey) {
+    try {
+      const r = await axios.post(
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+        {contents:[{parts:[{text:'Say OK'}]}]},
+        {headers:{'x-goog-api-key':geminiKey}, timeout:15000}
+      );
+      geminiResult = r.data.candidates[0].content.parts[0].text;
+    } catch(e) {
+      geminiResult = 'ERROR: '+(e.response?.status||e.message);
+    }
+  } else {
+    geminiResult = 'NO KEY';
+  }
+
+  res.json({
+    active_provider: provider,
+    groq: {key_set: !!groqKey, result: groqResult},
+    gemini: {key_set: !!geminiKey, result: geminiResult}
+  });
+});
+
 app.get('/api/build-info', (req,res) => {
   res.json({
     version: getSetting('app_version','1.0.0'),
