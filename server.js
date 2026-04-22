@@ -99,6 +99,8 @@ async function callAI(prompt, maxTokens) {
           {model:'llama-3.3-70b-versatile', max_tokens:maxTokens, messages:[{role:'user',content:prompt}]},
           {headers:{Authorization:'Bearer '+key}, timeout:45000}
         );
+        if(apiUsageStats.lastReset !== new Date().toDateString()) { apiUsageStats.today = {requests:0, byProvider:{groq:0,gemini:0,claude:0,openai:0}}; apiUsageStats.lastReset = new Date().toDateString(); }
+        apiUsageStats.today.requests++; apiUsageStats.today.byProvider.groq++; apiUsageStats.total.requests++; apiUsageStats.total.byProvider.groq++;
         return r.data.choices[0].message.content;
       } else if(provider === 'gemini') {
         try {
@@ -113,6 +115,8 @@ async function callAI(prompt, maxTokens) {
             },
             {headers:{'x-goog-api-key': key, 'Content-Type':'application/json'}, timeout:45000}
           );
+          if(apiUsageStats.lastReset !== new Date().toDateString()) { apiUsageStats.today = {requests:0, byProvider:{groq:0,gemini:0,claude:0,openai:0}}; apiUsageStats.lastReset = new Date().toDateString(); }
+          apiUsageStats.today.requests++; apiUsageStats.today.byProvider.gemini++; apiUsageStats.total.requests++; apiUsageStats.total.byProvider.gemini++;
           return r.data.candidates[0].content.parts[0].text;
         } catch(e) {
           console.error('Gemini error status:', e.response?.status);
@@ -124,12 +128,16 @@ async function callAI(prompt, maxTokens) {
           {model:'claude-haiku-4-5-20251001', max_tokens:maxTokens, messages:[{role:'user',content:prompt}]},
           {headers:{'x-api-key':key,'anthropic-version':'2023-06-01'}, timeout:30000}
         );
+        if(apiUsageStats.lastReset !== new Date().toDateString()) { apiUsageStats.today = {requests:0, byProvider:{groq:0,gemini:0,claude:0,openai:0}}; apiUsageStats.lastReset = new Date().toDateString(); }
+        apiUsageStats.today.requests++; apiUsageStats.today.byProvider.claude++; apiUsageStats.total.requests++; apiUsageStats.total.byProvider.claude++;
         return r.data.content[0].text;
       } else if(provider === 'openai') {
         const r = await axios.post('https://api.openai.com/v1/chat/completions',
           {model:'gpt-4o-mini', max_tokens:maxTokens, messages:[{role:'user',content:prompt}]},
           {headers:{Authorization:'Bearer '+key}, timeout:30000}
         );
+        if(apiUsageStats.lastReset !== new Date().toDateString()) { apiUsageStats.today = {requests:0, byProvider:{groq:0,gemini:0,claude:0,openai:0}}; apiUsageStats.lastReset = new Date().toDateString(); }
+        apiUsageStats.today.requests++; apiUsageStats.today.byProvider.openai++; apiUsageStats.total.requests++; apiUsageStats.total.byProvider.openai++;
         return r.data.choices[0].message.content;
       }
     } catch(e) {
@@ -144,6 +152,12 @@ async function callAI(prompt, maxTokens) {
 }
 
 var aiFailedNotified = false;
+
+let apiUsageStats = {
+  today: { requests: 0, byProvider: {groq:0, gemini:0, claude:0, openai:0} },
+  total: { requests: 0, byProvider: {groq:0, gemini:0, claude:0, openai:0} },
+  lastReset: new Date().toDateString()
+};
 
 async function notifyAdminAIFailed(error) {
   const adminToken = getSetting('admin_bot_token');
@@ -1238,6 +1252,7 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
       [[{text:'⚡ Groq'+(provider==='groq'?' ✓':''), callback_data:'set_ai_groq'},{text:'💎 Gemini'+(provider==='gemini'?' ✓':''), callback_data:'set_ai_gemini'}],
        [{text:'🤖 Claude'+(provider==='claude'?' ✓':''), callback_data:'set_ai_claude'},{text:'🚀 OpenAI'+(provider==='openai'?' ✓':''), callback_data:'set_ai_openai'}],
        [{text:'🧪 اختبار AI الحالي', callback_data:'test_ai'}],
+       [{text:'📊 إحصائيات استهلاك AI', callback_data:'ai_usage'}],
        [{text:'🔙 رجوع', callback_data:'main'}]]);
 
   } else if(text.startsWith('set_ai_')) {
@@ -1253,6 +1268,33 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
     } catch(e) {
       await sendAdminMsg(chatId, '❌ خطأ في AI: '+e.message, backHome('ai_settings'));
     }
+
+  } else if(text === 'ai_usage') {
+    const s = apiUsageStats;
+    const todayPub = db.prepare("SELECT COUNT(*) c FROM publish_log WHERE date(published_at)=date('now') AND status='success'").get().c;
+    const totalPub = db.prepare("SELECT COUNT(*) c FROM publish_log WHERE status='success'").get().c;
+    const provider = getSetting('ai_provider','groq');
+    const efficiency = s.today.requests > 0 ? (todayPub / s.today.requests * 100).toFixed(0) : 0;
+    const msg = '📊 <b>إحصائيات AI اليوم</b>\n\n'+
+      '🤖 المزود النشط: <b>'+provider+'</b>\n\n'+
+      '📡 طلبات AI اليوم: '+s.today.requests+'\n'+
+      '⚡ Groq: '+s.today.byProvider.groq+'\n'+
+      '💎 Gemini: '+s.today.byProvider.gemini+'\n'+
+      '🤖 Claude: '+s.today.byProvider.claude+'\n'+
+      '🚀 OpenAI: '+s.today.byProvider.openai+'\n\n'+
+      '✅ منشورات اليوم: '+todayPub+'\n'+
+      '📊 كفاءة AI: '+efficiency+'%\n\n'+
+      '📈 <b>الإجمالي الكلي</b>\n'+
+      'طلبات: '+s.total.requests+'\n'+
+      'Groq: '+s.total.byProvider.groq+' | Gemini: '+s.total.byProvider.gemini+'\n'+
+      'Claude: '+s.total.byProvider.claude+' | OpenAI: '+s.total.byProvider.openai;
+    await sendAdminMsg(chatId, msg,
+      [[{text:'🔄 تصفير إحصائيات اليوم', callback_data:'reset_ai_stats'}],
+       ...backHome('ai_settings')]);
+
+  } else if(text === 'reset_ai_stats') {
+    apiUsageStats.today = {requests:0, byProvider:{groq:0,gemini:0,claude:0,openai:0}};
+    await sendAdminMsg(chatId, '✅ تم تصفير إحصائيات اليوم', backHome('ai_usage'));
 
   // ===== WRITING STYLE =====
   } else if(text === 'writing_style') {
