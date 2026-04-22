@@ -96,7 +96,7 @@ async function callAI(prompt, maxTokens) {
       console.log('Trying AI provider:', provider);
       if(provider === 'groq') {
         const r = await axios.post('https://api.groq.com/openai/v1/chat/completions',
-          {model:'llama-3.3-70b-versatile', max_tokens:maxTokens, messages:[{role:'user',content:prompt}]},
+          {model:'llama3-8b-8192', max_tokens:maxTokens, messages:[{role:'user',content:prompt}]},
           {headers:{Authorization:'Bearer '+key}, timeout:45000}
         );
         if(apiUsageStats.lastReset !== new Date().toDateString()) { apiUsageStats.today = {requests:0, byProvider:{groq:0,gemini:0,claude:0,openai:0}}; apiUsageStats.lastReset = new Date().toDateString(); }
