@@ -2358,6 +2358,44 @@ app.get('/api/debug/fb-approval', (req,res) => {
   });
 });
 
+app.get('/api/debug/ai-cost', (req,res) => {
+  const todayPosts = db.prepare("SELECT COUNT(*) c FROM publish_log WHERE date(published_at)=date('now') AND status='success'").get().c;
+  const weekPosts = db.prepare("SELECT COUNT(*) c FROM publish_log WHERE datetime(published_at) > datetime('now','-7 days') AND status='success'").get().c;
+  const ignoredPosts = db.prepare("SELECT COUNT(*) c FROM posts WHERE status='ignored'").get().c;
+  const totalPosts = db.prepare("SELECT COUNT(*) c FROM publish_log WHERE status='success'").get().c;
+  const fbPosts = db.prepare("SELECT COUNT(*) c FROM publish_log WHERE platform='facebook' AND status='success'").get().c;
+  const tgPosts = db.prepare("SELECT COUNT(*) c FROM publish_log WHERE platform='telegram' AND status='success'").get().c;
+  const archivePosts = db.prepare("SELECT COUNT(*) c FROM publish_log WHERE message='archive_mode'").get().c;
+  const sources = db.prepare("SELECT * FROM sources WHERE active=1").all().length;
+  const aiProvider = getSetting('ai_provider','groq');
+  const aiStats = apiUsageStats;
+
+  res.json({
+    summary: {
+      ai_provider: aiProvider,
+      sources_count: sources,
+      today_published: todayPosts,
+      week_published: weekPosts,
+      total_published: totalPosts,
+      tg_published: tgPosts,
+      fb_published: fbPosts,
+      archive_published: archivePosts,
+      ignored_posts: ignoredPosts
+    },
+    ai_requests_today: aiStats.today,
+    ai_requests_total: aiStats.total,
+    cost_estimate: {
+      note: 'Gemini 2.5 Flash pricing',
+      input_per_million: '$0.075',
+      output_per_million: '$0.30',
+      estimated_tokens_per_post: '~2000',
+      estimated_cost_per_post: '$0.0006',
+      estimated_daily_cost: '$'+(aiStats.today.requests * 0.0006).toFixed(4),
+      estimated_monthly_cost: '$'+(aiStats.today.requests * 0.0006 * 30).toFixed(2)
+    }
+  });
+});
+
 app.get('/api/build-info', (req,res) => {
   res.json({
     version: getSetting('app_version','1.0.0'),
