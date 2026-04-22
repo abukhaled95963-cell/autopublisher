@@ -2396,6 +2396,50 @@ app.get('/api/debug/ai-cost', (req,res) => {
   });
 });
 
+app.get('/api/debug/channel-stats', (req,res) => {
+  const sourceStats = db.prepare(`
+    SELECT
+      s.name,
+      s.url,
+      s.type,
+      COUNT(pl.id) as total_published,
+      SUM(CASE WHEN date(pl.published_at)=date('now') THEN 1 ELSE 0 END) as today,
+      SUM(CASE WHEN datetime(pl.published_at) > datetime('now','-7 days') THEN 1 ELSE 0 END) as this_week,
+      MAX(pl.published_at) as last_published
+    FROM sources s
+    LEFT JOIN posts p ON p.source_id = s.id
+    LEFT JOIN publish_log pl ON pl.post_id = p.id AND pl.status='success' AND pl.platform='telegram'
+    WHERE s.active=1
+    GROUP BY s.id
+    ORDER BY this_week DESC
+  `).all();
+
+  const channelStats = db.prepare(`
+    SELECT
+      pl.message as channel,
+      COUNT(*) as total,
+      SUM(CASE WHEN date(pl.published_at)=date('now') THEN 1 ELSE 0 END) as today,
+      SUM(CASE WHEN datetime(pl.published_at) > datetime('now','-7 days') THEN 1 ELSE 0 END) as this_week
+    FROM publish_log pl
+    WHERE pl.status='success' AND pl.platform='telegram'
+    GROUP BY pl.message
+    ORDER BY this_week DESC
+    LIMIT 20
+  `).all();
+
+  res.json({
+    sources: sourceStats.map(s => ({
+      name: s.name,
+      channel: s.url.replace('https://t.me/s/','@'),
+      today: s.today || 0,
+      this_week: s.this_week || 0,
+      total: s.total_published || 0,
+      last_published: s.last_published
+    })),
+    publish_targets: channelStats
+  });
+});
+
 app.get('/api/build-info', (req,res) => {
   res.json({
     version: getSetting('app_version','1.0.0'),
