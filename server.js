@@ -96,7 +96,7 @@ async function callAI(prompt, maxTokens) {
       console.log('Trying AI provider:', provider);
       if(provider === 'groq') {
         const r = await axios.post('https://api.groq.com/openai/v1/chat/completions',
-          {model:'llama-3.1-8b-instant', max_tokens:maxTokens, messages:[{role:'user',content:prompt}]},
+          {model:'llama-3.3-70b-versatile', max_tokens:maxTokens, messages:[{role:'user',content:prompt}]},
           {headers:{Authorization:'Bearer '+key}, timeout:45000}
         );
         if(apiUsageStats.lastReset !== new Date().toDateString()) { apiUsageStats.today = {requests:0, byProvider:{groq:0,gemini:0,claude:0,openai:0}}; apiUsageStats.lastReset = new Date().toDateString(); }
@@ -2451,7 +2451,7 @@ app.get('/api/test/ai-simple', async(req,res) => {
   if(groqKey) {
     try {
       const r = await axios.post('https://api.groq.com/openai/v1/chat/completions',
-        {model:'llama-3.1-8b-instant', max_tokens:10, messages:[{role:'user',content:'Say OK'}]},
+        {model:'llama-3.3-70b-versatile', max_tokens:10, messages:[{role:'user',content:'Say OK'}]},
         {headers:{Authorization:'Bearer '+groqKey}, timeout:15000}
       );
       groqResult = r.data.choices[0].message.content;
