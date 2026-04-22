@@ -105,11 +105,11 @@ async function callAI(prompt, maxTokens) {
       } else if(provider === 'gemini') {
         try {
           const r = await axios.post(
-            'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent',
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
             {
               contents:[{parts:[{text:prompt}]}],
               generationConfig:{
-                maxOutputTokens: Math.max(maxTokens, 4096),
+                maxOutputTokens: Math.max(maxTokens, 2048),
                 temperature: 0.7
               }
             },
