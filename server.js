@@ -1055,7 +1055,53 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
        [{text:'⏱ تغيير التكرار', callback_data:'interval_'+ch},{text:'📢 تغيير القناة', callback_data:'pubto_'+ch}],
        [{text:'🧪 اختبار القراءة', callback_data:'test_src_'+ch},{text:'📤 نشر آخر رسالة', callback_data:'publish_last_'+ch}],
        [{text:(getSetting('tg_archive_'+ch,'0')==='1'?'✅':'❌')+' وضع الأرشيف', callback_data:'toggle_archive_'+ch}],
+       [{text:'⏸ إيقاف مؤقت', callback_data:'pause_src_'+ch},{text:'▶️ استئناف', callback_data:'resume_src_'+ch}],
        [{text:'🗑️ حذف المصدر', callback_data:'del_src_'+id},{text:'🔙 رجوع', callback_data:'list_sources'}]]);
+
+  } else if(text.startsWith('pause_src_')) {
+    const ch = text.replace('pause_src_','');
+    const isPaused = getSetting('channel_paused_'+ch,'0');
+    const pauseUntil = getSetting('pause_until_'+ch,'');
+    let statusMsg = '';
+    if(isPaused === '1') statusMsg = '⏸ موقوف حالياً بشكل دائم';
+    else if(pauseUntil && new Date() < new Date(pauseUntil)) {
+      statusMsg = '⏸ موقوف حتى: '+new Date(pauseUntil).toLocaleString('ar-SA',{timeZone:'Asia/Riyadh'});
+    } else statusMsg = '▶️ يعمل حالياً';
+    await sendAdminMsg(chatId,
+      '⏸ <b>إيقاف مؤقت لـ @'+ch+'</b>\n\nالحالة: '+statusMsg+'\n\nاختر مدة الإيقاف:',
+      [[{text:'3 ساعات', callback_data:'pausefor_3_'+ch},{text:'6 ساعات', callback_data:'pausefor_6_'+ch}],
+       [{text:'12 ساعة', callback_data:'pausefor_12_'+ch},{text:'24 ساعة', callback_data:'pausefor_24_'+ch}],
+       [{text:'⏹ إيقاف دائم', callback_data:'pausefor_0_'+ch}],
+       [{text:'▶️ استئناف الآن', callback_data:'resume_src_'+ch}],
+       ...backHome('src_'+ch)]);
+
+  } else if(text.startsWith('pausefor_')) {
+    const parts = text.replace('pausefor_','').split('_');
+    const hours = parseInt(parts[0]);
+    const ch = parts.slice(1).join('_');
+    if(hours === 0) {
+      setSetting('channel_paused_'+ch,'1');
+      setSetting('pause_until_'+ch,'');
+      await sendAdminMsg(chatId,
+        '⏹ تم إيقاف @'+ch+' بشكل دائم\nاضغط ▶️ استئناف للتشغيل',
+        [[{text:'▶️ استئناف', callback_data:'resume_src_'+ch},{text:'🔙 رجوع', callback_data:'src_'+ch}]]);
+    } else {
+      const until = new Date(Date.now() + hours * 60 * 60 * 1000);
+      setSetting('pause_until_'+ch, until.toISOString());
+      setSetting('channel_paused_'+ch,'0');
+      const untilStr = until.toLocaleString('ar-SA',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit'});
+      await sendAdminMsg(chatId,
+        '⏸ تم إيقاف @'+ch+' لمدة '+hours+' ساعة\nحتى الساعة: '+untilStr,
+        [[{text:'▶️ استئناف مبكر', callback_data:'resume_src_'+ch},{text:'🔙 رجوع', callback_data:'src_'+ch}]]);
+    }
+
+  } else if(text.startsWith('resume_src_')) {
+    const ch = text.replace('resume_src_','');
+    setSetting('channel_paused_'+ch,'0');
+    setSetting('pause_until_'+ch,'');
+    await sendAdminMsg(chatId,
+      '▶️ تم استئناف النشر من @'+ch,
+      [[{text:'🔙 رجوع', callback_data:'src_'+ch},{text:'🏠 الرئيسية', callback_data:'main'}]]);
 
   } else if(text.startsWith('mode_')) {
     const parts = text.split('_');
@@ -2886,6 +2932,23 @@ async function processTGChannel(channel) {
       console.log('Skipping @'+channel+' - low engagement hours');
       return;
     }
+  }
+
+  const pauseUntil = getSetting('pause_until_'+channel,'');
+  if(pauseUntil) {
+    const pauseTime = new Date(pauseUntil);
+    if(new Date() < pauseTime) {
+      console.log('Channel @'+channel+' paused until', pauseUntil);
+      return;
+    } else {
+      setSetting('pause_until_'+channel,'');
+      console.log('Channel @'+channel+' pause expired, resuming');
+    }
+  }
+  const isPaused = getSetting('channel_paused_'+channel,'0');
+  if(isPaused === '1') {
+    console.log('Channel @'+channel+' is indefinitely paused');
+    return;
   }
 
   try {
