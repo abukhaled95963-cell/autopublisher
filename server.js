@@ -1211,7 +1211,17 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
     let msg = '📢 <b>قنواتك للنشر</b>\n\n';
     if(!channels.length) msg += 'لا توجد قنوات مضافة\n';
     else channels.forEach((c,i) => { msg += `${i+1}. ${c.name} — ${c.chat}\n`; });
-    const keyboard = channels.map((c,i) => [{text:'🧪 '+c.name, callback_data:'test_mych_'+i},{text:'🗑️ حذف', callback_data:'del_mych_'+i}]);
+    const keyboard = channels.map((c,i) => {
+      const chKey = c.chat.replace('@','');
+      const isPaused = getSetting('pub_paused_'+chKey,'0')==='1';
+      const pauseUntil = getSetting('pub_pause_until_'+chKey,'');
+      const isTimePaused = pauseUntil && new Date() < new Date(pauseUntil);
+      const pauseIcon = (isPaused||isTimePaused) ? '⏸ ' : '▶️ ';
+      return [
+        {text: pauseIcon+c.name+' ('+c.chat+')', callback_data:'mych_pause_menu_'+i},
+        {text:'🗑️', callback_data:'del_mych_'+i}
+      ];
+    });
     keyboard.push([{text:'📡 إدارة مصادر كل قناة', callback_data:'manage_ch_sources'}]);
     keyboard.push([{text:'➕ إضافة قناة', callback_data:'add_my_channel'},{text:'🔙 رجوع', callback_data:'main'}]);
     await sendAdminMsg(chatId, msg, keyboard);
@@ -1280,6 +1290,65 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
       await sendAdminMsg(chatId, '❌ فشل الإرسال لـ '+ch.name+':\n'+errMsg+'\n\n⚠️ تأكد أن بوت النشر (@publishing_bot) مضاف كمشرف في القناة وليس بوت التحكم',
         backHome('my_channels'));
     }
+
+  } else if(text.startsWith('mych_pause_menu_')) {
+    const idx = parseInt(text.replace('mych_pause_menu_',''));
+    let channels = [];
+    try { channels = JSON.parse(getSetting('my_tg_channels','[]')); } catch(e) {}
+    const ch = channels[idx];
+    if(!ch) { await sendAdminMsg(chatId, '❌ القناة غير موجودة', backHome('my_channels')); return; }
+    const chKey = ch.chat.replace('@','');
+    const isPaused = getSetting('pub_paused_'+chKey,'0')==='1';
+    const pauseUntil = getSetting('pub_pause_until_'+chKey,'');
+    const isTimePaused = pauseUntil && new Date() < new Date(pauseUntil);
+    let statusMsg = '▶️ تعمل حالياً';
+    if(isPaused) statusMsg = '⏸ موقوفة بشكل دائم';
+    else if(isTimePaused) statusMsg = '⏸ موقوفة حتى: '+new Date(pauseUntil).toLocaleString('ar-SA',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit'});
+    await sendAdminMsg(chatId,
+      '📢 <b>'+ch.name+'</b> ('+ch.chat+')\n\nالحالة: '+statusMsg+'\n\nاختر مدة الإيقاف:',
+      [[{text:'3 ساعات', callback_data:'pub_pausefor_3_'+idx},{text:'6 ساعات', callback_data:'pub_pausefor_6_'+idx}],
+       [{text:'12 ساعة', callback_data:'pub_pausefor_12_'+idx},{text:'24 ساعة', callback_data:'pub_pausefor_24_'+idx}],
+       [{text:'⏹ إيقاف دائم', callback_data:'pub_pausefor_0_'+idx}],
+       [{text:'▶️ استئناف الآن', callback_data:'pub_resume_'+idx}],
+       ...backHome('my_channels')]);
+
+  } else if(text.startsWith('pub_pausefor_')) {
+    const parts = text.replace('pub_pausefor_','').split('_');
+    const hours = parseInt(parts[0]);
+    const idx = parseInt(parts[1]);
+    let channels = [];
+    try { channels = JSON.parse(getSetting('my_tg_channels','[]')); } catch(e) {}
+    const ch = channels[idx];
+    if(!ch) return;
+    const chKey = ch.chat.replace('@','');
+    if(hours === 0) {
+      setSetting('pub_paused_'+chKey,'1');
+      setSetting('pub_pause_until_'+chKey,'');
+      await sendAdminMsg(chatId,
+        '⏹ تم إيقاف النشر على '+ch.name+' بشكل دائم',
+        [[{text:'▶️ استئناف', callback_data:'pub_resume_'+idx},{text:'🔙 قنواتي', callback_data:'my_channels'}]]);
+    } else {
+      const until = new Date(Date.now() + hours * 60 * 60 * 1000);
+      setSetting('pub_pause_until_'+chKey, until.toISOString());
+      setSetting('pub_paused_'+chKey,'0');
+      const untilStr = until.toLocaleString('ar-SA',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit'});
+      await sendAdminMsg(chatId,
+        '⏸ تم إيقاف النشر على '+ch.name+' لمدة '+hours+' ساعة\nحتى الساعة: '+untilStr,
+        [[{text:'▶️ استئناف مبكر', callback_data:'pub_resume_'+idx},{text:'🔙 قنواتي', callback_data:'my_channels'}]]);
+    }
+
+  } else if(text.startsWith('pub_resume_')) {
+    const idx = parseInt(text.replace('pub_resume_',''));
+    let channels = [];
+    try { channels = JSON.parse(getSetting('my_tg_channels','[]')); } catch(e) {}
+    const ch = channels[idx];
+    if(!ch) return;
+    const chKey = ch.chat.replace('@','');
+    setSetting('pub_paused_'+chKey,'0');
+    setSetting('pub_pause_until_'+chKey,'');
+    await sendAdminMsg(chatId,
+      '▶️ تم استئناف النشر على '+ch.name,
+      [[{text:'🔙 قنواتي', callback_data:'my_channels'},{text:'🏠 الرئيسية', callback_data:'main'}]]);
 
   } else if(text.startsWith('del_mych_')) {
     const idx = parseInt(text.replace('del_mych_',''));
@@ -2934,20 +3003,21 @@ async function processTGChannel(channel) {
     }
   }
 
-  const pauseUntil = getSetting('pause_until_'+channel,'');
+  const publishToChannel = getSetting('tg_publish_to_'+channel,'') || getSetting('telegram_chat','');
+  const chKey = publishToChannel.replace('@','');
+  const pauseUntil = getSetting('pub_pause_until_'+chKey,'');
   if(pauseUntil) {
     const pauseTime = new Date(pauseUntil);
     if(new Date() < pauseTime) {
-      console.log('Channel @'+channel+' paused until', pauseUntil);
+      console.log('Publish channel '+publishToChannel+' paused until', pauseUntil);
       return;
     } else {
-      setSetting('pause_until_'+channel,'');
-      console.log('Channel @'+channel+' pause expired, resuming');
+      setSetting('pub_pause_until_'+chKey,'');
     }
   }
-  const isPaused = getSetting('channel_paused_'+channel,'0');
+  const isPaused = getSetting('pub_paused_'+chKey,'0');
   if(isPaused === '1') {
-    console.log('Channel @'+channel+' is indefinitely paused');
+    console.log('Publish channel '+publishToChannel+' is indefinitely paused');
     return;
   }
 
