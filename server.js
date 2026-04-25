@@ -2555,6 +2555,22 @@ app.get('/api/debug/channel-stats', (req,res) => {
   });
 });
 
+app.get('/api/debug/publish-targets', (req,res) => {
+  const sources = db.prepare("SELECT * FROM sources WHERE type='telegram' AND active=1").all();
+  const result = sources.map(s => {
+    const ch = s.url.replace('https://t.me/s/','');
+    return {
+      source: ch,
+      publishTo: getSetting('tg_publish_to_'+ch,'') || getSetting('telegram_chat','') || 'NOT SET',
+      paused: getSetting('channel_paused_'+ch,'0'),
+      pauseUntil: getSetting('pause_until_'+ch,''),
+      pubPaused: getSetting('pub_paused_'+(getSetting('tg_publish_to_'+ch,'')||'').replace('@',''),'0')
+    };
+  });
+  const defaultChat = getSetting('telegram_chat','');
+  res.json({sources: result, default_publish_to: defaultChat});
+});
+
 app.get('/api/test/ai-simple', async(req,res) => {
   const groqKey = getSetting('groq_key','');
   const geminiKey = getSetting('gemini_key','');
