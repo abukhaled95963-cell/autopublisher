@@ -1223,8 +1223,121 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
       ];
     });
     keyboard.push([{text:'📡 إدارة مصادر كل قناة', callback_data:'manage_ch_sources'}]);
+    keyboard.push([{text:'📋 كل قنوات النشر الحالية', callback_data:'all_publish_targets'}]);
     keyboard.push([{text:'➕ إضافة قناة', callback_data:'add_my_channel'},{text:'🔙 رجوع', callback_data:'main'}]);
     await sendAdminMsg(chatId, msg, keyboard);
+
+  } else if(text === 'all_publish_targets') {
+    const sources = db.prepare("SELECT * FROM sources WHERE type='telegram' AND active=1").all();
+    const targets = {};
+    sources.forEach(s => {
+      const ch = s.url.replace('https://t.me/s/','');
+      const publishTo = getSetting('tg_publish_to_'+ch,'') || getSetting('telegram_chat','') || 'غير محدد';
+      if(!targets[publishTo]) targets[publishTo] = [];
+      targets[publishTo].push({ch, sourceId: s.id, sourceName: s.name});
+    });
+
+    let msg = '📢 <b>جميع قنوات النشر الحالية</b>\n\n';
+    const keyboard = [];
+    Object.entries(targets).forEach(([target, srcs]) => {
+      msg += `📌 <b>${target}</b>\n`;
+      srcs.forEach(s => { msg += `  • @${s.ch}\n`; });
+      msg += '\n';
+      keyboard.push([{text:'⚙️ إدارة '+target, callback_data:'manage_target_'+target}]);
+    });
+    keyboard.push(...backHome('my_channels'));
+    await sendAdminMsg(chatId, msg, keyboard);
+
+  } else if(text.startsWith('manage_target_')) {
+    const target = text.replace('manage_target_','');
+    const sources = db.prepare("SELECT * FROM sources WHERE type='telegram' AND active=1").all();
+    const srcs = sources.filter(s => {
+      const ch = s.url.replace('https://t.me/s/','');
+      const publishTo = getSetting('tg_publish_to_'+ch,'') || getSetting('telegram_chat','');
+      return publishTo === target;
+    });
+
+    let msg = `📢 <b>${target}</b>\n\nالمصادر التي تنشر على هذه القناة:\n\n`;
+    srcs.forEach(s => {
+      const ch = s.url.replace('https://t.me/s/','');
+      const mode = JSON.parse(getSetting('tg_rules_'+ch,'{"mode":"rewrite"}')).mode;
+      const modeLabel = {'rewrite':'🤖','as-is':'📋','forward':'⚡'}[mode]||'🤖';
+      msg += `${modeLabel} @${ch}\n`;
+    });
+
+    const keyboard = srcs.map(s => {
+      const ch = s.url.replace('https://t.me/s/','');
+      return [{text:'✏️ تعديل @'+ch, callback_data:'edit_src_target_'+ch},{text:'🗑️ حذف @'+ch, callback_data:'delsrctgt_'+ch}];
+    });
+    keyboard.push([{text:'🗑️ حذف القناة كاملاً', callback_data:'del_all_target_'+target}]);
+    keyboard.push([{text:'🔙 رجوع', callback_data:'all_publish_targets'},{text:'🏠 الرئيسية', callback_data:'main'}]);
+    await sendAdminMsg(chatId, msg, keyboard);
+
+  } else if(text.startsWith('edit_src_target_')) {
+    const ch = text.replace('edit_src_target_','');
+    let myChannels = [];
+    try { myChannels = JSON.parse(getSetting('my_tg_channels','[]')); } catch(e) {}
+
+    const currentTarget = getSetting('tg_publish_to_'+ch,'');
+    const allTargets = [...myChannels];
+    if(currentTarget && !allTargets.find(c=>c.chat===currentTarget)) {
+      allTargets.push({name:currentTarget, chat:currentTarget});
+    }
+
+    if(!allTargets.length) {
+      await sendAdminMsg(chatId, '❌ لا توجد قنوات مضافة', backHome('all_publish_targets'));
+      return;
+    }
+    const keyboard = allTargets.map(c => [{text:(c.chat===currentTarget?'✅ ':'')+ c.name+' ('+c.chat+')', callback_data:'set_src_target_'+ch+'___'+c.chat}]);
+    keyboard.push([{text:'🔙 رجوع', callback_data:'manage_target_'+currentTarget}]);
+    await sendAdminMsg(chatId, '✏️ اختر القناة الجديدة لنشر @'+ch+':', keyboard);
+
+  } else if(text.startsWith('set_src_target_')) {
+    const parts = text.replace('set_src_target_','').split('___');
+    const ch = parts[0];
+    const newTarget = parts[1];
+    setSetting('tg_publish_to_'+ch, newTarget);
+    setupTGSchedules();
+    await sendAdminMsg(chatId, '✅ تم تغيير قناة نشر @'+ch+' إلى '+newTarget,
+      [[{text:'🔙 رجوع', callback_data:'all_publish_targets'}]]);
+
+  } else if(text.startsWith('delsrctgt_')) {
+    const ch = text.replace('delsrctgt_','');
+    const src = db.prepare("SELECT * FROM sources WHERE url LIKE ?").get('%'+ch+'%');
+    const currentTarget = getSetting('tg_publish_to_'+ch,'');
+    await sendAdminMsg(chatId, '⚠️ هل تريد حذف @'+ch+' نهائياً من المصادر؟',
+      [[{text:'✅ نعم احذف', callback_data:'confirm_del_src_'+ch},{text:'❌ إلغاء', callback_data:'manage_target_'+currentTarget}]]);
+
+  } else if(text.startsWith('confirm_del_src_')) {
+    const ch = text.replace('confirm_del_src_','');
+    db.prepare("DELETE FROM sources WHERE url LIKE ?").run('%'+ch+'%');
+    setSetting('tg_publish_to_'+ch, '');
+    setSetting('tg_rules_'+ch, '');
+    setSetting('tg_interval_'+ch, '');
+    setupTGSchedules();
+    await sendAdminMsg(chatId, '🗑️ تم حذف @'+ch+' نهائياً من المصادر والجداول',
+      [[{text:'🔙 قنوات النشر', callback_data:'all_publish_targets'}]]);
+
+  } else if(text.startsWith('del_all_target_')) {
+    const target = text.replace('del_all_target_','');
+    await sendAdminMsg(chatId, '⚠️ هل تريد إيقاف النشر على '+target+' من جميع المصادر؟',
+      [[{text:'✅ نعم أوقف', callback_data:'confirm_del_all_target_'+target},{text:'❌ إلغاء', callback_data:'manage_target_'+target}]]);
+
+  } else if(text.startsWith('confirm_del_all_target_')) {
+    const target = text.replace('confirm_del_all_target_','');
+    const sources = db.prepare("SELECT * FROM sources WHERE type='telegram' AND active=1").all();
+    let count = 0;
+    sources.forEach(s => {
+      const ch = s.url.replace('https://t.me/s/','');
+      const publishTo = getSetting('tg_publish_to_'+ch,'');
+      if(publishTo === target) {
+        setSetting('tg_publish_to_'+ch, '');
+        count++;
+      }
+    });
+    setupTGSchedules();
+    await sendAdminMsg(chatId, '✅ تم إيقاف النشر على '+target+' من '+count+' مصدر',
+      [[{text:'🔙 قنوات النشر', callback_data:'all_publish_targets'}]]);
 
   } else if(text === 'add_my_channel') {
     setSetting('admin_awaiting','add_my_channel_name');
