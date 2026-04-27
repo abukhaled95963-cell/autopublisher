@@ -1391,6 +1391,7 @@ async function handleAdminCommand(chatId, text, msgId, callbackId) {
         if(mc) myChannelLink = '\n\n📢 @'+mc.chat.replace('@','');
       } catch(e) {}
       finalText = finalText + myChannelLink;
+      console.log('Testing channel:', ch.chat, 'with token:', tgToken ? tgToken.substring(0,10)+'...' : 'NOT SET');
       await axios.post(`https://api.telegram.org/bot${tgToken}/sendMessage`,{
         chat_id: ch.chat,
         text: finalText,
