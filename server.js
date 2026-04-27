@@ -2684,6 +2684,21 @@ app.get('/api/debug/publish-targets', (req,res) => {
   res.json({sources: result, default_publish_to: defaultChat});
 });
 
+app.get('/api/test/channel/:channelId', async(req,res) => {
+  const channelId = req.params.channelId;
+  const tgToken = getSetting('telegram_token');
+  if(!tgToken) return res.json({error:'No telegram token'});
+  try {
+    const r = await axios.post(`https://api.telegram.org/bot${tgToken}/sendMessage`,{
+      chat_id: channelId,
+      text: '✅ اختبار الاتصال'
+    });
+    res.json({success:true, result: r.data});
+  } catch(e) {
+    res.json({success:false, status: e.response?.status, error: e.response?.data || e.message});
+  }
+});
+
 app.get('/api/test/ai-simple', async(req,res) => {
   const groqKey = getSetting('groq_key','');
   const geminiKey = getSetting('gemini_key','');
